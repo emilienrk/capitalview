@@ -23,14 +23,13 @@ Personal wealth management and investment tracking application allowing users to
 - **Language**: TypeScript
 
 ### Backend
-- **Framework**: Flask (Python)
-- **ORM**: SQLAlchemy
+- **Framework**: FastAPI (Python)
+- **ORM**: SQLModel
 - **API**: RESTful JSON API
 
 ### Database
 - **DBMS**: PostgreSQL
-- **Migrations**: Flask-Migrate (Alembic)
-
+- **Migrations**: Alembic
 ---
 
 ## Structure des dossiers
