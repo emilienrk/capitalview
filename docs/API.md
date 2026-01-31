@@ -12,12 +12,29 @@ Personal wealth management and investment tracking API
 ## Overview
 
 This API provides endpoints for managing:
+- **Authentication**: User registration, login, logout, token refresh
 - **Bank Accounts**: Standard checking/savings accounts
 - **Cashflows**: Income and expenses tracking
 - **Stock Accounts**: PEA, CTO, PEA-PME with transactions
 - **Crypto Accounts**: Cryptocurrency portfolios with transactions
 - **Notes**: User notes and strategies
 - **Portfolio**: Global wealth aggregation and performance
+
+## Authentication
+
+All endpoints (except `/auth/register` and `/auth/login`) require authentication via JWT Bearer token.
+
+### How it works
+
+1. **Register** a new account via `POST /api/auth/register`
+2. **Login** via `POST /api/auth/login` to receive an `access_token`
+3. Include the token in the `Authorization` header: `Bearer <access_token>`
+4. **Refresh** the token via `POST /api/auth/refresh` (uses HttpOnly cookie)
+5. **Logout** via `POST /api/auth/logout` to revoke all tokens
+
+### Token Details
+- **Access Token**: Valid for 15 minutes, sent in response body
+- **Refresh Token**: Valid for 30 days, stored as HttpOnly cookie (secure, not accessible via JavaScript)
 
 ## Data Formats
 
@@ -29,1127 +46,1301 @@ This API provides endpoints for managing:
 ## Common Patterns
 
 ### Resource Relationships
-- All resources belong to a `user_id`
+- All resources belong to the authenticated user
 - Transactions belong to an `account_id`
 - Market prices are shared across all users
 
 ### CRUD Operations
 - **POST** `/resource` - Create (returns 201)
 - **GET** `/resource` - List all
+  user's resources
 - **GET** `/resource/{id}` - Get one
 - **PUT** `/resource/{id}` - Update (partial)
 - **DELETE** `/resource/{id}` - Delete (returns 204)
 
-### Validation Errors
-- **422**: Validation error with detailed field-level messages
+### Error Codes
+- **401**: Unauthorized - Invalid or missing token
+- **403**: Forbidden - Access to another user's resource
 - **404**: Resource not found
-- **400**: Invalid enum values or business logic errors
+- **422**: Validation error with detailed field-level messages
+- **429**: Too Many Requests - Rate limit exceeded
 
+### Rate Limiting
+- **Register**: 10 requests per hour
+- **Login**: 5 requests per minute
+- **Refresh**: 10 requests per minute
+
+---
+
+## Authentication Routes
+
+### POST `/api/auth/register`
+
+**Register a new user**
+
+No authentication required. Rate limited to 10 requests per hour.
+
+**Request Body**:
+```json
+{
+  "username": "johndoe",
+  "email": "john@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `username` | string | ✅ | 3-50 characters |
+| `email` | string | ✅ | Valid email format |
+| `password` | string | ✅ | 8-100 characters |
+
+**Responses**:
+- `201`: User registered successfully
+  ```json
+  { "message": "User registered successfully" }
+  ```
+- `400`: Email already registered / Username already taken
+- `422`: Validation Error
+- `429`: Rate limit exceeded
+
+---
+
+### POST `/api/auth/login`
+
+**Login with email and password**
+
+No authentication required. Rate limited to 5 requests per minute.
+
+**Request Body**:
+```json
+{
+  "email": "john@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+| Field | Type | Required |
+|-------|------|----------|
+| `email` | string | ✅ |
+| `password` | string | ✅ |
+
+**Responses**:
+- `200`: Successful login
+  ```json
+  {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer",
+    "expires_in": 900
+  }
+  ```
+  *Also sets `refresh_token` as HttpOnly cookie*
+- `401`: Incorrect email or password
+- `422`: Validation Error
+- `429`: Rate limit exceeded
+
+---
+
+### POST `/api/auth/refresh`
+
+**Refresh access token**
+
+Uses the `refresh_token` from HttpOnly cookie. Rate limited to 10 requests per minute.
+
+**Request**: No body required (reads cookie automatically)
+
+**Responses**:
+- `200`: Token refreshed
+  ```json
+  {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer",
+    "expires_in": 900
+  }
+  ```
+  *Also rotates the refresh_token cookie*
+- `401`: Refresh token missing or invalid
+
+---
+
+### POST `/api/auth/logout`
+
+**Logout current user**
+
+🔒 Requires authentication
+
+Revokes all refresh tokens and clears the cookie.
+
+**Responses**:
+- `200`: Logged out successfully
+  ```json
+  { "message": "Logged out successfully. 1 token(s) revoked." }
+  ```
+- `401`: Unauthorized
+
+---
+
+### GET `/api/auth/me`
+
+**Get current user information**
+
+🔒 Requires authentication
+
+**Responses**:
+- `200`: Current user info
+  ```json
+  {
+    "username": "johndoe",
+    "email": "john@example.com",
+    "is_active": true,
+    "last_login": "2026-01-31T10:30:00Z",
+    "created_at": "2026-01-01T00:00:00Z"
+  }
+  ```
+- `401`: Unauthorized
+
+---
 
 ## Bank Accounts
 
+All bank routes require authentication (🔒).
+
 ### GET `/api/bank/accounts`
 
-**Get Bank Accounts**
+**Get all bank accounts**
 
-Get all bank accounts with total balance.
+🔒 Requires authentication
+
+Returns all bank accounts for the current user with total balance.
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `BankSummaryResponse`
+- `200`: Returns `BankSummaryResponse`
+- `401`: Unauthorized
+
+---
 
 ### POST `/api/bank/accounts`
 
-**Create Bank Account**
+**Create a bank account**
 
-Create a new bank account.
+🔒 Requires authentication
 
 **Request Body**:
-- `user_id`: integer (required)
-- `name`: string (required)
-- `account_type`: BankAccountType enum (required) - values: `CHECKING`, `SAVINGS`, `LIVRET_A`, `LIVRET_DEVE`, `LEP`, `LDD`, `PEL`, `CEL`
-- `bank_name`: string (optional)
-- `encrypted_iban`: string (optional)
-- `balance`: decimal (optional)
+```json
+{
+  "name": "Compte Courant",
+  "account_type": "CHECKING",
+  "bank_name": "BNP Paribas",
+  "encrypted_iban": "FR7630001007941234567890185",
+  "balance": 1500.50
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✅ | Account name |
+| `account_type` | string | ✅ | `CHECKING`, `SAVINGS`, `LIVRET_A`, `LIVRET_DEVE`, `LEP`, `LDD`, `PEL`, `CEL` |
+| `bank_name` | string | ❌ | Bank name |
+| `encrypted_iban` | string | ❌ | IBAN (encrypted) |
+| `balance` | decimal | ❌ | Default: 0 |
 
 **Responses**:
-- `201`: Successful Response
-  - Returns: `BankAccountResponse`
+- `201`: Returns `BankAccountResponse`
+- `401`: Unauthorized
 - `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
 
-### DELETE `/api/bank/accounts/{account_id}`
-
-**Delete Bank Account**
-
-Delete a bank account.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+---
 
 ### GET `/api/bank/accounts/{account_id}`
 
-**Get Bank Account**
+**Get a specific bank account**
 
-Get a specific bank account.
+🔒 Requires authentication
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `BankAccountResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `BankAccountResponse`
+- `401`: Unauthorized
+- `403`: Access denied (not your account)
+- `404`: Account not found
+
+---
 
 ### PUT `/api/bank/accounts/{account_id}`
 
-**Update Bank Account**
+**Update a bank account**
 
-Update a bank account.
+🔒 Requires authentication
 
-**Request Body**:
-- `name`: string (optional)
-- `bank_name`: string (optional)
-- `encrypted_iban`: string (optional)
-- `balance`: decimal (optional)
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `BankAccountResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/bank/user/{user_id}`
-
-**Get User Banks**
-
-Get all bank accounts for a specific user.
+**Request Body** (all fields optional):
+```json
+{
+  "name": "New Name",
+  "bank_name": "New Bank",
+  "encrypted_iban": "FR76...",
+  "balance": 2000.00
+}
+```
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `BankSummaryResponse`
+- `200`: Returns `BankAccountResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
 - `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+
+---
+
+### DELETE `/api/bank/accounts/{account_id}`
+
+**Delete a bank account**
+
+🔒 Requires authentication
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
 
 ## Cashflows
 
+All cashflow routes require authentication (🔒).
+
 ### GET `/api/cashflow`
 
-**Get All Cashflows**
+**Get all cashflows**
 
-Get all cashflow entries.
+🔒 Requires authentication
+
+Returns all cashflow entries for the current user.
 
 **Responses**:
-- `200`: Successful Response
+- `200`: Returns array of `CashflowResponse`
+- `401`: Unauthorized
+
+---
 
 ### POST `/api/cashflow`
 
-**Create Cashflow**
+**Create a cashflow**
 
-Create a new cashflow entry.
+🔒 Requires authentication
 
 **Request Body**:
-- `user_id`: integer (required)
-- `name`: string (required)
-- `flow_type`: FlowType enum (required) - values: `INFLOW`, `OUTFLOW`
-- `category`: string (required)
-- `amount`: decimal (required)
-- `frequency`: Frequency enum (required) - values: `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`
-- `transaction_date`: date (required) - format: `YYYY-MM-DD`
+```json
+{
+  "name": "Salaire",
+  "flow_type": "INFLOW",
+  "category": "Travail",
+  "amount": 3500.00,
+  "frequency": "MONTHLY",
+  "transaction_date": "2026-01-01"
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✅ | Description |
+| `flow_type` | string | ✅ | `INFLOW` or `OUTFLOW` |
+| `category` | string | ✅ | Custom category |
+| `amount` | decimal | ✅ | Amount in EUR |
+| `frequency` | string | ✅ | `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY` |
+| `transaction_date` | date | ✅ | Format: `YYYY-MM-DD` |
 
 **Responses**:
-- `201`: Successful Response
-  - Returns: `CashflowResponse`
+- `201`: Returns `CashflowResponse`
+- `401`: Unauthorized
 - `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
 
-### GET `/api/cashflow/user/{user_id}/balance`
-
-**Get Balance**
-
-Get complete cashflow balance for a user.
-
-Returns:
-    - Total inflows and outflows
-    - Monthly equivalents
-    - Net balance
-    - Savings rate (% of income saved)
-    - Breakdown by category
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `CashflowBalanceResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/cashflow/user/{user_id}/inflows`
-
-**Get Inflows**
-
-Get all income/inflows for a user, grouped by category.
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `CashflowSummaryResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/cashflow/user/{user_id}/outflows`
-
-**Get Outflows**
-
-Get all expenses/outflows for a user, grouped by category.
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `CashflowSummaryResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### DELETE `/api/cashflow/{cashflow_id}`
-
-**Delete Cashflow**
-
-Delete a cashflow entry.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+---
 
 ### GET `/api/cashflow/{cashflow_id}`
 
-**Get Cashflow**
+**Get a specific cashflow**
 
-Get a specific cashflow entry.
+🔒 Requires authentication
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `CashflowResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `CashflowResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Cashflow not found
+
+---
 
 ### PUT `/api/cashflow/{cashflow_id}`
 
-**Update Cashflow**
+**Update a cashflow**
 
-Update a cashflow entry.
+🔒 Requires authentication
 
-**Request Body**:
-- `name`: string (optional)
-- `category`: string (optional)
-- `amount`: decimal (optional)
-- `frequency`: Frequency enum (optional) - values: `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`
-- `transaction_date`: date (optional) - format: `YYYY-MM-DD`
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `CashflowResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-## Crypto
-
-### GET `/api/crypto/accounts`
-
-**List Crypto Accounts**
-
-List all crypto accounts (basic info).
+**Request Body** (all fields optional):
+```json
+{
+  "name": "Updated name",
+  "category": "New category",
+  "amount": 4000.00,
+  "frequency": "MONTHLY",
+  "transaction_date": "2026-02-01"
+}
+```
 
 **Responses**:
-- `200`: Successful Response
+- `200`: Returns `CashflowResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Cashflow not found
 
-### POST `/api/crypto/accounts`
+---
 
-**Create Crypto Account**
+### DELETE `/api/cashflow/{cashflow_id}`
 
-Create a new crypto account/wallet.
+**Delete a cashflow**
 
-**Request Body**:
-- `user_id`: integer (required)
-- `name`: string (required)
-- `wallet_name`: string (optional)
-- `public_address`: string (optional)
-
-**Responses**:
-- `201`: Successful Response
-  - Returns: `CryptoAccountBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/crypto/accounts/user/{user_id}`
-
-**Get User Crypto Accounts**
-
-Get all crypto accounts for a user.
+🔒 Requires authentication
 
 **Responses**:
-- `200`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Cashflow not found
 
-### DELETE `/api/crypto/accounts/{account_id}`
+---
 
-**Delete Crypto Account**
+### GET `/api/cashflow/me/inflows`
 
-Delete a crypto account and all its transactions.
+**Get my inflows**
 
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+🔒 Requires authentication
 
-### GET `/api/crypto/accounts/{account_id}`
-
-**Get Crypto Account**
-
-Get a crypto account with positions and calculated values.
+Returns all income/inflows for the current user, grouped by category.
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `AccountSummaryResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `CashflowSummaryResponse`
+- `401`: Unauthorized
 
-### PUT `/api/crypto/accounts/{account_id}`
+---
 
-**Update Crypto Account**
+### GET `/api/cashflow/me/outflows`
 
-Update a crypto account.
+**Get my outflows**
 
-**Request Body**:
-- `name`: string (optional)
-- `wallet_name`: string (optional)
-- `public_address`: string (optional)
+🔒 Requires authentication
+
+Returns all expenses/outflows for the current user, grouped by category.
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `CryptoAccountBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `CashflowSummaryResponse`
+- `401`: Unauthorized
 
-### GET `/api/crypto/transactions`
+---
 
-**List Crypto Transactions**
+### GET `/api/cashflow/me/balance`
 
-List all crypto transactions (history).
+**Get my cashflow balance**
 
-**Responses**:
-- `200`: Successful Response
+🔒 Requires authentication
 
-### POST `/api/crypto/transactions`
+Returns complete cashflow balance for the current user.
 
-**Create Crypto Transaction**
-
-Create a new crypto transaction.
-
-**Request Body**:
-- `account_id`: integer (required)
-- `ticker`: string (required) - e.g., `BTC`, `ETH`
-- `type`: CryptoTransactionType enum (required) - values: `BUY`, `SELL`, `SWAP`, `STAKING`
-- `amount`: decimal (required) - quantity of crypto
-- `price_per_unit`: decimal (required) - price in EUR
-- `fees`: decimal (optional, default: 0)
-- `fees_ticker`: string (optional) - ticker of the fee currency (e.g., `BNB`)
-- `executed_at`: datetime (required) - format: `YYYY-MM-DDTHH:MM:SSZ`
+**Response fields**:
+- Total inflows and outflows
+- Monthly equivalents
+- Net balance
+- Savings rate (% of income saved)
+- Breakdown by category
 
 **Responses**:
-- `201`: Successful Response
-  - Returns: `CryptoTransactionBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `CashflowBalanceResponse`
+- `401`: Unauthorized
 
-### GET `/api/crypto/transactions/account/{account_id}`
+---
 
-**Get Account Transactions**
+## Stock Accounts
 
-Get all transactions for a specific account.
-
-**Responses**:
-- `200`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### DELETE `/api/crypto/transactions/{transaction_id}`
-
-**Delete Crypto Transaction**
-
-Delete a crypto transaction.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/crypto/transactions/{transaction_id}`
-
-**Get Crypto Transaction**
-
-Get a specific crypto transaction.
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `TransactionResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### PUT `/api/crypto/transactions/{transaction_id}`
-
-**Update Crypto Transaction**
-
-Update a crypto transaction.
-
-**Request Body**:
-- `ticker`: string (optional)
-- `type`: CryptoTransactionType enum (optional) - values: `BUY`, `SELL`, `SWAP`, `STAKING`
-- `amount`: decimal (optional)
-- `price_per_unit`: decimal (optional)
-- `fees`: decimal (optional)
-- `fees_ticker`: string (optional)
-- `executed_at`: datetime (optional) - format: `YYYY-MM-DDTHH:MM:SSZ`
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `CryptoTransactionBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-## Notes
-
-### GET `/api/notes`
-
-**Get All Notes**
-
-Get all notes.
-
-**Responses**:
-- `200`: Successful Response
-
-### POST `/api/notes`
-
-**Create Note**
-
-Create a new note.
-
-**Request Body**:
-- `user_id`: integer (required)
-- `name`: string (required)
-- `description`: string (optional)
-
-**Responses**:
-- `201`: Successful Response
-  - Returns: `NoteResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/notes/user/{user_id}`
-
-**Get User Notes**
-
-Get all notes for a specific user.
-
-**Responses**:
-- `200`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### DELETE `/api/notes/{note_id}`
-
-**Delete Note**
-
-Delete a note.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### GET `/api/notes/{note_id}`
-
-**Get Note**
-
-Get a specific note.
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `NoteResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### PUT `/api/notes/{note_id}`
-
-**Update Note**
-
-Update a note.
-
-**Request Body**:
-- `name`: string (optional)
-- `description`: string (optional)
-
-**Responses**:
-- `200`: Successful Response
-  - Returns: `NoteResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-## Other
-
-### GET `/`
-
-**Root**
-
-Health check endpoint.
-
-**Responses**:
-- `200`: Successful Response
-
-### GET `/health/db`
-
-**Health Db**
-
-Check database connection.
-
-**Responses**:
-- `200`: Successful Response
-
-## Stocks
+All stock routes require authentication (🔒).
 
 ### GET `/api/stocks/accounts`
 
-**List Stock Accounts**
+**List stock accounts**
 
-List all stock accounts (basic info).
+🔒 Requires authentication
+
+Returns all stock accounts for the current user (basic info).
 
 **Responses**:
-- `200`: Successful Response
+- `200`: Returns array of `StockAccountBasicResponse`
+- `401`: Unauthorized
+
+---
 
 ### POST `/api/stocks/accounts`
 
-**Create Stock Account**
+**Create a stock account**
 
-Create a new stock account.
+🔒 Requires authentication
 
 **Request Body**:
-- `user_id`: integer (required)
-- `name`: string (required)
-- `account_type`: StockAccountType enum (required) - values: `PEA`, `CTO`, `PEA_PME`
-- `bank_name`: string (optional)
-- `encrypted_iban`: string (optional)
+```json
+{
+  "name": "PEA Boursorama",
+  "account_type": "PEA",
+  "bank_name": "Boursorama",
+  "encrypted_iban": "FR76..."
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✅ | Account name |
+| `account_type` | string | ✅ | `PEA`, `CTO`, `PEA_PME` |
+| `bank_name` | string | ❌ | Bank/broker name |
+| `encrypted_iban` | string | ❌ | IBAN (encrypted) |
 
 **Responses**:
-- `201`: Successful Response
-  - Returns: `StockAccountBasicResponse`
+- `201`: Returns `StockAccountBasicResponse`
+- `401`: Unauthorized
 - `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
 
-### GET `/api/stocks/accounts/user/{user_id}`
-
-**Get User Stock Accounts**
-
-Get all stock accounts for a user.
-
-**Responses**:
-- `200`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### DELETE `/api/stocks/accounts/{account_id}`
-
-**Delete Stock Account**
-
-Delete a stock account and all its transactions.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+---
 
 ### GET `/api/stocks/accounts/{account_id}`
 
-**Get Stock Account**
+**Get a stock account with positions**
 
-Get a stock account with positions and calculated values.
+🔒 Requires authentication
+
+Returns detailed account info with all positions and calculated values.
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `AccountSummaryResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `AccountSummaryResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
 
 ### PUT `/api/stocks/accounts/{account_id}`
 
-**Update Stock Account**
+**Update a stock account**
 
-Update a stock account.
+🔒 Requires authentication
 
-**Request Body**:
-- `name`: string (optional)
-- `bank_name`: string (optional)
-- `encrypted_iban`: string (optional)
+**Request Body** (all fields optional):
+```json
+{
+  "name": "New Name",
+  "bank_name": "New Bank",
+  "encrypted_iban": "FR76..."
+}
+```
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `StockAccountBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `StockAccountBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+### DELETE `/api/stocks/accounts/{account_id}`
+
+**Delete a stock account**
+
+🔒 Requires authentication
+
+Deletes the account and all its transactions.
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
 
 ### GET `/api/stocks/transactions`
 
-**List Stock Transactions**
+**List stock transactions**
 
-List all stock transactions (history).
+🔒 Requires authentication
+
+Returns all transactions for the current user's accounts.
 
 **Responses**:
-- `200`: Successful Response
+- `200`: Returns array of `TransactionResponse`
+- `401`: Unauthorized
+
+---
 
 ### POST `/api/stocks/transactions`
 
-**Create Stock Transaction**
+**Create a stock transaction**
 
-Create a new stock transaction.
+🔒 Requires authentication
 
 **Request Body**:
-- `account_id`: integer (required)
-- `ticker`: string (required) - e.g., `AAPL`, `MSFT`
-- `exchange`: string (optional) - e.g., `NASDAQ`, `NYSE`
-- `type`: StockTransactionType enum (required) - values: `BUY`, `SELL`, `DEPOSIT`, `DIVIDEND`
-- `amount`: decimal (required) - number of shares
-- `price_per_unit`: decimal (required) - price per share in EUR
-- `fees`: decimal (optional, default: 0)
-- `executed_at`: datetime (required) - format: `YYYY-MM-DDTHH:MM:SSZ`
+```json
+{
+  "account_id": 1,
+  "ticker": "AAPL",
+  "exchange": "NASDAQ",
+  "type": "BUY",
+  "amount": 10,
+  "price_per_unit": 150.50,
+  "fees": 1.99,
+  "executed_at": "2026-01-15T10:30:00Z"
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `account_id` | integer | ✅ | Must be your account |
+| `ticker` | string | ✅ | Stock symbol (e.g., `AAPL`) |
+| `exchange` | string | ❌ | Exchange (e.g., `NASDAQ`) |
+| `type` | string | ✅ | `BUY`, `SELL`, `DEPOSIT`, `DIVIDEND` |
+| `amount` | decimal | ✅ | Number of shares |
+| `price_per_unit` | decimal | ✅ | Price per share in EUR |
+| `fees` | decimal | ❌ | Default: 0 |
+| `executed_at` | datetime | ✅ | ISO 8601 format |
 
 **Responses**:
-- `201`: Successful Response
-  - Returns: `StockTransactionBasicResponse`
+- `201`: Returns `StockTransactionBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied (not your account)
+- `404`: Account not found
 - `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
 
-### GET `/api/stocks/transactions/account/{account_id}`
-
-**Get Account Transactions**
-
-Get all transactions for a specific account.
-
-**Responses**:
-- `200`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
-
-### DELETE `/api/stocks/transactions/{transaction_id}`
-
-**Delete Stock Transaction**
-
-Delete a stock transaction.
-
-**Responses**:
-- `204`: Successful Response
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+---
 
 ### GET `/api/stocks/transactions/{transaction_id}`
 
-**Get Stock Transaction**
+**Get a stock transaction**
 
-Get a specific stock transaction.
+🔒 Requires authentication
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `TransactionResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `TransactionResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
+
+---
 
 ### PUT `/api/stocks/transactions/{transaction_id}`
 
-**Update Stock Transaction**
+**Update a stock transaction**
 
-Update a stock transaction.
-
-**Request Body**:
-- `ticker`: string (optional)
-- `exchange`: string (optional)
-- `type`: StockTransactionType enum (optional) - values: `BUY`, `SELL`, `DEPOSIT`, `DIVIDEND`
-- `amount`: decimal (optional)
-- `price_per_unit`: decimal (optional)
-- `fees`: decimal (optional)
-- `executed_at`: datetime (optional) - format: `YYYY-MM-DDTHH:MM:SSZ`
+🔒 Requires authentication
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `StockTransactionBasicResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `StockTransactionBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
 
-## Users
+---
+
+### DELETE `/api/stocks/transactions/{transaction_id}`
+
+**Delete a stock transaction**
+
+🔒 Requires authentication
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
+
+---
+
+### GET `/api/stocks/transactions/account/{account_id}`
+
+**Get transactions for an account**
+
+🔒 Requires authentication
+
+Returns all transactions for a specific account.
+
+**Responses**:
+- `200`: Returns array of `TransactionResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+## Crypto Accounts
+
+All crypto routes require authentication (🔒).
+
+### GET `/api/crypto/accounts`
+
+**List crypto accounts**
+
+🔒 Requires authentication
+
+Returns all crypto accounts for the current user (basic info).
+
+**Responses**:
+- `200`: Returns array of `CryptoAccountBasicResponse`
+- `401`: Unauthorized
+
+---
+
+### POST `/api/crypto/accounts`
+
+**Create a crypto account**
+
+🔒 Requires authentication
+
+**Request Body**:
+```json
+{
+  "name": "Ledger Nano",
+  "wallet_name": "Cold Storage",
+  "public_address": "bc1q..."
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✅ | Account name |
+| `wallet_name` | string | ❌ | Wallet name |
+| `public_address` | string | ❌ | Public address |
+
+**Responses**:
+- `201`: Returns `CryptoAccountBasicResponse`
+- `401`: Unauthorized
+- `422`: Validation Error
+
+---
+
+### GET `/api/crypto/accounts/{account_id}`
+
+**Get a crypto account with positions**
+
+🔒 Requires authentication
+
+Returns detailed account info with all positions and calculated values.
+
+**Responses**:
+- `200`: Returns `AccountSummaryResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+### PUT `/api/crypto/accounts/{account_id}`
+
+**Update a crypto account**
+
+🔒 Requires authentication
+
+**Responses**:
+- `200`: Returns `CryptoAccountBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+### DELETE `/api/crypto/accounts/{account_id}`
+
+**Delete a crypto account**
+
+🔒 Requires authentication
+
+Deletes the account and all its transactions.
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+### GET `/api/crypto/transactions`
+
+**List crypto transactions**
+
+🔒 Requires authentication
+
+Returns all transactions for the current user's accounts.
+
+**Responses**:
+- `200`: Returns array of `TransactionResponse`
+- `401`: Unauthorized
+
+---
+
+### POST `/api/crypto/transactions`
+
+**Create a crypto transaction**
+
+🔒 Requires authentication
+
+**Request Body**:
+```json
+{
+  "account_id": 1,
+  "ticker": "BTC",
+  "type": "BUY",
+  "amount": 0.5,
+  "price_per_unit": 45000.00,
+  "fees": 25.00,
+  "fees_ticker": "EUR",
+  "executed_at": "2026-01-15T10:30:00Z"
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `account_id` | integer | ✅ | Must be your account |
+| `ticker` | string | ✅ | Crypto symbol (e.g., `BTC`, `ETH`) |
+| `type` | string | ✅ | `BUY`, `SELL`, `SWAP`, `STAKING` |
+| `amount` | decimal | ✅ | Quantity of crypto |
+| `price_per_unit` | decimal | ✅ | Price in EUR |
+| `fees` | decimal | ❌ | Default: 0 |
+| `fees_ticker` | string | ❌ | Fee currency (e.g., `BNB`) |
+| `executed_at` | datetime | ✅ | ISO 8601 format |
+
+**Responses**:
+- `201`: Returns `CryptoTransactionBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied (not your account)
+- `404`: Account not found
+- `422`: Validation Error
+
+---
+
+### GET `/api/crypto/transactions/{transaction_id}`
+
+**Get a crypto transaction**
+
+🔒 Requires authentication
+
+**Responses**:
+- `200`: Returns `TransactionResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
+
+---
+
+### PUT `/api/crypto/transactions/{transaction_id}`
+
+**Update a crypto transaction**
+
+🔒 Requires authentication
+
+**Responses**:
+- `200`: Returns `CryptoTransactionBasicResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
+
+---
+
+### DELETE `/api/crypto/transactions/{transaction_id}`
+
+**Delete a crypto transaction**
+
+🔒 Requires authentication
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Transaction not found
+
+---
+
+### GET `/api/crypto/transactions/account/{account_id}`
+
+**Get transactions for an account**
+
+🔒 Requires authentication
+
+Returns all transactions for a specific crypto account.
+
+**Responses**:
+- `200`: Returns array of `TransactionResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Account not found
+
+---
+
+## Notes
+
+All notes routes require authentication (🔒).
+
+### GET `/api/notes`
+
+**Get all notes**
+
+🔒 Requires authentication
+
+Returns all notes for the current user.
+
+**Responses**:
+- `200`: Returns array of `NoteResponse`
+- `401`: Unauthorized
+
+---
+
+### POST `/api/notes`
+
+**Create a note**
+
+🔒 Requires authentication
+
+**Request Body**:
+```json
+{
+  "name": "Investment Strategy",
+  "description": "My long-term DCA strategy for ETFs..."
+}
+```
+
+| Field | Type | Required |
+|-------|------|----------|
+| `name` | string | ✅ |
+| `description` | string | ❌ |
+
+**Responses**:
+- `201`: Returns `NoteResponse`
+- `401`: Unauthorized
+- `422`: Validation Error
+
+---
+
+### GET `/api/notes/{note_id}`
+
+**Get a specific note**
+
+🔒 Requires authentication
+
+**Responses**:
+- `200`: Returns `NoteResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Note not found
+
+---
+
+### PUT `/api/notes/{note_id}`
+
+**Update a note**
+
+🔒 Requires authentication
+
+**Request Body** (all fields optional):
+```json
+{
+  "name": "Updated title",
+  "description": "Updated content..."
+}
+```
+
+**Responses**:
+- `200`: Returns `NoteResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Note not found
+
+---
+
+### DELETE `/api/notes/{note_id}`
+
+**Delete a note**
+
+🔒 Requires authentication
+
+**Responses**:
+- `204`: Successfully deleted
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: Note not found
+
+---
+
+## Users / Portfolio
 
 ### GET `/api/users/{user_id}/portfolio`
 
-**Get User Portfolio**
+**Get user portfolio**
 
-Get complete portfolio for a user.
+🔒 Requires authentication
 
-Aggregates all stock and crypto accounts with:
+Aggregates all stock and crypto accounts for a user.
+
+**Response fields**:
 - Total invested amount
 - Total fees
-- Current value
+- Current value (if market prices available)
 - Profit/Loss
 - Performance percentage
+- List of all accounts with positions
 
 **Responses**:
-- `200`: Successful Response
-  - Returns: `PortfolioResponse`
-- `422`: Validation Error
-  - Returns: `HTTPValidationError`
-  - Returns: `HTTPValidationError`
+- `200`: Returns `PortfolioResponse`
+- `401`: Unauthorized
+- `403`: Access denied
+- `404`: User not found
+
+---
+
+## Health Check
+
+### GET `/`
+
+**Root endpoint**
+
+No authentication required.
+
+**Responses**:
+- `200`: API is running
+  ```json
+  { "status": "ok", "app": "CapitalView API" }
+  ```
+
+---
+
+### GET `/health/db`
+
+**Database health check**
+
+No authentication required.
+
+**Responses**:
+- `200`: Database connected
+  ```json
+  { "status": "ok", "database": "connected" }
+  ```
+
+---
 
 ## Schemas Reference
 
-Detailed schema definitions grouped by domain.
+### Authentication
+
+#### `RegisterRequest`
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `username` | string | ✅ | 3-50 chars |
+| `email` | string | ✅ | Valid email |
+| `password` | string | ✅ | 8-100 chars |
+
+#### `LoginRequest`
+| Field | Type | Required |
+|-------|------|----------|
+| `email` | string | ✅ |
+| `password` | string | ✅ |
+
+#### `TokenResponse`
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | string | JWT token |
+| `token_type` | string | Always "bearer" |
+| `expires_in` | integer | Seconds until expiration |
+
+#### `UserResponse`
+| Field | Type | Description |
+|-------|------|-------------|
+| `username` | string | Username |
+| `email` | string | Email address |
+| `is_active` | boolean | Account status |
+| `last_login` | datetime | Last login timestamp |
+| `created_at` | datetime | Registration timestamp |
+
+#### `MessageResponse`
+| Field | Type |
+|-------|------|
+| `message` | string |
+
+---
 
 ### Bank
 
 #### `BankAccountCreate`
-
-Create a bank account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `user_id` | integer | ✅ |
 | `name` | string | ✅ |
 | `account_type` | string | ✅ |
-| `bank_name` | unknown | ❌ |
-| `encrypted_iban` | unknown | ❌ |
-| `balance` | unknown | ❌ |
-
-#### `BankAccountResponse`
-
-Bank account response.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `user_id` | integer | ✅ |
-| `name` | string | ✅ |
-| `bank_name` | unknown | ❌ |
-| `balance` | string | ✅ |
-| `account_type` | string | ✅ |
-| `updated_at` | string | ✅ |
+| `bank_name` | string | ❌ |
+| `encrypted_iban` | string | ❌ |
+| `balance` | decimal | ❌ |
 
 #### `BankAccountUpdate`
-
-Update a bank account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `name` | unknown | ❌ |
-| `bank_name` | unknown | ❌ |
-| `encrypted_iban` | unknown | ❌ |
-| `balance` | unknown | ❌ |
+| `name` | string | ❌ |
+| `bank_name` | string | ❌ |
+| `encrypted_iban` | string | ❌ |
+| `balance` | decimal | ❌ |
+
+#### `BankAccountResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `name` | string |
+| `bank_name` | string |
+| `balance` | decimal |
+| `account_type` | string |
+| `updated_at` | datetime |
 
 #### `BankSummaryResponse`
+| Field | Type |
+|-------|------|
+| `total_balance` | decimal |
+| `accounts` | array[BankAccountResponse] |
 
-Summary of all bank accounts.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `total_balance` | string | ✅ |
-| `accounts` | array | ✅ |
+---
 
 ### Cashflow
 
-#### `CashflowBalanceResponse`
-
-Balance between inflows and outflows.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `total_inflows` | string | ✅ |
-| `monthly_inflows` | string | ✅ |
-| `total_outflows` | string | ✅ |
-| `monthly_outflows` | string | ✅ |
-| `net_balance` | string | ✅ |
-| `monthly_balance` | string | ✅ |
-| `savings_rate` | unknown | ❌ |
-| `inflows` | unknown | ✅ |
-| `outflows` | unknown | ✅ |
-
-#### `CashflowCategoryResponse`
-
-Cashflows grouped by category.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `category` | string | ✅ |
-| `total_amount` | string | ✅ |
-| `monthly_total` | string | ✅ |
-| `count` | integer | ✅ |
-| `items` | array | ✅ |
-
 #### `CashflowCreate`
-
-Create a cashflow.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `user_id` | integer | ✅ |
 | `name` | string | ✅ |
 | `flow_type` | string | ✅ |
 | `category` | string | ✅ |
-| `amount` | unknown | ✅ |
+| `amount` | decimal | ✅ |
 | `frequency` | string | ✅ |
-| `transaction_date` | string | ✅ |
-
-#### `CashflowResponse`
-
-Single cashflow response.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `user_id` | integer | ✅ |
-| `name` | string | ✅ |
-| `flow_type` | string | ✅ |
-| `category` | string | ✅ |
-| `amount` | string | ✅ |
-| `frequency` | string | ✅ |
-| `transaction_date` | string | ✅ |
-| `monthly_amount` | string | ✅ |
-
-#### `CashflowSummaryResponse`
-
-Summary of cashflows (inflows or outflows).
-
-| Field | Type | Required |
-|-------|------|----------|
-| `flow_type` | string | ✅ |
-| `total_amount` | string | ✅ |
-| `monthly_total` | string | ✅ |
-| `categories` | array | ✅ |
+| `transaction_date` | date | ✅ |
 
 #### `CashflowUpdate`
-
-Update a cashflow.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `name` | unknown | ❌ |
-| `category` | unknown | ❌ |
-| `amount` | unknown | ❌ |
-| `frequency` | unknown | ❌ |
-| `transaction_date` | unknown | ❌ |
+| `name` | string | ❌ |
+| `category` | string | ❌ |
+| `amount` | decimal | ❌ |
+| `frequency` | string | ❌ |
+| `transaction_date` | date | ❌ |
+
+#### `CashflowResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `name` | string |
+| `flow_type` | string |
+| `category` | string |
+| `amount` | decimal |
+| `frequency` | string |
+| `transaction_date` | date |
+| `monthly_amount` | decimal |
+
+#### `CashflowSummaryResponse`
+| Field | Type |
+|-------|------|
+| `flow_type` | string |
+| `total_amount` | decimal |
+| `monthly_total` | decimal |
+| `categories` | array[CashflowCategoryResponse] |
+
+#### `CashflowBalanceResponse`
+| Field | Type |
+|-------|------|
+| `total_inflows` | decimal |
+| `monthly_inflows` | decimal |
+| `total_outflows` | decimal |
+| `monthly_outflows` | decimal |
+| `net_balance` | decimal |
+| `monthly_balance` | decimal |
+| `savings_rate` | decimal |
+| `inflows` | CashflowSummaryResponse |
+| `outflows` | CashflowSummaryResponse |
+
+---
 
 ### Stocks
 
-#### `StockAccountBasicResponse`
-
-Basic stock account response (without positions).
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `user_id` | integer | ✅ |
-| `name` | string | ✅ |
-| `account_type` | string | ✅ |
-| `bank_name` | unknown | ❌ |
-| `created_at` | string | ✅ |
-
 #### `StockAccountCreate`
-
-Create a stock account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `user_id` | integer | ✅ |
 | `name` | string | ✅ |
 | `account_type` | string | ✅ |
-| `bank_name` | unknown | ❌ |
-| `encrypted_iban` | unknown | ❌ |
+| `bank_name` | string | ❌ |
+| `encrypted_iban` | string | ❌ |
 
 #### `StockAccountUpdate`
-
-Update a stock account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `name` | unknown | ❌ |
-| `bank_name` | unknown | ❌ |
-| `encrypted_iban` | unknown | ❌ |
+| `name` | string | ❌ |
+| `bank_name` | string | ❌ |
+| `encrypted_iban` | string | ❌ |
 
-#### `StockTransactionBasicResponse`
-
-Basic stock transaction response.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `account_id` | integer | ✅ |
-| `ticker` | string | ✅ |
-| `exchange` | unknown | ❌ |
-| `type` | string | ✅ |
-| `amount` | string | ✅ |
-| `price_per_unit` | string | ✅ |
-| `fees` | string | ✅ |
-| `executed_at` | string | ✅ |
+#### `StockAccountBasicResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `name` | string |
+| `account_type` | string |
+| `bank_name` | string |
+| `created_at` | datetime |
 
 #### `StockTransactionCreate`
-
-Create a stock transaction.
-
 | Field | Type | Required |
 |-------|------|----------|
 | `account_id` | integer | ✅ |
 | `ticker` | string | ✅ |
-| `exchange` | unknown | ❌ |
+| `exchange` | string | ❌ |
 | `type` | string | ✅ |
-| `amount` | unknown | ✅ |
-| `price_per_unit` | unknown | ✅ |
-| `fees` | unknown | ❌ |
-| `executed_at` | string | ✅ |
+| `amount` | decimal | ✅ |
+| `price_per_unit` | decimal | ✅ |
+| `fees` | decimal | ❌ |
+| `executed_at` | datetime | ✅ |
 
-#### `StockTransactionUpdate`
+#### `StockTransactionBasicResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `account_id` | integer |
+| `ticker` | string |
+| `exchange` | string |
+| `type` | string |
+| `amount` | decimal |
+| `price_per_unit` | decimal |
+| `fees` | decimal |
+| `executed_at` | datetime |
 
-Update a stock transaction.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `ticker` | unknown | ❌ |
-| `exchange` | unknown | ❌ |
-| `type` | unknown | ❌ |
-| `amount` | unknown | ❌ |
-| `price_per_unit` | unknown | ❌ |
-| `fees` | unknown | ❌ |
-| `executed_at` | unknown | ❌ |
+---
 
 ### Crypto
 
-#### `CryptoAccountBasicResponse`
-
-Basic crypto account response (without positions).
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `user_id` | integer | ✅ |
-| `name` | string | ✅ |
-| `wallet_name` | unknown | ❌ |
-| `public_address` | unknown | ❌ |
-| `created_at` | string | ✅ |
-
 #### `CryptoAccountCreate`
-
-Create a crypto account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `user_id` | integer | ✅ |
 | `name` | string | ✅ |
-| `wallet_name` | unknown | ❌ |
-| `public_address` | unknown | ❌ |
+| `wallet_name` | string | ❌ |
+| `public_address` | string | ❌ |
 
 #### `CryptoAccountUpdate`
-
-Update a crypto account.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `name` | unknown | ❌ |
-| `wallet_name` | unknown | ❌ |
-| `public_address` | unknown | ❌ |
+| `name` | string | ❌ |
+| `wallet_name` | string | ❌ |
+| `public_address` | string | ❌ |
 
-#### `CryptoTransactionBasicResponse`
-
-Basic crypto transaction response.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `account_id` | integer | ✅ |
-| `ticker` | string | ✅ |
-| `type` | string | ✅ |
-| `amount` | string | ✅ |
-| `price_per_unit` | string | ✅ |
-| `fees` | string | ✅ |
-| `fees_ticker` | unknown | ❌ |
-| `executed_at` | string | ✅ |
+#### `CryptoAccountBasicResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `name` | string |
+| `wallet_name` | string |
+| `public_address` | string |
+| `created_at` | datetime |
 
 #### `CryptoTransactionCreate`
-
-Create a crypto transaction.
-
 | Field | Type | Required |
 |-------|------|----------|
 | `account_id` | integer | ✅ |
 | `ticker` | string | ✅ |
 | `type` | string | ✅ |
-| `amount` | unknown | ✅ |
-| `price_per_unit` | unknown | ✅ |
-| `fees` | unknown | ❌ |
-| `fees_ticker` | unknown | ❌ |
-| `executed_at` | string | ✅ |
+| `amount` | decimal | ✅ |
+| `price_per_unit` | decimal | ✅ |
+| `fees` | decimal | ❌ |
+| `fees_ticker` | string | ❌ |
+| `executed_at` | datetime | ✅ |
 
-#### `CryptoTransactionUpdate`
+#### `CryptoTransactionBasicResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `account_id` | integer |
+| `ticker` | string |
+| `type` | string |
+| `amount` | decimal |
+| `price_per_unit` | decimal |
+| `fees` | decimal |
+| `fees_ticker` | string |
+| `executed_at` | datetime |
 
-Update a crypto transaction.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `ticker` | unknown | ❌ |
-| `type` | unknown | ❌ |
-| `amount` | unknown | ❌ |
-| `price_per_unit` | unknown | ❌ |
-| `fees` | unknown | ❌ |
-| `fees_ticker` | unknown | ❌ |
-| `executed_at` | unknown | ❌ |
+---
 
 ### Notes
 
 #### `NoteCreate`
-
-Create a note.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `user_id` | integer | ✅ |
 | `name` | string | ✅ |
-| `description` | unknown | ❌ |
-
-#### `NoteResponse`
-
-Note response.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `user_id` | integer | ✅ |
-| `name` | string | ✅ |
-| `description` | unknown | ❌ |
+| `description` | string | ❌ |
 
 #### `NoteUpdate`
-
-Update a note.
-
 | Field | Type | Required |
 |-------|------|----------|
-| `name` | unknown | ❌ |
-| `description` | unknown | ❌ |
+| `name` | string | ❌ |
+| `description` | string | ❌ |
 
-### Portfolio & Summary
+#### `NoteResponse`
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `name` | string |
+| `description` | string |
 
-#### `AccountSummaryResponse`
+---
 
-Summary of an account with all positions.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `account_id` | integer | ✅ |
-| `account_name` | string | ✅ |
-| `account_type` | string | ✅ |
-| `total_invested` | string | ✅ |
-| `total_fees` | string | ✅ |
-| `current_value` | unknown | ❌ |
-| `profit_loss` | unknown | ❌ |
-| `profit_loss_percentage` | unknown | ❌ |
-| `positions` | array | ✅ |
-
-#### `PortfolioResponse`
-
-Global portfolio summary.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `total_invested` | string | ✅ |
-| `total_fees` | string | ✅ |
-| `current_value` | unknown | ❌ |
-| `profit_loss` | unknown | ❌ |
-| `profit_loss_percentage` | unknown | ❌ |
-| `accounts` | array | ✅ |
-
-#### `PositionResponse`
-
-Aggregated position for a single asset.
-
-| Field | Type | Required |
-|-------|------|----------|
-| `ticker` | string | ✅ |
-| `name` | unknown | ❌ |
-| `total_amount` | string | ✅ |
-| `average_buy_price` | string | ✅ |
-| `total_invested` | string | ✅ |
-| `total_fees` | string | ✅ |
-| `fees_percentage` | string | ✅ |
-| `current_price` | unknown | ❌ |
-| `current_value` | unknown | ❌ |
-| `profit_loss` | unknown | ❌ |
-| `profit_loss_percentage` | unknown | ❌ |
+### Shared / Portfolio
 
 #### `TransactionResponse`
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Transaction ID |
+| `ticker` | string | Asset symbol |
+| `type` | string | Transaction type |
+| `amount` | decimal | Quantity |
+| `price_per_unit` | decimal | Unit price |
+| `fees` | decimal | Fees paid |
+| `executed_at` | datetime | Execution time |
+| `total_cost` | decimal | Calculated: amount × price + fees |
+| `fees_percentage` | decimal | Calculated: fees / total × 100 |
+| `current_price` | decimal | Current market price (if available) |
+| `current_value` | decimal | Calculated: amount × current_price |
+| `profit_loss` | decimal | Calculated: current_value - total_cost |
+| `profit_loss_percentage` | decimal | Calculated: P/L % |
 
-Base transaction response with calculated fields.
+#### `PositionResponse`
+| Field | Type | Description |
+|-------|------|-------------|
+| `ticker` | string | Asset symbol |
+| `name` | string | Asset name |
+| `total_amount` | decimal | Total quantity held |
+| `average_buy_price` | decimal | Weighted average price |
+| `total_invested` | decimal | Total investment |
+| `total_fees` | decimal | Total fees paid |
+| `fees_percentage` | decimal | Fees % of investment |
+| `current_price` | decimal | Current market price |
+| `current_value` | decimal | Current position value |
+| `profit_loss` | decimal | Unrealized P/L |
+| `profit_loss_percentage` | decimal | Unrealized P/L % |
 
-| Field | Type | Required |
-|-------|------|----------|
-| `id` | integer | ✅ |
-| `ticker` | string | ✅ |
-| `type` | string | ✅ |
-| `amount` | string | ✅ |
-| `price_per_unit` | string | ✅ |
-| `fees` | string | ✅ |
-| `executed_at` | string | ✅ |
-| `total_cost` | string | ✅ |
-| `fees_percentage` | string | ✅ |
-| `current_price` | unknown | ❌ |
-| `current_value` | unknown | ❌ |
-| `profit_loss` | unknown | ❌ |
-| `profit_loss_percentage` | unknown | ❌ |
+#### `AccountSummaryResponse`
+| Field | Type |
+|-------|------|
+| `account_id` | integer |
+| `account_name` | string |
+| `account_type` | string |
+| `total_invested` | decimal |
+| `total_fees` | decimal |
+| `current_value` | decimal |
+| `profit_loss` | decimal |
+| `profit_loss_percentage` | decimal |
+| `positions` | array[PositionResponse] |
 
-### Validation
-
-#### `HTTPValidationError`
-
-| Field | Type | Required |
-|-------|------|----------|
-| `detail` | array | ❌ |
-
-#### `ValidationError`
-
-| Field | Type | Required |
-|-------|------|----------|
-| `loc` | array | ✅ |
-| `msg` | string | ✅ |
-| `type` | string | ✅ |
+#### `PortfolioResponse`
+| Field | Type |
+|-------|------|
+| `total_invested` | decimal |
+| `total_fees` | decimal |
+| `current_value` | decimal |
+| `profit_loss` | decimal |
+| `profit_loss_percentage` | decimal |
+| `accounts` | array[AccountSummaryResponse] |
