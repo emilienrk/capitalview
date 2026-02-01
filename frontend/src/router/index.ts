@@ -74,16 +74,12 @@ const router = createRouter({
   routes,
 })
 
-// Navigation guard pour protéger les routes
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore()
   
-  // Si la route nécessite une authentification
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    // Rediriger vers login
     next({ name: 'login' })
   } 
-  // Si l'utilisateur est connecté et va sur login, rediriger vers dashboard
   else if (to.name === 'login' && auth.isAuthenticated) {
     next({ name: 'dashboard' })
   }
