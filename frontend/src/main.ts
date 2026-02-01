@@ -2,10 +2,18 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
+
+// Initialiser l'authentification au démarrage
+const auth = useAuthStore()
+if (auth.accessToken) {
+  auth.fetchUser()
+}
 
 app.mount('#app')
