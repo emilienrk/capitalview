@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "🔐 Encrypt/Decrypt Environment",
+            "type": "shell",
+            "command": "if [ '${input:action}' = 'encrypt' ]; then sops --encrypt --input-type dotenv --output-type dotenv ${input:file} > ${input:file}.enc; else sops --decrypt --input-type dotenv --output-type dotenv ${input:file}.enc > ${input:file}; fi",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true,
+                "echo": true
+            },
+            "group": "none"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "file",
+            "type": "promptString",
+            "description": "Chemin du fichier (ex: backend/.env)",
+            "default": "backend/.env"
+        },
+        {
+            "id": "action",
+            "type": "pickString",
+            "description": "Action à effectuer",
+            "options": [
+                "encrypt",
+                "decrypt"
+            ],
+            "default": "encrypt"
+        }
+    ]
+}

@@ -17,7 +17,6 @@ packages/server-renderer/server-plugin.js
 packages/server-renderer/client-plugin.js
 packages/template-compiler/build.js
 packages/template-compiler/browser.js
-.vscode
 dist
 dist-ssr
 coverage
