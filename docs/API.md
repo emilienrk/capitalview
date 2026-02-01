@@ -971,15 +971,15 @@ Returns all notes for the current user.
 
 ---
 
-## Users / Portfolio
+## Dashboard
 
-### GET `/api/users/{user_id}/portfolio`
+### GET `/api/dashboard/portfolio`
 
-**Get user portfolio**
+**Get my portfolio**
 
 🔒 Requires authentication
 
-Aggregates all stock and crypto accounts for a user.
+Aggregates all stock and crypto accounts for the authenticated user.
 
 **Response fields**:
 - Total invested amount
@@ -992,8 +992,6 @@ Aggregates all stock and crypto accounts for a user.
 **Responses**:
 - `200`: Returns `PortfolioResponse`
 - `401`: Unauthorized
-- `403`: Access denied
-- `404`: User not found
 
 ---
 
