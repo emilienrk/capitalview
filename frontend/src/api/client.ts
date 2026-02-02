@@ -1,4 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+const getApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+
+  const { hostname, protocol } = window.location
+  
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api'
+  }
+
+  return `${protocol}//${hostname}:8000/api`
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 class ApiClient {
   private accessToken: string | null = null
