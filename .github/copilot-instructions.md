@@ -118,9 +118,12 @@ This project uses a **strict semantic design system** based on Tailwind CSS v4.
   - Headings: `text-text-main`
   - Body: `text-text-body`
   - Muted/Labels: `text-text-muted`
-- **UI Elements**:
-  - Cards: `rounded-xl shadow-soft` (or `shadow-card`)
-  - Inputs: `rounded-xl border-surface-border focus:ring-primary`
+- **UI Elements (Rounding)**:
+  - Base: `rounded-primary`
+  - Subtle: `rounded-secondary`
+  - Cards: `rounded-card shadow-card`
+  - Buttons: `rounded-button`
+  - Inputs: `rounded-input border-surface-border focus:ring-primary`
 
 ### Dark Mode
 - **Strategy**: Class-based (`selector` strategy with `.dark` class on html/body).

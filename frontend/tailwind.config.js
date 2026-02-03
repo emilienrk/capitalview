@@ -23,10 +23,10 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: colors.emerald[600],
-          hover: colors.emerald[700],
-          active: colors.emerald[800],
-          light: colors.emerald[50],
+          DEFAULT: colors.indigo[600],
+          hover: colors.indigo[700],
+          active: colors.indigo[800],
+          light: colors.indigo[50],
           content: '#ffffff',
         },
         secondary: {
@@ -84,9 +84,15 @@ export default {
         mono: ['Fira Code', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
+        'primary': '1rem',      // Base rounding
+        'secondary': '0.5rem',  // Subtle rounding
+        'card': '1.5rem',       // Prominent rounding for cards
+        'button': '0.875rem',   // Specific for buttons
+        'input': '0.875rem',    // Specific for inputs
         'xl': '1rem',
         '2xl': '1.5rem',
         '3xl': '2rem',
+        'full': '9999px',
       },
       boxShadow: {
         'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
