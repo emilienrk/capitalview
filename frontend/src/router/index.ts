@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 import Dashboard from '@/pages/Dashboard.vue'
+import Landing from '@/pages/Landing.vue'
 import Login from '@/pages/Login.vue'
 import ThemeTest from '@/pages/ThemeTest.vue'
 import Pea from '@/pages/Pea.vue'
@@ -15,6 +16,12 @@ import Notes from '@/pages/Notes.vue'
 const routes = [
   {
     path: '/',
+    name: 'landing',
+    component: Landing,
+    meta: { requiresAuth: false, layout: 'blank' },
+  },
+  {
+    path: '/dashboard',
     name: 'dashboard',
     component: Dashboard,
     meta: { requiresAuth: true },
@@ -23,13 +30,13 @@ const routes = [
     path: '/login',
     name: 'login',
     component: Login,
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, layout: 'blank' },
   },
   {
     path: '/theme-test',
     name: 'theme-test',
     component: ThemeTest,
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, layout: 'blank' },
   },
   {
     path: '/compte-courant',
