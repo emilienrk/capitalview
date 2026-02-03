@@ -18,7 +18,8 @@ Personal wealth management and investment tracking application allowing users to
 - **Framework**: Vue.js 3 (Composition API + `<script setup>`)
 - **State Management**: Pinia
 - **Routing**: Vue Router 4
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS v4
+- **Design System**: Custom semantic theme (configured in `tailwind.config.js`)
 - **Build Tool**: Vite
 - **Language**: TypeScript
 
@@ -30,9 +31,10 @@ Personal wealth management and investment tracking application allowing users to
 ### Database
 - **DBMS**: PostgreSQL
 - **Migrations**: Alembic
+
 ---
 
-## Structure des dossiers
+## Folder Structure
 
 ```
 investment_sheet/
@@ -47,6 +49,7 @@ investment_sheet/
 │   ├── services/
 │   └── utils/
 └── frontend/
+    ├── tailwind.config.js
     ├── src/
     │   ├── api/
     │   ├── components/
@@ -63,7 +66,7 @@ investment_sheet/
 
 ---
 
-## Conventions de code
+## Code Conventions
 
 ### General
 - **Language**: English (variables, functions, classes, comments).
@@ -77,12 +80,12 @@ investment_sheet/
 - **Typing**: Strictly type all props, emits, and variables.
 - **State**: Prefix Pinia stores with `use` (`useUserStore`).
 
-### Backend (Python / Flask)
+### Backend (Python / FastAPI)
 - Follow **PEP 8**.
 - Use Python **Type Hints**.
 - Structure routes by domain.
 - Business logic should be in `services/`.
-- Use **Dataclasses** or **Pydantic** for validation.
+- Use **SQLModel** for models and validation.
 
 ### Database
 - Tables: **snake_case** plural (`investments`).
@@ -91,11 +94,44 @@ investment_sheet/
 
 ---
 
-## Security Guidelines
+## Styling & Design System
 
-- **Encryption**: Sensitive data must be encrypted at rest (AES-256).
-- **Authentication**: JWT with short expiration + Secure Refresh Tokens.
-- **Protection**: Input sanitization, CSRF protection, Secure Headers.
+This project uses a **strict semantic design system** based on Tailwind CSS v4.
+**DO NOT use arbitrary colors** (e.g., `bg-blue-500`, `text-red-600`).
+
+**ALWAYS use the semantic classes defined in `tailwind.config.js`:**
+
+- **Primary Brand**: `bg-primary`, `text-primary`, `bg-primary-light`, `text-primary-content`
+- **Secondary**: `bg-secondary`, `bg-secondary-light`
+- **Feedback**:
+  - Info: `bg-info`, `text-info`
+  - Success: `bg-success`, `text-success`
+  - Warning: `bg-warning`, `text-warning`
+  - Danger: `bg-danger`, `text-danger`
+- **Backgrounds**:
+  - Page: `bg-background`
+  - Subtle/Alt: `bg-background-subtle`
+- **Surfaces (Cards/Modals)**:
+  - Base: `bg-surface`
+  - Border: `border-surface-border`
+- **Typography**:
+  - Headings: `text-text-main`
+  - Body: `text-text-body`
+  - Muted/Labels: `text-text-muted`
+- **UI Elements**:
+  - Cards: `rounded-xl shadow-soft` (or `shadow-card`)
+  - Inputs: `rounded-xl border-surface-border focus:ring-primary`
+
+### Dark Mode
+- **Strategy**: Class-based (`selector` strategy with `.dark` class on html/body).
+- **Conventions**:
+  - **ALWAYS** provide a dark variant for backgrounds, surfaces, and text.
+  - **Use Semantic Classes**:
+    - Background: `dark:bg-background-dark` (not `dark:bg-slate-900`)
+    - Surface: `dark:bg-surface-dark`
+    - Text: `dark:text-text-dark-main`, `dark:text-text-dark-muted`
+    - Borders: `dark:border-surface-dark-border`
+  - **Do not** invert primary/brand colors usually, but ensure contrast remains accessible.
 
 ---
 
@@ -106,5 +142,5 @@ investment_sheet/
 3. **Never store** sensitive data in plain text.
 4. **Prioritize** Vue composables for reusable logic.
 5. **Keep it simple**: Favor simple, maintainable code over complex abstractions.
-6. **Always use Tailwind CSS** for styling; do not write custom CSS unless necessary.
+6. **STRICT STYLING**: Always refer to `frontend/tailwind.config.js` for colors and spacing. **Never hardcode hex values or standard Tailwind colors** if a semantic alternative exists.
 7. **Comment** complex logic in English.

@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 
 import Dashboard from '@/pages/Dashboard.vue'
 import Login from '@/pages/Login.vue'
+import ThemeTest from '@/pages/ThemeTest.vue'
 import Pea from '@/pages/Pea.vue'
 import CompteTitre from '@/pages/CompteTitre.vue'
 import CompteCourant from '@/pages/CompteCourant.vue'
@@ -22,6 +23,12 @@ const routes = [
     path: '/login',
     name: 'login',
     component: Login,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/theme-test',
+    name: 'theme-test',
+    component: ThemeTest,
     meta: { requiresAuth: false },
   },
   {
