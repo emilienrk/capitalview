@@ -38,11 +38,53 @@ class ApiClient {
       ;(headers as Record<string, string>)['Authorization'] = `Bearer ${this.accessToken}`
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    let response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
-      credentials: 'include', // For HttpOnly cookies (refresh token)
+      credentials: 'include',
     })
+
+    // Interception 401 (Token Expired)
+    if (response.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
+      try {
+        // Tentative de refresh
+        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        })
+
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          const newAccessToken = data.access_token
+
+          // Mise à jour du token
+          this.setToken(newAccessToken)
+          localStorage.setItem('access_token', newAccessToken)
+          
+          // Mise à jour du header Authorization pour la nouvelle tentative
+          ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
+
+          // Retry de la requête originale
+          response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers,
+            credentials: 'include',
+          })
+        } else {
+          // Refresh échoué -> Déconnexion forcée
+          this.setToken(null)
+          localStorage.removeItem('access_token')
+          window.location.href = '/login'
+          throw new Error('Session expirée')
+        }
+      } catch (error) {
+        this.setToken(null)
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
+        throw error
+      }
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))

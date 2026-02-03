@@ -10,13 +10,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Login form state
   const loginForm = ref({
     email: '',
     password: '',
   })
 
-  // Register form state
   const registerForm = ref({
     username: '',
     email: '',
@@ -27,7 +25,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!accessToken.value)
 
-  // Initialize token in apiClient
   if (accessToken.value) {
     apiClient.setToken(accessToken.value)
   }
