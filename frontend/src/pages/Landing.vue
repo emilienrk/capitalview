@@ -15,8 +15,9 @@ onMounted(() => {
   if (heroElement) {
     const observer = new IntersectionObserver((entries) => {
       // Si le titre n'est plus visible (isIntersecting = false), on affiche le logo nav
-      if (entries[0]) {
-        showNavLogo.value = !entries[0].isIntersecting
+      const entry = entries[0]
+      if (entry) {
+        showNavLogo.value = !entry.isIntersecting
       }
     }, { threshold: 0 })
     observer.observe(heroElement)

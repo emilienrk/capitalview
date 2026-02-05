@@ -50,7 +50,7 @@ const colorGroups = computed(() => {
   const groups: Record<string, typeof flattened> = {}
   flattened.forEach(color => {
     const parts = color.name.split('-')
-    const groupName = parts[0] || 'default'
+    const groupName = (parts[0] || 'default') as string
     if (!groups[groupName]) groups[groupName] = []
     groups[groupName]!.push(color)
   })
