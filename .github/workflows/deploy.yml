@@ -76,7 +76,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           source: ".env.prod"
-          target: "/home/${{ secrets.VPS_USER }}/capitalview.emilien.roukine.com/.env"
+          target: "/home/${{ secrets.VPS_USER }}/capitalview.emilien.roukine.com"
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
