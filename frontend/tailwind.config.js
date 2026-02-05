@@ -22,6 +22,7 @@ export default {
     },
     extend: {
       colors: {
+        // ── Brand ─────────────────────────────────
         primary: {
           DEFAULT: colors.indigo[600],
           hover: colors.indigo[700],
@@ -35,14 +36,16 @@ export default {
           light: colors.slate[100],
           content: '#ffffff',
         },
+
+        // ── Feedback ──────────────────────────────
         info: {
           DEFAULT: colors.blue[500],
           light: colors.blue[50],
           content: '#ffffff',
         },
         success: {
-          DEFAULT: colors.green[600],
-          light: colors.green[50],
+          DEFAULT: colors.emerald[600],
+          light: colors.emerald[50],
           content: '#ffffff',
         },
         warning: {
@@ -55,20 +58,27 @@ export default {
           light: colors.red[50],
           content: '#ffffff',
         },
+
+        // ── Backgrounds ───────────────────────────
         background: {
           DEFAULT: colors.gray[50],
           subtle: colors.gray[100],
           dark: colors.slate[950],
           'dark-subtle': colors.slate[900],
         },
+
+        // ── Surfaces (cards, panels, modals) ──────
         surface: {
           DEFAULT: '#ffffff',
           hover: colors.gray[50],
           border: colors.gray[200],
           active: colors.gray[100],
           dark: colors.slate[900],
-          'dark-border': colors.slate[800],
+          'dark-hover': colors.slate[800],
+          'dark-border': colors.slate[700],
         },
+
+        // ── Typography ────────────────────────────
         text: {
           main: colors.gray[900],
           body: colors.gray[700],
@@ -77,18 +87,29 @@ export default {
           'dark-main': colors.slate[50],
           'dark-body': colors.slate[300],
           'dark-muted': colors.slate[500],
-        }
+        },
+
+        // ── Sidebar ───────────────────────────────
+        sidebar: {
+          DEFAULT: '#ffffff',
+          dark: colors.slate[900],
+          border: colors.gray[200],
+          'dark-border': colors.slate[800],
+          active: colors.indigo[50],
+          'dark-active': colors.indigo[950],
+        },
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['Fira Code', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        'primary': '1rem',      // Base rounding
-        'secondary': '0.5rem',  // Subtle rounding
-        'card': '1.5rem',       // Prominent rounding for cards
-        'button': '0.875rem',   // Specific for buttons
-        'input': '0.875rem',    // Specific for inputs
+        'primary': '1rem',
+        'secondary': '0.5rem',
+        'card': '1.5rem',
+        'button': '0.75rem',
+        'input': '0.75rem',
+        'badge': '0.375rem',
         'xl': '1rem',
         '2xl': '1.5rem',
         '3xl': '2rem',
@@ -97,10 +118,16 @@ export default {
       boxShadow: {
         'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
         'card': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+        'modal': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+      },
+      spacing: {
+        'sidebar': '16rem',
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-out',
-        'slide-up': 'slideUp 0.5s ease-out',
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'slide-in-left': 'slideInLeft 0.3s ease-out',
+        'spin-slow': 'spin 1.5s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -110,6 +137,10 @@ export default {
         slideUp: {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideInLeft: {
+          '0%': { transform: 'translateX(-20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
         },
       },
     },
