@@ -66,7 +66,7 @@ jobs:
             -v "$(pwd):/work" \
             -w /work \
             ghcr.io/getsops/sops:v3.11.0-alpine \
-            --decrypt --input-type dotenv --output-type dotenv .env.prod.enc > .env.prod
+            --decrypt --input-type dotenv --output-type dotenv .env.prod.enc > .env
 
       - name: Copy .env.prod to .env in VPS
         uses: appleboy/scp-action@v0.1.7
@@ -75,7 +75,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: ".env.prod"
+          source: ".env"
           target: "/home/${{ secrets.VPS_USER }}/capitalview.emilien.roukine.com"
 
       - name: Deploy to VPS
