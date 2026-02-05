@@ -17,23 +17,23 @@ onMounted(() => {
   <div>
     <h1>Dashboard</h1>
 
-    <!-- Loading -->
+    <!-- Loading state -->
     <div v-if="dashboard.isLoading">Chargement...</div>
 
-    <!-- Error -->
+    <!-- Error state -->
     <div v-else-if="dashboard.error">
       <p>Erreur: {{ dashboard.error }}</p>
       <button @click="dashboard.fetchAll">Réessayer</button>
     </div>
 
-    <!-- Not authenticated -->
+    <!-- Not authenticated state -->
     <div v-else-if="!auth.isAuthenticated">
       <p>Veuillez vous connecter pour accéder au dashboard.</p>
     </div>
 
     <!-- Dashboard content -->
     <div v-else>
-      <!-- User info -->
+      <!-- User profile info -->
       <section>
         <h2>Bienvenue {{ auth.user?.username }}</h2>
         <p>Email: {{ auth.user?.email }}</p>
@@ -61,7 +61,7 @@ onMounted(() => {
 
       <hr />
 
-      <!-- Cashflow Balance -->
+      <!-- Cashflow Section -->
       <section>
         <h2>Flux de Trésorerie</h2>
 
@@ -76,7 +76,7 @@ onMounted(() => {
 
       <hr />
 
-      <!-- Portfolio -->
+      <!-- Investment Portfolio Section -->
       <section>
         <h2>Portfolio Investissements</h2>
 
@@ -86,7 +86,7 @@ onMounted(() => {
           <p><strong>Valeur actuelle:</strong> {{ dashboard.formatCurrency(dashboard.portfolio.current_value) }}</p>
           <p><strong>P/L:</strong> {{ dashboard.formatCurrency(dashboard.portfolio.profit_loss) }} ({{ dashboard.formatPercent(dashboard.portfolio.profit_loss_percentage) }})</p>
 
-          <!-- Accounts -->
+          <!-- Investment Accounts -->
           <div v-if="dashboard.portfolio.accounts?.length">
             <h3>Comptes d'investissement:</h3>
             <div v-for="account in dashboard.portfolio.accounts" :key="account.account_id">
@@ -97,7 +97,7 @@ onMounted(() => {
                 <li>P/L: {{ dashboard.formatCurrency(account.profit_loss) }} ({{ dashboard.formatPercent(account.profit_loss_percentage) }})</li>
               </ul>
 
-              <!-- Positions -->
+              <!-- Asset Positions -->
               <div v-if="account.positions?.length">
                 <h5>Positions:</h5>
                 <table>

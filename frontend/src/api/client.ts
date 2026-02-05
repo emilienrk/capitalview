@@ -47,7 +47,7 @@ class ApiClient {
     // Interception 401 (Token Expired)
     if (response.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
       try {
-        // Tentative de refresh
+        // Attempt refresh
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -58,25 +58,25 @@ class ApiClient {
           const data = await refreshResponse.json()
           const newAccessToken = data.access_token
 
-          // Mise à jour du token
+          // Update token
           this.setToken(newAccessToken)
           localStorage.setItem('access_token', newAccessToken)
           
-          // Mise à jour du header Authorization pour la nouvelle tentative
+          // Update Authorization header for retry
           ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
 
-          // Retry de la requête originale
+          // Retry original request
           response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers,
             credentials: 'include',
           })
         } else {
-          // Refresh échoué -> Déconnexion forcée
+          // Refresh failed -> Force logout
           this.setToken(null)
           localStorage.removeItem('access_token')
           window.location.href = '/login'
-          throw new Error('Session expirée')
+          throw new Error('Session expired')
         }
       } catch (error) {
         this.setToken(null)

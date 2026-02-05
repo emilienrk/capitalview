@@ -25,7 +25,7 @@ onMounted(() => {
   }
 })
 
-// Extraction de la configuration
+// Extract theme configuration
 const themeColors = (tailwindConfig as any)?.theme?.extend?.colors || {}
 const themeFonts = (tailwindConfig as any)?.theme?.extend?.fontFamily || {}
 
@@ -69,7 +69,7 @@ const colorGroups = computed(() => {
           </p>
         </div>
         
-        <!-- Toggle Mode Sombre -->
+        <!-- Dark Mode Toggle -->
         <button 
           @click="toggleDarkMode"
           class="flex items-center gap-3 px-4 py-2 rounded-xl bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border shadow-soft hover:scale-105 transition-all"
@@ -84,7 +84,7 @@ const colorGroups = computed(() => {
         </button>
       </header>
 
-      <!-- 1. SURFACES & CARTES -->
+      <!-- 1. SURFACES & CARDS -->
       <section class="mb-16">
         <h2 class="text-2xl font-bold mb-6 flex items-center">Surfaces & Feedback</h2>
         <div class="grid md:grid-cols-3 gap-6">
@@ -103,7 +103,7 @@ const colorGroups = computed(() => {
         </div>
       </section>
 
-      <!-- 2. BOUTONS & ÉTATS -->
+      <!-- 2. BUTTONS & STATES -->
       <section class="mb-16">
         <h2 class="text-2xl font-bold mb-6">Interactions</h2>
         <div class="bg-surface dark:bg-surface-dark p-8 rounded-2xl border border-surface-border dark:border-surface-dark-border shadow-soft">
@@ -119,7 +119,7 @@ const colorGroups = computed(() => {
         </div>
       </section>
 
-      <!-- 3. PALETTE DE COULEURS -->
+      <!-- 3. COLOR PALETTE -->
       <section>
         <h2 class="text-2xl font-bold mb-6">Couleurs du Thème</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -34,7 +34,7 @@ async function handleLogin() {
     <!-- Login Card -->
     <div class="w-full max-w-md bg-surface dark:bg-surface-dark p-8 rounded-card shadow-card border border-surface-border dark:border-surface-dark-border animate-slide-up">
       
-      <!-- Header -->
+      <!-- Header Section -->
       <div class="text-center mb-10">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-primary bg-primary/10 text-primary mb-4">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,7 +45,7 @@ async function handleLogin() {
         <p class="text-text-muted dark:text-text-dark-muted mt-2">Connectez-vous à votre espace CapitalView</p>
       </div>
 
-      <!-- Form -->
+      <!-- Login Form -->
       <form @submit.prevent="handleLogin" class="space-y-6">
         <div class="space-y-2">
           <label for="username" class="text-sm font-semibold text-text-main dark:text-text-dark-main ml-1">
@@ -85,7 +85,7 @@ async function handleLogin() {
           </div>
         </div>
 
-        <!-- Error Message -->
+        <!-- Feedback Messages -->
         <transition enter-active-class="animate-fade-in" leave-active-class="opacity-0 transition-opacity">
           <div v-if="error" class="flex items-center gap-3 p-4 bg-danger/10 border border-danger/20 text-danger text-sm rounded-input">
             <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
@@ -93,7 +93,7 @@ async function handleLogin() {
           </div>
         </transition>
 
-        <!-- Submit Button -->
+        <!-- Form Submission -->
         <button
           type="submit"
           :disabled="isLoading"
@@ -113,7 +113,7 @@ async function handleLogin() {
         </button>
       </form>
 
-      <!-- Footer Info -->
+      <!-- Footer Branding -->
       <div class="mt-8 text-center">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
           CapitalView &copy; 2026 — Sécurisé par chiffrement AES-256

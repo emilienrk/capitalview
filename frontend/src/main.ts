@@ -13,7 +13,6 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// Initialiser l'authentification au démarrage
 const auth = useAuthStore()
 if (auth.accessToken) {
   auth.fetchUser()
