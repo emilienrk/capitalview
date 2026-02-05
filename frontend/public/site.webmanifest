@@ -1,0 +1,17 @@
+{
+  "name": "CapitalView",
+  "short_name": "CapitalView",
+  "description": "Personal wealth management and investment tracking application",
+  "icons": [
+    {
+      "src": "/capitalview.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#6366f1",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/"
+}

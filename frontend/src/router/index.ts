@@ -12,6 +12,8 @@ import Patrimoine from '@/pages/Patrimoine.vue'
 import Crypto from '@/pages/Crypto.vue'
 import AutresInvestissements from '@/pages/AutresInvestissements.vue'
 import Notes from '@/pages/Notes.vue'
+import Settings from '@/pages/Settings.vue'
+import Register from '@/pages/Register.vue'
 
 const routes = [
   {
@@ -30,6 +32,12 @@ const routes = [
     path: '/login',
     name: 'login',
     component: Login,
+    meta: { requiresAuth: false, layout: 'blank' },
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: Register,
     meta: { requiresAuth: false, layout: 'blank' },
   },
   {
@@ -81,6 +89,12 @@ const routes = [
     component: Notes,
     meta: { requiresAuth: true },
   },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: Settings,
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
@@ -92,9 +106,9 @@ router.beforeEach((to, from, next) => {
   const auth = useAuthStore()
   
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    next({ name: 'login' })
+    next({ name: 'login', query: { redirect: to.fullPath } })
   } 
-  else if (to.name === 'login' && auth.isAuthenticated) {
+  else if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
     next({ name: 'dashboard' })
   }
   else {
