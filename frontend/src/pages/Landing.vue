@@ -11,12 +11,15 @@ onMounted(() => {
   isDark.value = document.documentElement.classList.contains('dark')
 
   // Observer pour le titre
-  if (heroTitleRef.value) {
+  const heroElement = heroTitleRef.value
+  if (heroElement) {
     const observer = new IntersectionObserver((entries) => {
       // Si le titre n'est plus visible (isIntersecting = false), on affiche le logo nav
-      showNavLogo.value = !entries[0].isIntersecting
+      if (entries[0]) {
+        showNavLogo.value = !entries[0].isIntersecting
+      }
     }, { threshold: 0 })
-    observer.observe(heroTitleRef.value)
+    observer.observe(heroElement)
   }
 })
 

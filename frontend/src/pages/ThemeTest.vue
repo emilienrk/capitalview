@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+// @ts-ignore - tailwind config is JS file
 import tailwindConfig from '../../tailwind.config.js'
 
 // Dark Mode Logic
@@ -25,8 +26,8 @@ onMounted(() => {
 })
 
 // Extraction de la configuration
-const themeColors = tailwindConfig.theme?.extend?.colors || {}
-const themeFonts = tailwindConfig.theme?.extend?.fontFamily || {}
+const themeColors = (tailwindConfig as any)?.theme?.extend?.colors || {}
+const themeFonts = (tailwindConfig as any)?.theme?.extend?.fontFamily || {}
 
 function flattenColors(colors: any, prefix = ''): { name: string, value: string, class: string }[] {
   let result: { name: string, value: string, class: string }[] = []
@@ -48,9 +49,10 @@ const colorGroups = computed(() => {
   const flattened = flattenColors(themeColors)
   const groups: Record<string, typeof flattened> = {}
   flattened.forEach(color => {
-    const groupName = color.name.split('-')[0]
+    const parts = color.name.split('-')
+    const groupName = parts[0] || 'default'
     if (!groups[groupName]) groups[groupName] = []
-    groups[groupName].push(color)
+    groups[groupName]!.push(color)
   })
   return groups
 })
