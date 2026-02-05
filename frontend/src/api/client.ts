@@ -80,7 +80,6 @@ class ApiClient {
         }
       } catch (error) {
         this.setToken(null)
-        localStorage.removeItem('access_token')
         window.location.href = '/login'
         throw error
       }
