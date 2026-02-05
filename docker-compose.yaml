@@ -17,7 +17,7 @@ services:
       context: ./backend
     container_name: capitalview-backend
     env_file:
-    - ./backend/.env
+    - .env
     ports:
       - "8000:8000"
     depends_on:

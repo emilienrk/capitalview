@@ -42,7 +42,7 @@ capitalView/
 │   ├── services/            # Business logic
 │   └── schemas/             # Pydantic schemas
 ├── frontend/                # Vue.js (WIP)
-├── docs/API.md              # Full API documentation
+├── docs.md              # Full API documentation
 └── docker-compose.yaml
 ```
 
@@ -114,18 +114,18 @@ npm run dev
 Complete API documentation is available at:
 - **Interactive docs**: http://localhost:8000/docs (Swagger UI)
 - **ReDoc**: http://localhost:8000/redoc
-- **Markdown**: [docs/API.md](docs/API.md)
+- **Markdown**: [docs.md](docs.md)
 
 ### Main Endpoints
 
 | Domain | Endpoints | Description |
 |--------|-----------|-------------|
-| **Bank** | `/api/bank/*` | Bank accounts management |
-| **Cashflow** | `/api/cashflow/*` | Income & expenses tracking |
-| **Stocks** | `/api/stocks/*` | Stock accounts & transactions |
-| **Crypto** | `/api/crypto/*` | Crypto wallets & transactions |
-| **Notes** | `/api/notes/*` | Personal notes & strategies |
-| **Users** | `/api/users/*` | Portfolio overview |
+| **Bank** | `/bank/*` | Bank accounts management |
+| **Cashflow** | `/cashflow/*` | Income & expenses tracking |
+| **Stocks** | `/stocks/*` | Stock accounts & transactions |
+| **Crypto** | `/crypto/*` | Crypto wallets & transactions |
+| **Notes** | `/notes/*` | Personal notes & strategies |
+| **Users** | `/users/*` | Portfolio overview |
 
 
 ### 📋 Roadmap

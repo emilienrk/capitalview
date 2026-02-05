@@ -2,6 +2,23 @@
 .DS_Store
 node_modules
 *.log
+
+# Production & Environment files
+.env
+.env.prod
+.env.local
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+
+# Caddy
+Caddyfile
+
+# Database backups
+backup*.sql
+*.dump
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
