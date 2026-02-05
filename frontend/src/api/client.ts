@@ -1,15 +1,18 @@
 const getApiBaseUrl = (): string => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
   }
 
   const { hostname, protocol } = window.location
   
+  // Localhost dev
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8000'
   }
 
-  return `${protocol}//${hostname}:8000`
+  // Production: use api. subdomain (no port)
+  // capitalview.example.com → api.capitalview.example.com
+  return `${protocol}//api.${hostname}`
 }
 
 const API_BASE_URL = getApiBaseUrl()

@@ -23,8 +23,8 @@ onMounted(async () => {
  * Total net worth = bank balance + portfolio current value (or invested if current unavailable)
  */
 function totalNetWorth(): number | null {
-  const bankTotal = bank.summary?.total_balance ?? 0
-  const portfolioValue = dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested ?? 0
+  const bankTotal = Number(bank.summary?.total_balance) || 0
+  const portfolioValue = Number(dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested) || 0
   return bankTotal + portfolioValue
 }
 </script>

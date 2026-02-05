@@ -35,18 +35,20 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  function formatCurrency(value: number | null | undefined): string {
-    if (value === null || value === undefined || typeof value !== 'number') return '-'
+  function formatCurrency(value: number | string | null | undefined): string {
+    const n = value !== null && value !== undefined ? Number(value) : NaN
+    if (isNaN(n)) return '-'
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR',
-    }).format(value)
+    }).format(n)
   }
 
-  function formatPercent(value: number | null | undefined): string {
-    if (value === null || value === undefined || typeof value !== 'number') return '-'
-    const sign = value >= 0 ? '+' : ''
-    return `${sign}${value.toFixed(2)}%`
+  function formatPercent(value: number | string | null | undefined): string {
+    const n = value !== null && value !== undefined ? Number(value) : NaN
+    if (isNaN(n)) return '-'
+    const sign = n >= 0 ? '+' : ''
+    return `${sign}${n.toFixed(2)}%`
   }
 
   function reset() {
