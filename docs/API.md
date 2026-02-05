@@ -26,11 +26,11 @@ All endpoints (except `/auth/register` and `/auth/login`) require authentication
 
 ### How it works
 
-1. **Register** a new account via `POST /api/auth/register`
-2. **Login** via `POST /api/auth/login` to receive an `access_token`
+1. **Register** a new account via `POST /auth/register`
+2. **Login** via `POST /auth/login` to receive an `access_token`
 3. Include the token in the `Authorization` header: `Bearer <access_token>`
-4. **Refresh** the token via `POST /api/auth/refresh` (uses HttpOnly cookie)
-5. **Logout** via `POST /api/auth/logout` to revoke all tokens
+4. **Refresh** the token via `POST /auth/refresh` (uses HttpOnly cookie)
+5. **Logout** via `POST /auth/logout` to revoke all tokens
 
 ### Token Details
 - **Access Token**: Valid for 15 minutes, sent in response body
@@ -74,7 +74,7 @@ All endpoints (except `/auth/register` and `/auth/login`) require authentication
 
 ## Authentication Routes
 
-### POST `/api/auth/register`
+### POST `/auth/register`
 
 **Register a new user**
 
@@ -106,7 +106,7 @@ No authentication required. Rate limited to 10 requests per hour.
 
 ---
 
-### POST `/api/auth/login`
+### POST `/auth/login`
 
 **Login with email and password**
 
@@ -141,7 +141,7 @@ No authentication required. Rate limited to 5 requests per minute.
 
 ---
 
-### POST `/api/auth/refresh`
+### POST `/auth/refresh`
 
 **Refresh access token**
 
@@ -163,7 +163,7 @@ Uses the `refresh_token` from HttpOnly cookie. Rate limited to 10 requests per m
 
 ---
 
-### POST `/api/auth/logout`
+### POST `/auth/logout`
 
 **Logout current user**
 
@@ -180,7 +180,7 @@ Revokes all refresh tokens and clears the cookie.
 
 ---
 
-### GET `/api/auth/me`
+### GET `/auth/me`
 
 **Get current user information**
 
@@ -205,7 +205,7 @@ Revokes all refresh tokens and clears the cookie.
 
 All bank routes require authentication (🔒).
 
-### GET `/api/bank/accounts`
+### GET `/bank/accounts`
 
 **Get all bank accounts**
 
@@ -219,7 +219,7 @@ Returns all bank accounts for the current user with total balance.
 
 ---
 
-### POST `/api/bank/accounts`
+### POST `/bank/accounts`
 
 **Create a bank account**
 
@@ -251,7 +251,7 @@ Returns all bank accounts for the current user with total balance.
 
 ---
 
-### GET `/api/bank/accounts/{account_id}`
+### GET `/bank/accounts/{account_id}`
 
 **Get a specific bank account**
 
@@ -265,7 +265,7 @@ Returns all bank accounts for the current user with total balance.
 
 ---
 
-### PUT `/api/bank/accounts/{account_id}`
+### PUT `/bank/accounts/{account_id}`
 
 **Update a bank account**
 
@@ -290,7 +290,7 @@ Returns all bank accounts for the current user with total balance.
 
 ---
 
-### DELETE `/api/bank/accounts/{account_id}`
+### DELETE `/bank/accounts/{account_id}`
 
 **Delete a bank account**
 
@@ -308,7 +308,7 @@ Returns all bank accounts for the current user with total balance.
 
 All cashflow routes require authentication (🔒).
 
-### GET `/api/cashflow`
+### GET `/cashflow`
 
 **Get all cashflows**
 
@@ -322,7 +322,7 @@ Returns all cashflow entries for the current user.
 
 ---
 
-### POST `/api/cashflow`
+### POST `/cashflow`
 
 **Create a cashflow**
 
@@ -356,7 +356,7 @@ Returns all cashflow entries for the current user.
 
 ---
 
-### GET `/api/cashflow/{cashflow_id}`
+### GET `/cashflow/{cashflow_id}`
 
 **Get a specific cashflow**
 
@@ -370,7 +370,7 @@ Returns all cashflow entries for the current user.
 
 ---
 
-### PUT `/api/cashflow/{cashflow_id}`
+### PUT `/cashflow/{cashflow_id}`
 
 **Update a cashflow**
 
@@ -395,7 +395,7 @@ Returns all cashflow entries for the current user.
 
 ---
 
-### DELETE `/api/cashflow/{cashflow_id}`
+### DELETE `/cashflow/{cashflow_id}`
 
 **Delete a cashflow**
 
@@ -409,7 +409,7 @@ Returns all cashflow entries for the current user.
 
 ---
 
-### GET `/api/cashflow/me/inflows`
+### GET `/cashflow/me/inflows`
 
 **Get my inflows**
 
@@ -423,7 +423,7 @@ Returns all income/inflows for the current user, grouped by category.
 
 ---
 
-### GET `/api/cashflow/me/outflows`
+### GET `/cashflow/me/outflows`
 
 **Get my outflows**
 
@@ -437,7 +437,7 @@ Returns all expenses/outflows for the current user, grouped by category.
 
 ---
 
-### GET `/api/cashflow/me/balance`
+### GET `/cashflow/me/balance`
 
 **Get my cashflow balance**
 
@@ -462,7 +462,7 @@ Returns complete cashflow balance for the current user.
 
 All stock routes require authentication (🔒).
 
-### GET `/api/stocks/accounts`
+### GET `/stocks/accounts`
 
 **List stock accounts**
 
@@ -476,7 +476,7 @@ Returns all stock accounts for the current user (basic info).
 
 ---
 
-### POST `/api/stocks/accounts`
+### POST `/stocks/accounts`
 
 **Create a stock account**
 
@@ -506,7 +506,7 @@ Returns all stock accounts for the current user (basic info).
 
 ---
 
-### GET `/api/stocks/accounts/{account_id}`
+### GET `/stocks/accounts/{account_id}`
 
 **Get a stock account with positions**
 
@@ -522,7 +522,7 @@ Returns detailed account info with all positions and calculated values.
 
 ---
 
-### PUT `/api/stocks/accounts/{account_id}`
+### PUT `/stocks/accounts/{account_id}`
 
 **Update a stock account**
 
@@ -545,7 +545,7 @@ Returns detailed account info with all positions and calculated values.
 
 ---
 
-### DELETE `/api/stocks/accounts/{account_id}`
+### DELETE `/stocks/accounts/{account_id}`
 
 **Delete a stock account**
 
@@ -561,7 +561,7 @@ Deletes the account and all its transactions.
 
 ---
 
-### GET `/api/stocks/transactions`
+### GET `/stocks/transactions`
 
 **List stock transactions**
 
@@ -575,7 +575,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### POST `/api/stocks/transactions`
+### POST `/stocks/transactions`
 
 **Create a stock transaction**
 
@@ -615,7 +615,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### GET `/api/stocks/transactions/{transaction_id}`
+### GET `/stocks/transactions/{transaction_id}`
 
 **Get a stock transaction**
 
@@ -629,7 +629,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### PUT `/api/stocks/transactions/{transaction_id}`
+### PUT `/stocks/transactions/{transaction_id}`
 
 **Update a stock transaction**
 
@@ -643,7 +643,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### DELETE `/api/stocks/transactions/{transaction_id}`
+### DELETE `/stocks/transactions/{transaction_id}`
 
 **Delete a stock transaction**
 
@@ -657,7 +657,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### GET `/api/stocks/transactions/account/{account_id}`
+### GET `/stocks/transactions/account/{account_id}`
 
 **Get transactions for an account**
 
@@ -677,7 +677,7 @@ Returns all transactions for a specific account.
 
 All crypto routes require authentication (🔒).
 
-### GET `/api/crypto/accounts`
+### GET `/crypto/accounts`
 
 **List crypto accounts**
 
@@ -691,7 +691,7 @@ Returns all crypto accounts for the current user (basic info).
 
 ---
 
-### POST `/api/crypto/accounts`
+### POST `/crypto/accounts`
 
 **Create a crypto account**
 
@@ -719,7 +719,7 @@ Returns all crypto accounts for the current user (basic info).
 
 ---
 
-### GET `/api/crypto/accounts/{account_id}`
+### GET `/crypto/accounts/{account_id}`
 
 **Get a crypto account with positions**
 
@@ -735,7 +735,7 @@ Returns detailed account info with all positions and calculated values.
 
 ---
 
-### PUT `/api/crypto/accounts/{account_id}`
+### PUT `/crypto/accounts/{account_id}`
 
 **Update a crypto account**
 
@@ -749,7 +749,7 @@ Returns detailed account info with all positions and calculated values.
 
 ---
 
-### DELETE `/api/crypto/accounts/{account_id}`
+### DELETE `/crypto/accounts/{account_id}`
 
 **Delete a crypto account**
 
@@ -765,7 +765,7 @@ Deletes the account and all its transactions.
 
 ---
 
-### GET `/api/crypto/transactions`
+### GET `/crypto/transactions`
 
 **List crypto transactions**
 
@@ -779,7 +779,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### POST `/api/crypto/transactions`
+### POST `/crypto/transactions`
 
 **Create a crypto transaction**
 
@@ -819,7 +819,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### GET `/api/crypto/transactions/{transaction_id}`
+### GET `/crypto/transactions/{transaction_id}`
 
 **Get a crypto transaction**
 
@@ -833,7 +833,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### PUT `/api/crypto/transactions/{transaction_id}`
+### PUT `/crypto/transactions/{transaction_id}`
 
 **Update a crypto transaction**
 
@@ -847,7 +847,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### DELETE `/api/crypto/transactions/{transaction_id}`
+### DELETE `/crypto/transactions/{transaction_id}`
 
 **Delete a crypto transaction**
 
@@ -861,7 +861,7 @@ Returns all transactions for the current user's accounts.
 
 ---
 
-### GET `/api/crypto/transactions/account/{account_id}`
+### GET `/crypto/transactions/account/{account_id}`
 
 **Get transactions for an account**
 
@@ -881,7 +881,7 @@ Returns all transactions for a specific crypto account.
 
 All notes routes require authentication (🔒).
 
-### GET `/api/notes`
+### GET `/notes`
 
 **Get all notes**
 
@@ -895,7 +895,7 @@ Returns all notes for the current user.
 
 ---
 
-### POST `/api/notes`
+### POST `/notes`
 
 **Create a note**
 
@@ -921,7 +921,7 @@ Returns all notes for the current user.
 
 ---
 
-### GET `/api/notes/{note_id}`
+### GET `/notes/{note_id}`
 
 **Get a specific note**
 
@@ -935,7 +935,7 @@ Returns all notes for the current user.
 
 ---
 
-### PUT `/api/notes/{note_id}`
+### PUT `/notes/{note_id}`
 
 **Update a note**
 
@@ -957,7 +957,7 @@ Returns all notes for the current user.
 
 ---
 
-### DELETE `/api/notes/{note_id}`
+### DELETE `/notes/{note_id}`
 
 **Delete a note**
 
@@ -973,7 +973,7 @@ Returns all notes for the current user.
 
 ## Dashboard
 
-### GET `/api/dashboard/portfolio`
+### GET `/dashboard/portfolio`
 
 **Get my portfolio**
 

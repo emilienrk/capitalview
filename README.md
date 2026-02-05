@@ -2,6 +2,8 @@
 
 > Personal wealth management and investment tracking application
 
+**URL**: [https://capitalview.emilien.roukine.com](https://capitalview.emilien.roukine.com)
+
 ## Overview
 
 CapitalView allows users to:
@@ -35,15 +37,12 @@ CapitalView allows users to:
 
 ```
 capitalView/
-├── backend/
-│   ├── main.py              # FastAPI app
-│   ├── models/              # Database models
-│   ├── routes/              # API endpoints
-│   ├── services/            # Business logic
-│   └── schemas/             # Pydantic schemas
-├── frontend/                # Vue.js (WIP)
-├── docs.md              # Full API documentation
-└── docker-compose.yaml
+├── .env                    # Environment variables (Root)
+├── backend/                # FastAPI backend
+├── frontend/               # Vue.js 3 frontend
+├── docs/                   # Detailed documentation
+├── docker-compose.yaml     # Development environment
+└── docker-compose.prod.yaml # Production environment
 ```
 
 ## Getting Started
@@ -59,13 +58,12 @@ capitalView/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd capitalView
+   cd capitalview
    ```
 
 2. **Set up environment variables**
    ```bash
-   cd backend
-   cp .env.example .env
+   cp backend/.env.example .env
    # Edit .env with your configuration
    ```
 
@@ -79,7 +77,10 @@ capitalView/
 **Run migrations**:
 ```bash
 cd backend
+# Using uv (recommended)
 uv run alembic upgrade head
+# Or standard pip
+# alembic upgrade head
 ```
 
 ### Development
@@ -101,7 +102,7 @@ uv run alembic revision --autogenerate -m "Description"
 uv run alembic upgrade head
 ```
 
-### Frontend *(WIP)*
+#### Frontend
 
 ```bash
 cd frontend
@@ -114,7 +115,7 @@ npm run dev
 Complete API documentation is available at:
 - **Interactive docs**: http://localhost:8000/docs (Swagger UI)
 - **ReDoc**: http://localhost:8000/redoc
-- **Markdown**: [docs.md](docs.md)
+- **Markdown**: [docs/API.md](docs/API.md)
 
 ### Main Endpoints
 
