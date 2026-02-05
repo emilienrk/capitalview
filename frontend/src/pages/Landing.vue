@@ -69,7 +69,8 @@ function addIdea() {
     <!-- Header / Nav -->
     <nav class="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center transition-all duration-300" :class="{ 'bg-background/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-surface-border dark:border-surface-dark-border': showNavLogo }">
       <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
-        <div class="font-bold text-xl tracking-tight text-primary transition-opacity duration-300" :class="showNavLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+        <div class="flex items-center gap-2 font-bold text-xl tracking-tight text-primary transition-opacity duration-300" :class="showNavLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+          <img src="/capitalview.svg" alt="CapitalView Logo" class="w-6 h-6" />
           CapitalView
         </div>
         <div class="flex items-center gap-4">

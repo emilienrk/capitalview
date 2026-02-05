@@ -58,9 +58,8 @@ class ApiClient {
           const data = await refreshResponse.json()
           const newAccessToken = data.access_token
 
-          // Update token
+          // Update token in memory only
           this.setToken(newAccessToken)
-          localStorage.setItem('access_token', newAccessToken)
           
           // Update Authorization header for retry
           ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
@@ -74,7 +73,6 @@ class ApiClient {
         } else {
           // Refresh failed -> Force logout
           this.setToken(null)
-          localStorage.removeItem('access_token')
           window.location.href = '/login'
           throw new Error('Session expired')
         }

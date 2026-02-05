@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const username = ref('')
 const password = ref('')
@@ -10,6 +10,7 @@ const isLoading = ref(false)
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 async function handleLogin() {
   error.value = ''
@@ -17,7 +18,8 @@ async function handleLogin() {
   try {
     const success = await auth.login({ email: username.value, password: password.value })
     if (success) {
-      router.push('/dashboard')
+      const redirect = (route.query.redirect as string) || '/dashboard'
+      router.push(redirect)
     } else {
       error.value = 'Identifiants invalides'
     }
@@ -36,11 +38,7 @@ async function handleLogin() {
       
       <!-- Header Section -->
       <div class="text-center mb-10">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-primary bg-primary/10 text-primary mb-4">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        </div>
+        <img src="/capitalview.svg" alt="CapitalView Logo" class="w-16 h-16 mx-auto mb-4" />
         <h1 class="text-3xl font-bold text-text-main dark:text-text-dark-main tracking-tight">Bienvenue</h1>
         <p class="text-text-muted dark:text-text-dark-muted mt-2">Connectez-vous à votre espace CapitalView</p>
       </div>
@@ -114,7 +112,16 @@ async function handleLogin() {
       </form>
 
       <!-- Footer Branding -->
-      <div class="mt-8 text-center">
+      <div class="mt-6 text-center">
+        <p class="text-sm text-text-muted dark:text-text-dark-muted">
+          Pas encore de compte ?
+          <router-link to="/register" class="text-primary hover:text-primary-hover font-semibold transition-colors">
+            Créer un compte
+          </router-link>
+        </p>
+      </div>
+
+      <div class="mt-4 text-center">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
           CapitalView &copy; 2026 — Sécurisé par chiffrement AES-256
         </p>

@@ -6,7 +6,7 @@ import type { User, TokenResponse, LoginRequest, RegisterRequest } from '@/types
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
-  const accessToken = ref<string | null>(localStorage.getItem('access_token'))
+  const accessToken = ref<string | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -25,8 +25,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!accessToken.value)
 
-  if (accessToken.value) {
-    apiClient.setToken(accessToken.value)
+  // On startup, try silent refresh to restore session from HttpOnly cookie
+  async function initAuth(): Promise<void> {
+    try {
+      const response = await apiClient.post<TokenResponse>('/auth/refresh')
+      accessToken.value = response.access_token
+      apiClient.setToken(response.access_token)
+      await fetchUser()
+    } catch {
+      // No valid refresh cookie — user is not logged in
+      accessToken.value = null
+      apiClient.setToken(null)
+    }
   }
 
   function toggleMode() {
@@ -52,7 +62,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await apiClient.post<TokenResponse>('/auth/login', creds)
       accessToken.value = response.access_token
-      localStorage.setItem('access_token', response.access_token)
       apiClient.setToken(response.access_token)
       await fetchUser()
       resetForms()
@@ -120,7 +129,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await apiClient.post<TokenResponse>('/auth/refresh')
       accessToken.value = response.access_token
-      localStorage.setItem('access_token', response.access_token)
       apiClient.setToken(response.access_token)
       return true
     } catch {
@@ -137,7 +145,6 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       accessToken.value = null
       user.value = null
-      localStorage.removeItem('access_token')
       apiClient.setToken(null)
     }
   }
@@ -159,5 +166,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     refreshToken,
     logout,
+    initAuth,
   }
 })
