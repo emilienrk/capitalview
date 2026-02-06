@@ -13,8 +13,4 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// Restore session from HttpOnly refresh cookie (no localStorage)
-const auth = useAuthStore()
-auth.initAuth().finally(() => {
-  app.mount('#app')
-})
+app.mount('#app')

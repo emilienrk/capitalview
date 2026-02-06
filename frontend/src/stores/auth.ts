@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/client'
 import type { User, TokenResponse, LoginRequest, RegisterRequest } from '@/types'
@@ -9,39 +9,23 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const isAuthenticated = ref(false)
+  const isInitialized = ref(false)
 
-  const loginForm = ref({
-    email: '',
-    password: '',
-  })
-
-  const registerForm = ref({
-    username: '',
-    email: '',
-    password: '',
-  })
-
+  const loginForm = ref({ email: '', password: '' })
+  const registerForm = ref({ username: '', email: '', password: '' })
   const isRegisterMode = ref(false)
 
-  const isAuthenticated = computed(() => !!accessToken.value)
 
-  // On startup, try silent refresh to restore session from HttpOnly cookie
-  async function initAuth(): Promise<void> {
-    try {
-      const response = await apiClient.post<TokenResponse>('/auth/refresh')
-      accessToken.value = response.access_token
-      apiClient.setToken(response.access_token)
-      await fetchUser()
-    } catch {
-      // No valid refresh cookie — user is not logged in
-      accessToken.value = null
-      apiClient.setToken(null)
-    }
+  function setToken(token: string | null) {
+    accessToken.value = token
+    apiClient.setToken(token)
   }
 
-  function toggleMode() {
-    isRegisterMode.value = !isRegisterMode.value
-    error.value = null
+  function clearSession() {
+    accessToken.value = null
+    user.value = null
+    apiClient.setToken(null)
   }
 
   function resetForms() {
@@ -61,10 +45,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const response = await apiClient.post<TokenResponse>('/auth/login', creds)
-      accessToken.value = response.access_token
-      apiClient.setToken(response.access_token)
-      await fetchUser()
+      setToken(response.access_token)
+      user.value = await apiClient.get<User>('/auth/me')
       resetForms()
+      isAuthenticated.value = true
       return true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Login failed'
@@ -85,7 +69,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      await apiClient.post('/auth/register', registerData)
+      const response = await apiClient.post<TokenResponse>('/auth/register', registerData)
+      setToken(response.access_token)
+      isAuthenticated.value = true
       return true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Registration failed'
@@ -99,7 +85,6 @@ export const useAuthStore = defineStore('auth', () => {
     if (isRegisterMode.value) {
       const success = await register()
       if (success) {
-        // Auto-login after registration
         await login({
           email: registerForm.value.email,
           password: registerForm.value.password,
@@ -114,38 +99,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function fetchUser(): Promise<void> {
-    if (!accessToken.value) return
-
-    try {
-      user.value = await apiClient.get<User>('/auth/me')
-    } catch (e) {
-      // Token might be expired
-      logout()
-    }
-  }
-
   async function refreshToken(): Promise<boolean> {
     try {
       const response = await apiClient.post<TokenResponse>('/auth/refresh')
-      accessToken.value = response.access_token
-      apiClient.setToken(response.access_token)
+      setToken(response.access_token)
       return true
     } catch {
-      logout()
+      clearSession()
       return false
+    }
+  }
+
+  async function checkAuth(): Promise<void> {
+    try {
+      const response = await apiClient.post<TokenResponse>('/auth/refresh')
+      setToken(response.access_token)
+      user.value = await apiClient.get<User>('/auth/me')
+      isAuthenticated.value = true
+    } catch {
+      clearSession()
+      isAuthenticated.value = false
+    } finally {
+      isInitialized.value = true
     }
   }
 
   async function logout(): Promise<void> {
     try {
       await apiClient.post('/auth/logout')
-    } catch {
-      // Ignore errors on logout
+    } catch (e) {
+      console.error('Logout error:', e)
     } finally {
-      accessToken.value = null
-      user.value = null
-      apiClient.setToken(null)
+      clearSession()
     }
   }
 
@@ -158,14 +143,13 @@ export const useAuthStore = defineStore('auth', () => {
     loginForm,
     registerForm,
     isRegisterMode,
-    toggleMode,
+    isInitialized,
     resetForms,
     login,
     register,
     submitForm,
-    fetchUser,
     refreshToken,
-    logout,
-    initAuth,
+    checkAuth,
+    logout
   }
 })

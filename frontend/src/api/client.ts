@@ -10,8 +10,6 @@ const getApiBaseUrl = (): string => {
     return 'http://localhost:8000'
   }
 
-  // Production: use api. subdomain (no port)
-  // capitalview.example.com → api.capitalview.example.com
   return `${protocol}//api.${hostname}`
 }
 
@@ -61,9 +59,9 @@ class ApiClient {
           const data = await refreshResponse.json()
           const newAccessToken = data.access_token
 
-          // Update token in memory only
+          // Update token in memory
           this.setToken(newAccessToken)
-          
+
           // Update Authorization header for retry
           ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
 

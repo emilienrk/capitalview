@@ -41,7 +41,9 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 
 \`\`\`json
 {
-  "message": "User registered successfully"
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 900
 }
 \`\`\`
 
