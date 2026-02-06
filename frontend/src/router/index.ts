@@ -4,13 +4,12 @@ import { useAuthStore } from '@/stores/auth'
 import Dashboard from '@/pages/Dashboard.vue'
 import Landing from '@/pages/Landing.vue'
 import Login from '@/pages/Login.vue'
-import ThemeTest from '@/pages/ThemeTest.vue'
-import Pea from '@/pages/Pea.vue'
-import CompteTitre from '@/pages/CompteTitre.vue'
-import CompteCourant from '@/pages/CompteCourant.vue'
-import Patrimoine from '@/pages/Patrimoine.vue'
+import StockMarket from '@/pages/StockMarket.vue'
+import Cashflow from '@/pages/Cashflow.vue'
+import BankAccounts from '@/pages/BankAccounts.vue'
+import Wealth from '@/pages/Wealth.vue'
 import Crypto from '@/pages/Crypto.vue'
-import AutresInvestissements from '@/pages/AutresInvestissements.vue'
+import OtherInvestments from '@/pages/OtherInvestments.vue'
 import Notes from '@/pages/Notes.vue'
 import Settings from '@/pages/Settings.vue'
 import Register from '@/pages/Register.vue'
@@ -41,34 +40,28 @@ const routes = [
     meta: { requiresAuth: false, layout: 'blank' },
   },
   {
-    path: '/theme-test',
-    name: 'theme-test',
-    component: ThemeTest,
-    meta: { requiresAuth: false, layout: 'blank' },
-  },
-  {
-    path: '/compte-courant',
-    name: 'compte-courant',
-    component: CompteCourant,
+    path: '/bank-accounts',
+    name: 'bank-accounts',
+    component: BankAccounts,
     meta: { requiresAuth: true },
   },
   {
-    path: '/pea',
-    name: 'pea',
-    component: Pea,
+    path: '/cashflow',
+    name: 'cashflow',
+    component: Cashflow,
     meta: { requiresAuth: true },
   },
   {
-    path: '/compte-titre',
-    name: 'compte-titre',
-    component: CompteTitre,
+    path: '/stock-market',
+    name: 'stock-market',
+    component: StockMarket,
     meta: { requiresAuth: true },
   },
 
   {
-    path: '/patrimoine',
-    name: 'patrimoine',
-    component: Patrimoine,
+    path: '/wealth',
+    name: 'wealth',
+    component: Wealth,
     meta: { requiresAuth: true },
   },
   {
@@ -78,9 +71,9 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/autres-investissements',
-    name: 'autres-investissements',
-    component: AutresInvestissements,
+    path: '/other-investments',
+    name: 'other-investments',
+    component: OtherInvestments,
     meta: { requiresAuth: true },
   },
   {

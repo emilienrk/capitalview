@@ -26,18 +26,18 @@ const navItems: NavItem[] = [
   },
   {
     label: 'Compte Courant',
-    to: '/compte-courant',
+    to: '/bank-accounts',
     icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
   },
   {
-    label: 'PEA',
-    to: '/pea',
-    icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
+    label: 'Cashflow',
+    to: '/cashflow',
+    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
-    label: 'Compte Titre',
-    to: '/compte-titre',
-    icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+    label: 'Bourse',
+    to: '/stock-market',
+    icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
   },
   {
     label: 'Crypto',
@@ -46,7 +46,7 @@ const navItems: NavItem[] = [
   },
   {
     label: 'Patrimoine',
-    to: '/patrimoine',
+    to: '/wealth',
     icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
   },
   {
@@ -92,18 +92,18 @@ async function handleLogout(): Promise<void> {
     <!-- ── Sidebar ───────────────────────────────────────── -->
     <aside
       :class="[
-        'fixed inset-y-0 left-0 z-40 w-sidebar flex flex-col bg-sidebar dark:bg-sidebar-dark border-r border-sidebar-border dark:border-sidebar-dark-border transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto',
+        'fixed inset-y-0 left-0 z-40 w-sidebar flex flex-col bg-sidebar dark:bg-sidebar-dark border-r border-sidebar-border dark:border-sidebar-dark-border transition-transform duration-200 lg:translate-x-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ]"
     >
       <!-- Brand -->
-      <div class="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border dark:border-sidebar-dark-border shrink-0">
+      <router-link to="/dashboard" class="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border dark:border-sidebar-dark-border shrink-0 cursor-pointer" @click="sidebarOpen = false">
         <img src="/capitalview.svg" alt="CapitalView Logo" class="w-8 h-8" />
         <span class="font-bold text-lg text-text-main dark:text-text-dark-main tracking-tight">CapitalView</span>
-      </div>
+      </router-link>
 
       <!-- Navigation -->
-      <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1 pb-32">
+      <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         <router-link
           v-for="item in navItems"
           :key="item.to"
@@ -124,7 +124,7 @@ async function handleLogout(): Promise<void> {
       </nav>
 
       <!-- Bottom section -->
-      <div class="absolute bottom-0 left-0 right-0 p-3 border-t border-sidebar-border dark:border-sidebar-dark-border bg-sidebar dark:bg-sidebar-dark space-y-1.5">
+      <div class="shrink-0 p-3 border-t border-sidebar-border dark:border-sidebar-dark-border bg-sidebar dark:bg-sidebar-dark space-y-1.5">
         <!-- Dark mode toggle -->
         <button
           @click="toggleDarkMode"
@@ -162,7 +162,7 @@ async function handleLogout(): Promise<void> {
     </aside>
 
     <!-- ── Main content ──────────────────────────────────── -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 lg:ml-sidebar">
       <!-- Mobile top bar -->
       <header class="lg:hidden flex items-center h-14 px-4 bg-surface dark:bg-surface-dark border-b border-surface-border dark:border-surface-dark-border sticky top-0 z-20">
         <button
@@ -177,7 +177,7 @@ async function handleLogout(): Promise<void> {
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 p-4 lg:p-8">
+      <main class="flex-1 overflow-y-auto p-4 lg:p-8">
         <div class="max-w-7xl mx-auto">
           <slot />
         </div>
