@@ -494,6 +494,87 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response**: `204 No Content`
 
+### Bulk Import Stock Transactions
+
+`POST /stocks/transactions/bulk` — Import multiple stock transactions at once for a given account.
+
+**Request Body**:
+
+```json
+{
+  "account_id": 1,
+  "transactions": [
+    {
+      "ticker": "CW8",
+      "exchange": "EPA",
+      "type": "BUY",
+      "amount": 2.0,
+      "price_per_unit": 500.00,
+      "fees": 5.00,
+      "executed_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "ticker": "EWLD",
+      "exchange": "EPA",
+      "type": "BUY",
+      "amount": 10.0,
+      "price_per_unit": 25.00,
+      "fees": 1.50,
+      "executed_at": "2026-01-16T09:00:00Z"
+    }
+  ]
+}
+```
+
+| Field                          | Type                       | Required | Default |
+| ------------------------------ | -------------------------- | -------- | ------- |
+| `account_id`                   | `integer`                  | Yes      | —       |
+| `transactions`                 | `StockTransactionBulkCreate[]` | Yes  | —       |
+| `transactions[].ticker`        | `string`                   | Yes      | —       |
+| `transactions[].exchange`      | `string \| null`           | No       | `null`  |
+| `transactions[].type`          | `StockTransactionType`     | Yes      | —       |
+| `transactions[].amount`        | `number`                   | Yes      | —       |
+| `transactions[].price_per_unit`| `number`                   | Yes      | —       |
+| `transactions[].fees`          | `number`                   | No       | `0`     |
+| `transactions[].executed_at`   | `string (ISO 8601)`        | Yes      | —       |
+
+**Response (201 Created)**:
+
+```json
+{
+  "imported_count": 2,
+  "transactions": [
+    {
+      "id": 10,
+      "account_id": 1,
+      "ticker": "CW8",
+      "exchange": "EPA",
+      "type": "BUY",
+      "amount": 2.0,
+      "price_per_unit": 500.00,
+      "fees": 5.00,
+      "executed_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "id": 11,
+      "account_id": 1,
+      "ticker": "EWLD",
+      "exchange": "EPA",
+      "type": "BUY",
+      "amount": 10.0,
+      "price_per_unit": 25.00,
+      "fees": 1.50,
+      "executed_at": "2026-01-16T09:00:00Z"
+    }
+  ]
+}
+```
+
+**Error cases**:
+- `400` — Empty transactions list or invalid transaction type
+- `403` — Account does not belong to the authenticated user
+- `404` — Account not found
+
 ---
 
 ## Crypto
@@ -620,6 +701,87 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 `DELETE /crypto/transactions/{id}` — Delete a crypto transaction.
 
 **Response**: `204 No Content`
+
+### Bulk Import Crypto Transactions
+
+`POST /crypto/transactions/bulk` — Import multiple crypto transactions at once for a given account.
+
+**Request Body**:
+
+```json
+{
+  "account_id": 1,
+  "transactions": [
+    {
+      "ticker": "BTC",
+      "type": "BUY",
+      "amount": 0.5,
+      "price_per_unit": 45000.00,
+      "fees": 25.00,
+      "fees_ticker": "EUR",
+      "executed_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "ticker": "ETH",
+      "type": "BUY",
+      "amount": 5.0,
+      "price_per_unit": 3200.00,
+      "fees": 0.002,
+      "fees_ticker": "ETH",
+      "executed_at": "2026-01-16T09:00:00Z"
+    }
+  ]
+}
+```
+
+| Field                          | Type                        | Required | Default |
+| ------------------------------ | --------------------------- | -------- | ------- |
+| `account_id`                   | `integer`                   | Yes      | —       |
+| `transactions`                 | `CryptoTransactionBulkCreate[]` | Yes  | —       |
+| `transactions[].ticker`        | `string`                    | Yes      | —       |
+| `transactions[].type`          | `CryptoTransactionType`     | Yes      | —       |
+| `transactions[].amount`        | `number`                    | Yes      | —       |
+| `transactions[].price_per_unit`| `number`                    | Yes      | —       |
+| `transactions[].fees`          | `number`                    | No       | `0`     |
+| `transactions[].fees_ticker`   | `string \| null`            | No       | `null`  |
+| `transactions[].executed_at`   | `string (ISO 8601)`         | Yes      | —       |
+
+**Response (201 Created)**:
+
+```json
+{
+  "imported_count": 2,
+  "transactions": [
+    {
+      "id": 10,
+      "account_id": 1,
+      "ticker": "BTC",
+      "type": "BUY",
+      "amount": 0.5,
+      "price_per_unit": 45000.00,
+      "fees": 25.00,
+      "fees_ticker": "EUR",
+      "executed_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "id": 11,
+      "account_id": 1,
+      "ticker": "ETH",
+      "type": "BUY",
+      "amount": 5.0,
+      "price_per_unit": 3200.00,
+      "fees": 0.002,
+      "fees_ticker": "ETH",
+      "executed_at": "2026-01-16T09:00:00Z"
+    }
+  ]
+}
+```
+
+**Error cases**:
+- `400` — Empty transactions list or invalid transaction type
+- `403` — Account does not belong to the authenticated user
+- `404` — Account not found
 
 ---
 
