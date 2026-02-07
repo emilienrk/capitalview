@@ -303,9 +303,10 @@ onMounted(() => {
               <span class="text-xs text-text-muted dark:text-text-dark-muted">Créé le {{ formatDate(account.created_at) }}</span>
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0 ml-4">
+          <div class="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
-              + Transaction
+              <span class="sm:hidden text-lg leading-none">+</span>
+              <span class="hidden sm:inline">+ Transaction</span>
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,20 +346,22 @@ onMounted(() => {
           </div>
 
           <!-- Tabs -->
-          <div class="flex items-center gap-2 mb-4">
-            <button
-              v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
-              :key="tab.key"
-              @click="activeDetailTab = tab.key as any"
-              :class="[
-                'px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200',
-                activeDetailTab === tab.key
-                  ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light'
-                  : 'text-text-muted dark:text-text-dark-muted hover:bg-background-subtle dark:hover:bg-surface-dark-hover hover:text-text-main dark:hover:text-text-dark-main',
-              ]"
-            >
-              {{ tab.label }}
-            </button>
+          <div class="mb-6">
+            <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
+              <button
+                v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
+                :key="tab.key"
+                @click="activeDetailTab = tab.key as any"
+                :class="[
+                  'px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                  activeDetailTab === tab.key
+                    ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
           </div>
 
           <!-- Positions table -->
