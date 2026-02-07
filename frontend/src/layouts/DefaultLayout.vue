@@ -72,7 +72,7 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-background dark:bg-background-dark">
+  <div class="min-h-dvh flex bg-background dark:bg-background-dark">
     <!-- ── Mobile overlay ────────────────────────────────── -->
     <Transition
       enter-active-class="transition-opacity duration-200"
@@ -93,6 +93,7 @@ async function handleLogout(): Promise<void> {
     <aside
       :class="[
         'fixed inset-y-0 left-0 z-40 w-sidebar flex flex-col bg-sidebar dark:bg-sidebar-dark border-r border-sidebar-border dark:border-sidebar-dark-border transition-transform duration-200 lg:translate-x-0',
+        'h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ]"
     >
@@ -164,7 +165,7 @@ async function handleLogout(): Promise<void> {
     <!-- ── Main content ──────────────────────────────────── -->
     <div class="flex-1 flex flex-col min-w-0 lg:ml-sidebar">
       <!-- Mobile top bar -->
-      <header class="lg:hidden flex items-center h-14 px-4 bg-surface dark:bg-surface-dark border-b border-surface-border dark:border-surface-dark-border sticky top-0 z-20">
+      <header class="lg:hidden flex items-center h-14 px-4 pt-[env(safe-area-inset-top)] bg-surface dark:bg-surface-dark border-b border-surface-border dark:border-surface-dark-border sticky top-0 z-20">
         <button
           @click="sidebarOpen = true"
           class="p-2 -ml-2 rounded-secondary text-text-muted dark:text-text-dark-muted hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
