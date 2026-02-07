@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
@@ -11,6 +11,17 @@ const route = useRoute()
 const { isDark, toggleDarkMode } = useDarkMode()
 
 const sidebarOpen = ref(false)
+
+// Prevent body scroll when sidebar is open on mobile
+watch(sidebarOpen, (isOpen) => {
+  if (isOpen) {
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+    document.documentElement.style.overflow = ''
+  }
+})
 
 interface NavItem {
   label: string
@@ -84,7 +95,8 @@ async function handleLogout(): Promise<void> {
     >
       <div
         v-if="sidebarOpen"
-        class="fixed inset-0 z-30 bg-black/30 lg:hidden"
+        class="fixed z-30 bg-black/30 lg:hidden"
+        style="top: -200vh; left: 0; right: 0; bottom: -200vh; height: 500vh;"
         @click="sidebarOpen = false"
       />
     </Transition>
@@ -92,10 +104,10 @@ async function handleLogout(): Promise<void> {
     <!-- ── Sidebar ───────────────────────────────────────── -->
     <aside
       :class="[
-        'fixed inset-y-0 left-0 z-40 w-sidebar flex flex-col bg-sidebar dark:bg-sidebar-dark border-r border-sidebar-border dark:border-sidebar-dark-border transition-transform duration-200 lg:translate-x-0',
-        'h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
+        'fixed left-0 z-40 w-sidebar flex flex-col bg-sidebar dark:bg-sidebar-dark border-r border-sidebar-border dark:border-sidebar-dark-border transition-transform duration-200 lg:translate-x-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ]"
+      style="top: 0; height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);"
     >
       <!-- Brand -->
       <router-link to="/dashboard" class="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border dark:border-sidebar-dark-border shrink-0 cursor-pointer" @click="sidebarOpen = false">
