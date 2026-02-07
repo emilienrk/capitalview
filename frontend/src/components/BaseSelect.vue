@@ -2,6 +2,7 @@
 export interface SelectOption {
   label: string
   value: string | number
+  disabled?: boolean
 }
 
 interface Props {
@@ -62,6 +63,7 @@ function onChange(event: Event): void {
         v-for="option in props.options"
         :key="option.value"
         :value="option.value"
+        :disabled="option.disabled"
       >
         {{ option.label }}
       </option>

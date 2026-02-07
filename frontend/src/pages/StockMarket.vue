@@ -7,7 +7,7 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard,
 } from '@/components'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType } from '@/types'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse } from '@/types'
 
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
@@ -19,6 +19,10 @@ const showDeleteModal = ref(false)
 const deleteTarget = ref<{ type: 'account' | 'transaction'; id: number; label: string } | null>(null)
 const selectedAccountId = ref<number | null>(null)
 const activeFilter = ref<'all' | 'PEA' | 'CTO' | 'PEA_PME'>('all')
+const accountTransactions = ref<TransactionResponse[]>([])
+const activeDetailTab = ref<'positions' | 'history'>('positions')
+const editingTxId = ref<number | null>(null)
+const editingAccountId = ref<number | null>(null)
 
 const accountForm = reactive<StockAccountCreate>({
   name: '',
@@ -58,17 +62,17 @@ const hasPea = computed(() =>
   stocks.accounts.some((a) => a.account_type === 'PEA'),
 )
 
-/** Available account types for creation — PEA only if none exists yet */
-const availableAccountTypes = computed(() => {
-  const types = [
-    { label: 'Compte-Titres (CTO)', value: 'CTO' },
-    { label: 'PEA-PME', value: 'PEA_PME' },
-  ]
-  if (!hasPea.value) {
-    types.unshift({ label: 'PEA', value: 'PEA' })
-  }
-  return types
-})
+/** Check if user already has a PEA-PME account */
+const hasPeaPme = computed(() =>
+  stocks.accounts.some((a) => a.account_type === 'PEA_PME'),
+)
+
+/** Available account types for creation */
+const availableAccountTypes = computed(() => [
+  { label: 'Compte-Titres (CTO)', value: 'CTO' },
+  { label: 'PEA', value: 'PEA', disabled: hasPea.value },
+  { label: 'PEA-PME', value: 'PEA_PME', disabled: hasPeaPme.value },
+])
 
 /** Filtered accounts based on active tab */
 const filteredAccounts = computed(() => {
@@ -92,6 +96,7 @@ const selectedAccountSummary = computed(() => stocks.currentAccount)
 
 // ── Actions ──────────────────────────────────────────────────
 function openCreateAccount(): void {
+  editingAccountId.value = null
   accountForm.name = ''
   // Default to CTO, or PEA if no PEA exists yet
   accountForm.account_type = hasPea.value ? 'CTO' : 'PEA'
@@ -99,12 +104,25 @@ function openCreateAccount(): void {
   showAccountModal.value = true
 }
 
-async function handleCreateAccount(): Promise<void> {
-  await stocks.createAccount({ ...accountForm })
+function openEditAccount(account: any): void {
+  editingAccountId.value = account.id
+  accountForm.name = account.name
+  accountForm.account_type = account.account_type
+  accountForm.bank_name = account.bank_name || ''
+  showAccountModal.value = true
+}
+
+async function handleSubmitAccount(): Promise<void> {
+  if (editingAccountId.value) {
+    await stocks.updateAccount(editingAccountId.value, { ...accountForm })
+  } else {
+    await stocks.createAccount({ ...accountForm })
+  }
   showAccountModal.value = false
 }
 
 function openAddTransaction(accountId: number): void {
+  editingTxId.value = null
   txForm.account_id = accountId
   txForm.ticker = ''
   txForm.exchange = ''
@@ -116,14 +134,49 @@ function openAddTransaction(accountId: number): void {
   showTxModal.value = true
 }
 
-async function handleCreateTransaction(): Promise<void> {
-  const tx = await stocks.createTransaction({ ...txForm })
-  if (tx) {
+function openEditTransaction(tx: any): void {
+  editingTxId.value = tx.id
+  txForm.account_id = tx.account_id || selectedAccountId.value!
+  txForm.ticker = tx.ticker
+  txForm.exchange = tx.exchange
+  txForm.type = tx.type
+  txForm.amount = tx.amount
+  txForm.price_per_unit = tx.price_per_unit
+  txForm.fees = tx.fees
+  txForm.executed_at = tx.executed_at.slice(0, 16)
+  showTxModal.value = true
+}
+
+async function handleSubmitTransaction(): Promise<void> {
+  if (editingTxId.value) {
+    await stocks.updateTransaction(editingTxId.value, { ...txForm })
+  } else {
+    await stocks.createTransaction({ ...txForm })
+  }
+  showTxModal.value = false
+  if (selectedAccountId.value) {
+    await Promise.all([
+      stocks.fetchAccount(selectedAccountId.value),
+      fetchAccountTransactions(selectedAccountId.value)
+    ])
+  }
+}
+
+async function deleteTransaction(id: number): Promise<void> {
+  if (confirm('Supprimer cette transaction ?')) {
+    await stocks.deleteTransaction(id)
     showTxModal.value = false
     if (selectedAccountId.value) {
-      await stocks.fetchAccount(selectedAccountId.value)
+      await Promise.all([
+        stocks.fetchAccount(selectedAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value)
+      ])
     }
   }
+}
+
+async function fetchAccountTransactions(id: number): Promise<void> {
+  accountTransactions.value = await stocks.fetchAccountTransactions(id)
 }
 
 async function selectAccount(id: number): Promise<void> {
@@ -134,7 +187,11 @@ async function selectAccount(id: number): Promise<void> {
     return
   }
   selectedAccountId.value = id
-  await stocks.fetchAccount(id)
+  activeDetailTab.value = 'positions'
+  await Promise.all([
+    stocks.fetchAccount(id),
+    fetchAccountTransactions(id)
+  ])
 }
 
 function confirmDeleteAccount(account: { id: number; name: string }): void {
@@ -152,9 +209,13 @@ async function handleDelete(): Promise<void> {
       stocks.currentAccount = null
     }
   } else {
+    // Legacy delete path via confirmation modal, if used
     await stocks.deleteTransaction(deleteTarget.value.id)
     if (selectedAccountId.value) {
-      await stocks.fetchAccount(selectedAccountId.value)
+      await Promise.all([
+        stocks.fetchAccount(selectedAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value)
+      ])
     }
   }
 
@@ -192,83 +253,26 @@ onMounted(() => {
       {{ stocks.error }}
     </BaseAlert>
 
-    <!-- ── Stats overview ───────────────────────────────── -->
-    <div v-if="stocks.accounts.length" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-      <BaseStatCard
-        label="Comptes PEA"
-        :value="String(accountCounts.PEA)"
-      >
-        <template #icon>
-          <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          </div>
-        </template>
-      </BaseStatCard>
-
-      <BaseStatCard
-        label="Comptes-Titres"
-        :value="String(accountCounts.CTO)"
-        sub-value="Illimité"
-        sub-value-class="text-text-muted dark:text-text-dark-muted"
-      >
-        <template #icon>
-          <div class="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-        </template>
-      </BaseStatCard>
-
-      <BaseStatCard
-        label="PEA-PME"
-        :value="String(accountCounts.PEA_PME)"
-        sub-value="Illimité"
-        sub-value-class="text-text-muted dark:text-text-dark-muted"
-      >
-        <template #icon>
-          <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-          </div>
-        </template>
-      </BaseStatCard>
-    </div>
-
     <!-- ── Filter tabs ──────────────────────────────────── -->
-    <div v-if="stocks.accounts.length" class="mb-6">
-      <div class="flex gap-1 p-1 rounded-button bg-background-subtle dark:bg-background-dark-subtle w-fit">
+    <div v-if="stocks.accounts.length" class="mb-6 border-b border-surface-border dark:border-surface-dark-border">
+      <div class="flex gap-6">
         <button
           v-for="tab in [
-            { key: 'all' as const, label: 'Tous', count: stocks.accounts.length },
-            { key: 'PEA' as const, label: 'PEA', count: accountCounts.PEA },
-            { key: 'CTO' as const, label: 'CTO', count: accountCounts.CTO },
-            { key: 'PEA_PME' as const, label: 'PEA-PME', count: accountCounts.PEA_PME },
+            { key: 'all' as const, label: 'Tous' },
+            { key: 'PEA' as const, label: 'PEA' },
+            { key: 'CTO' as const, label: 'CTO' },
+            { key: 'PEA_PME' as const, label: 'PEA-PME' },
           ]"
           :key="tab.key"
           @click="activeFilter = tab.key"
           :class="[
-            'px-4 py-2 text-sm font-medium rounded-button transition-all duration-150 flex items-center gap-2',
+            'pb-3 text-sm font-medium transition-all duration-150 border-b-2',
             activeFilter === tab.key
-              ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm'
-              : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main hover:border-surface-border dark:hover:border-surface-dark-border',
           ]"
         >
           {{ tab.label }}
-          <span
-            v-if="tab.count > 0"
-            :class="[
-              'text-xs font-bold px-1.5 py-0.5 rounded-full',
-              activeFilter === tab.key
-                ? 'bg-primary/10 text-primary'
-                : 'bg-background-subtle dark:bg-background-dark-subtle text-text-muted dark:text-text-dark-muted',
-            ]"
-          >
-            {{ tab.count }}
-          </span>
         </button>
       </div>
     </div>
@@ -303,9 +307,9 @@ onMounted(() => {
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
               + Transaction
             </BaseButton>
-            <BaseButton size="sm" variant="ghost" @click.stop="confirmDeleteAccount(account)">
-              <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </BaseButton>
           </div>
@@ -340,49 +344,110 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Positions table -->
-          <div v-if="selectedAccountSummary.positions?.length" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                  <th class="px-4 py-2">Ticker</th>
-                  <th class="px-4 py-2 text-right">Quantité</th>
-                  <th class="px-4 py-2 text-right">PRU</th>
-                  <th class="px-4 py-2 text-right">Investi</th>
-                  <th class="px-4 py-2 text-right">Cours</th>
-                  <th class="px-4 py-2 text-right">Valeur</th>
-                  <th class="px-4 py-2 text-right">P/L</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                <tr
-                  v-for="pos in selectedAccountSummary.positions"
-                  :key="pos.ticker"
-                  class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
-                >
-                  <td class="px-4 py-2.5">
-                    <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.ticker }}</span>
-                    <span v-if="pos.name" class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">{{ pos.name }}</span>
-                  </td>
-                  <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.current_price) }}</td>
-                  <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatCurrency(pos.current_value) }}</td>
-                  <td class="px-4 py-2.5 text-right">
-                    <span :class="['font-medium', profitLossClass(pos.profit_loss)]">
-                      {{ formatCurrency(pos.profit_loss) }}
-                    </span>
-                    <span :class="['block text-xs', profitLossClass(pos.profit_loss_percentage)]">
-                      {{ formatPercent(pos.profit_loss_percentage) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Tabs -->
+          <div class="flex items-center gap-2 mb-4">
+            <button
+              v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
+              :key="tab.key"
+              @click="activeDetailTab = tab.key as any"
+              :class="[
+                'px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200',
+                activeDetailTab === tab.key
+                  ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light'
+                  : 'text-text-muted dark:text-text-dark-muted hover:bg-background-subtle dark:hover:bg-surface-dark-hover hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >
+              {{ tab.label }}
+            </button>
           </div>
-          <div v-else class="py-6 text-center">
-            <p class="text-sm text-text-muted dark:text-text-dark-muted">Aucune position — ajoutez des transactions pour commencer</p>
+
+          <!-- Positions table -->
+          <div v-if="activeDetailTab === 'positions'">
+            <div v-if="selectedAccountSummary.positions?.length" class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                    <th class="px-4 py-2">Ticker</th>
+                    <th class="px-4 py-2 text-right">Quantité</th>
+                    <th class="px-4 py-2 text-right">PRU</th>
+                    <th class="px-4 py-2 text-right">Investi</th>
+                    <th class="px-4 py-2 text-right">Cours</th>
+                    <th class="px-4 py-2 text-right">Valeur</th>
+                    <th class="px-4 py-2 text-right">P/L</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                  <tr
+                    v-for="pos in selectedAccountSummary.positions"
+                    :key="pos.ticker"
+                    class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
+                  >
+                    <td class="px-4 py-2.5">
+                      <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.ticker }}</span>
+                      <span v-if="pos.name" class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">{{ pos.name }}</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.current_price) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatCurrency(pos.current_value) }}</td>
+                    <td class="px-4 py-2.5 text-right">
+                      <span :class="['font-medium', profitLossClass(pos.profit_loss)]">
+                        {{ formatCurrency(pos.profit_loss) }}
+                      </span>
+                      <span :class="['block text-xs', profitLossClass(pos.profit_loss_percentage)]">
+                        {{ formatPercent(pos.profit_loss_percentage) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="py-6 text-center">
+              <p class="text-sm text-text-muted dark:text-text-dark-muted">Aucune position — ajoutez des transactions pour commencer</p>
+            </div>
+          </div>
+
+          <!-- History Tab -->
+          <div v-else>
+            <div v-if="accountTransactions.length" class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                    <th class="px-4 py-2">Date</th>
+                    <th class="px-4 py-2">Type</th>
+                    <th class="px-4 py-2">Ticker</th>
+                    <th class="px-4 py-2 text-right">Quantité</th>
+                    <th class="px-4 py-2 text-right">Prix</th>
+                    <th class="px-4 py-2 text-right">Total</th>
+                    <th class="px-4 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                  <tr v-for="tx in accountTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
+                    <td class="px-4 py-2.5">
+                      <BaseBadge :variant="tx.type === 'BUY' || tx.type === 'DEPOSIT' ? 'success' : tx.type === 'SELL' ? 'danger' : 'info'">
+                        {{ tx.type }}
+                      </BaseBadge>
+                    </td>
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.ticker }}</td>
+                    <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 4) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
+                                    <td class="px-4 py-2.5 text-right">
+                                      <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </BaseButton>
+                                    </td>
+                    
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
           </div>
         </div>
 
@@ -423,8 +488,8 @@ onMounted(() => {
     </BaseEmptyState>
 
     <!-- ── Create Account Modal ─────────────────────────── -->
-    <BaseModal :open="showAccountModal" title="Nouveau compte bourse" @close="showAccountModal = false">
-      <form @submit.prevent="handleCreateAccount" class="space-y-4">
+    <BaseModal :open="showAccountModal" :title="editingAccountId ? 'Modifier le compte' : 'Nouveau compte bourse'" @close="showAccountModal = false">
+      <form @submit.prevent="handleSubmitAccount" class="space-y-4">
         <BaseSelect
           v-model="accountForm.account_type"
           label="Type de compte"
@@ -441,14 +506,24 @@ onMounted(() => {
         <BaseInput v-model="accountForm.bank_name!" label="Courtier / Banque" placeholder="Ex: Boursorama, Degiro..." />
       </form>
       <template #footer>
-        <BaseButton variant="ghost" @click="showAccountModal = false">Annuler</BaseButton>
-        <BaseButton :loading="stocks.isLoading" @click="handleCreateAccount">Créer</BaseButton>
+        <div class="flex justify-between w-full">
+          <BaseButton v-if="editingAccountId" variant="danger" @click="confirmDeleteAccount({ id: editingAccountId, name: accountForm.name })">
+            Supprimer
+          </BaseButton>
+          <div v-else></div> <!-- Spacer -->
+          <div class="flex gap-2">
+            <BaseButton variant="ghost" @click="showAccountModal = false">Annuler</BaseButton>
+            <BaseButton :loading="stocks.isLoading" @click="handleSubmitAccount">
+              {{ editingAccountId ? 'Enregistrer' : 'Créer' }}
+            </BaseButton>
+          </div>
+        </div>
       </template>
     </BaseModal>
 
-    <!-- ── Create Transaction Modal ─────────────────────── -->
-    <BaseModal :open="showTxModal" title="Nouvelle transaction" @close="showTxModal = false">
-      <form @submit.prevent="handleCreateTransaction" class="space-y-4">
+    <!-- ── Create/Edit Transaction Modal ─────────────────────── -->
+    <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction'" @close="showTxModal = false">
+      <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
         <BaseInput v-model="txForm.ticker" label="Ticker" placeholder="Ex: AAPL, MSFT, CW8.PA" required />
         <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
@@ -460,8 +535,18 @@ onMounted(() => {
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
       <template #footer>
-        <BaseButton variant="ghost" @click="showTxModal = false">Annuler</BaseButton>
-        <BaseButton :loading="stocks.isLoading" @click="handleCreateTransaction">Valider</BaseButton>
+        <div class="flex justify-between w-full">
+          <BaseButton v-if="editingTxId" variant="danger" @click="deleteTransaction(editingTxId)">
+            Supprimer
+          </BaseButton>
+          <div v-else></div> <!-- Spacer -->
+          <div class="flex gap-2">
+            <BaseButton variant="ghost" @click="showTxModal = false">Annuler</BaseButton>
+            <BaseButton :loading="stocks.isLoading" @click="handleSubmitTransaction">
+              {{ editingTxId ? 'Enregistrer' : 'Valider' }}
+            </BaseButton>
+          </div>
+        </div>
       </template>
     </BaseModal>
 

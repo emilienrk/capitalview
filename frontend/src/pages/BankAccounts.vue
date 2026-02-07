@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue'
+import { onMounted, ref, reactive, computed } from 'vue'
 import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
@@ -22,16 +22,23 @@ const form = reactive<BankAccountCreate>({
   balance: 0,
 })
 
-const accountTypeOptions = [
-  { label: 'Compte courant', value: 'CHECKING' },
-  { label: 'Épargne', value: 'SAVINGS' },
-  { label: 'Livret A', value: 'LIVRET_A' },
-  { label: 'LDDS', value: 'LIVRET_DEVE' },
-  { label: 'LEP', value: 'LEP' },
-  { label: 'LDD', value: 'LDD' },
-  { label: 'PEL', value: 'PEL' },
-  { label: 'CEL', value: 'CEL' },
-]
+const accountTypeOptions = computed(() => {
+  const existingTypes = new Set(bank.summary?.accounts?.map(a => a.account_type) || [])
+  
+  // Regulated accounts that should be unique per person
+  const uniqueTypes = new Set(['LIVRET_A', 'LIVRET_DEVE', 'LEP', 'LDD', 'PEL', 'CEL'])
+
+  return [
+    { label: 'Compte courant', value: 'CHECKING' },
+    { label: 'Épargne', value: 'SAVINGS' },
+    { label: 'Livret A', value: 'LIVRET_A', disabled: existingTypes.has('LIVRET_A') },
+    { label: 'LDDS', value: 'LIVRET_DEVE', disabled: existingTypes.has('LIVRET_DEVE') },
+    { label: 'LEP', value: 'LEP', disabled: existingTypes.has('LEP') },
+    { label: 'LDD', value: 'LDD', disabled: existingTypes.has('LDD') },
+    { label: 'PEL', value: 'PEL', disabled: existingTypes.has('PEL') },
+    { label: 'CEL', value: 'CEL', disabled: existingTypes.has('CEL') },
+  ]
+})
 
 function openCreate(): void {
   editingId.value = null
@@ -63,6 +70,7 @@ async function handleSubmit(): Promise<void> {
 async function handleDelete(id: number): Promise<void> {
   if (confirm('Supprimer ce compte ?')) {
     await bank.deleteAccount(id)
+    showCreateModal.value = false
   }
 }
 
@@ -119,9 +127,10 @@ onMounted(() => {
         <div class="mt-4 flex items-center justify-between">
           <p class="text-xs text-text-muted dark:text-text-dark-muted">Mis à jour {{ formatDate(account.updated_at) }}</p>
           <div class="flex gap-2">
-            <BaseButton size="sm" variant="ghost" @click="openEdit(account)">Modifier</BaseButton>
-            <BaseButton size="sm" variant="ghost" @click="handleDelete(account.id)">
-              <span class="text-danger">Supprimer</span>
+            <BaseButton size="sm" variant="ghost" @click="openEdit(account)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
             </BaseButton>
           </div>
         </div>
@@ -145,10 +154,18 @@ onMounted(() => {
         <BaseInput v-model="form.balance!" label="Solde" type="number" placeholder="0.00" />
       </form>
       <template #footer>
-        <BaseButton variant="ghost" @click="showCreateModal = false">Annuler</BaseButton>
-        <BaseButton :loading="bank.isLoading" @click="handleSubmit">
-          {{ editingId ? 'Enregistrer' : 'Créer' }}
-        </BaseButton>
+        <div class="flex justify-between w-full">
+          <BaseButton v-if="editingId" variant="danger" @click="handleDelete(editingId)">
+            Supprimer
+          </BaseButton>
+          <div v-else></div> <!-- Spacer -->
+          <div class="flex gap-2">
+            <BaseButton variant="ghost" @click="showCreateModal = false">Annuler</BaseButton>
+            <BaseButton :loading="bank.isLoading" @click="handleSubmit">
+              {{ editingId ? 'Enregistrer' : 'Créer' }}
+            </BaseButton>
+          </div>
+        </div>
       </template>
     </BaseModal>
   </div>
