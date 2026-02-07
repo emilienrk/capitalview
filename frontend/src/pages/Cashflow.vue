@@ -5,7 +5,7 @@ import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
-  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard,
+  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
 import type { CashflowCreate, CashflowResponse, FlowType, Frequency } from '@/types'
 
@@ -26,6 +26,13 @@ const form = reactive<CashflowCreate>({
   amount: 0,
   frequency: 'MONTHLY' as Frequency,
   transaction_date: new Date().toISOString().split('T')[0] as string,
+})
+
+const existingCategories = computed(() => {
+  const categories = new Set(cashflow.cashflows.map(c => c.category))
+  return Array.from(categories)
+    .sort()
+    .map(c => c.charAt(0).toUpperCase() + c.slice(1))
 })
 
 const errors = reactive({
@@ -88,6 +95,12 @@ const frequencyLabels: Record<string, string> = {
   YEARLY: 'Annuel',
 }
 
+// ── Helpers ──────────────────────────────────────────────────
+function capitalize(str: string): string {
+  if (!str) return ''
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
 // ── Computed ─────────────────────────────────────────────────
 const filteredCashflows = computed<CashflowResponse[]>(() => {
   let items = [...cashflow.cashflows]
@@ -112,7 +125,11 @@ const filteredCashflows = computed<CashflowResponse[]>(() => {
   // Sort by date descending
   items.sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
 
-  return items
+  // Format categories for display
+  return items.map(item => ({
+    ...item,
+    category: capitalize(item.category)
+  }))
 })
 
 const inflowsTotal = computed(() =>
@@ -137,13 +154,14 @@ const savingsRate = computed(() => {
 const categorySummary = computed(() => {
   const map = new Map<string, { category: string; flow_type: FlowType; total: number; count: number }>()
   for (const c of cashflow.cashflows) {
-    const key = `${c.flow_type}-${c.category}`
+    const capitalizedCategory = capitalize(c.category)
+    const key = `${c.flow_type}-${capitalizedCategory}`
     const existing = map.get(key)
     if (existing) {
       existing.total += Number(c.monthly_amount)
       existing.count++
     } else {
-      map.set(key, { category: c.category, flow_type: c.flow_type, total: Number(c.monthly_amount), count: 1 })
+      map.set(key, { category: capitalizedCategory, flow_type: c.flow_type, total: Number(c.monthly_amount), count: 1 })
     }
   }
   return Array.from(map.values()).sort((a, b) => b.total - a.total)
@@ -235,7 +253,7 @@ async function handleSubmit(): Promise<void> {
     await cashflow.updateCashflow(editingId.value, {
       name: form.name,
       flow_type: form.flow_type,
-      category: form.category,
+      category: form.category.toLowerCase(),
       amount: parsedAmount,
       frequency: form.frequency,
       transaction_date: dateStr,
@@ -243,6 +261,7 @@ async function handleSubmit(): Promise<void> {
   } else {
     await cashflow.createCashflow({
       ...form,
+      category: form.category.toLowerCase(),
       amount: parsedAmount,
       transaction_date: dateStr,
     })
@@ -559,11 +578,12 @@ onMounted(async () => {
           :options="flowTypeOptions"
           required
         />
-        <BaseInput
+        <BaseAutocomplete
           v-model="form.category"
           label="Catégorie"
           placeholder="Ex: Salaire, Logement, Loisirs..."
           required
+          :options="existingCategories"
           :error="errors.category"
         />
         <div class="grid grid-cols-2 gap-4">
