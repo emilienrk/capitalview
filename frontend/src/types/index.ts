@@ -86,6 +86,7 @@ export interface CashflowCreate {
 
 export interface CashflowUpdate {
   name?: string
+  flow_type?: FlowType
   category?: string
   amount?: number
   frequency?: Frequency

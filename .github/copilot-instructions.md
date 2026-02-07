@@ -69,7 +69,9 @@ investment_sheet/
 ## Code Conventions
 
 ### General
+- **User Interface**: **FRENCH** (Français) for all visible text.
 - **Language**: English (variables, functions, classes, comments).
+- **Documentation**: Refer to `docs/` if you have questions about the project structure or API.
 
 ### Frontend (Vue.js / TypeScript)
 - Use **Composition API** with `<script setup lang="ts">`.

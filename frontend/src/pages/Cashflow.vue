@@ -28,6 +28,44 @@ const form = reactive<CashflowCreate>({
   transaction_date: new Date().toISOString().split('T')[0] as string,
 })
 
+const errors = reactive({
+  name: '',
+  category: '',
+  amount: '',
+})
+
+// Separate string ref for amount input to support decimal typing
+const amountInput = ref('0')
+
+// Day/month refs for date input
+const selectedDay = ref(new Date().getDate())
+const selectedMonth = ref(new Date().getMonth() + 1)
+
+const monthOptions = [
+  { label: 'Janvier', value: 1 },
+  { label: 'Février', value: 2 },
+  { label: 'Mars', value: 3 },
+  { label: 'Avril', value: 4 },
+  { label: 'Mai', value: 5 },
+  { label: 'Juin', value: 6 },
+  { label: 'Juillet', value: 7 },
+  { label: 'Août', value: 8 },
+  { label: 'Septembre', value: 9 },
+  { label: 'Octobre', value: 10 },
+  { label: 'Novembre', value: 11 },
+  { label: 'Décembre', value: 12 },
+]
+
+const monthLabels: Record<number, string> = {
+  1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
+  5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+  9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre',
+}
+
+const dayOptions = computed(() =>
+  Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: i + 1 }))
+)
+
 // ── Options ──────────────────────────────────────────────────
 const flowTypeOptions = [
   { label: 'Revenu', value: 'INFLOW' },
@@ -119,6 +157,28 @@ function resetForm(): void {
   form.amount = 0
   form.frequency = 'MONTHLY'
   form.transaction_date = new Date().toISOString().split('T')[0] as string
+  amountInput.value = ''
+  selectedDay.value = new Date().getDate()
+  selectedMonth.value = new Date().getMonth() + 1
+  errors.name = ''
+  errors.category = ''
+  errors.amount = ''
+}
+
+/** Build a date string from the selected day/month (year = current year). */
+function buildDateFromDayMonth(): string {
+  const year = new Date().getFullYear()
+  const month = String(selectedMonth.value).padStart(2, '0')
+  const day = String(selectedDay.value).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** Format a date string as "le {day} {month}" for display. */
+function formatDayMonth(dateStr: string): string {
+  const d = new Date(dateStr)
+  const day = d.getDate()
+  const month = monthLabels[d.getMonth() + 1] || ''
+  return `le ${day} ${month}`
 }
 
 function openCreate(type?: FlowType): void {
@@ -136,20 +196,56 @@ function openEdit(item: CashflowResponse): void {
   form.amount = Number(item.amount)
   form.frequency = item.frequency
   form.transaction_date = item.transaction_date
+  amountInput.value = String(Number(item.amount))
+  const d = new Date(item.transaction_date)
+  selectedDay.value = d.getDate()
+  selectedMonth.value = d.getMonth() + 1
   showFormModal.value = true
 }
 
 async function handleSubmit(): Promise<void> {
+  // Clear previous errors
+  errors.name = ''
+  errors.category = ''
+  errors.amount = ''
+
+  let hasErrors = false
+
+  if (!form.name.trim()) {
+    errors.name = 'Le nom est requis'
+    hasErrors = true
+  }
+
+  if (!form.category.trim()) {
+    errors.category = 'La catégorie est requise'
+    hasErrors = true
+  }
+
+  const parsedAmount = parseFloat(amountInput.value.replace(',', '.'))
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    errors.amount = 'Montant invalide'
+    hasErrors = true
+  }
+
+  if (hasErrors) return
+
+  const dateStr = buildDateFromDayMonth()
+
   if (editingId.value) {
     await cashflow.updateCashflow(editingId.value, {
       name: form.name,
+      flow_type: form.flow_type,
       category: form.category,
-      amount: form.amount,
+      amount: parsedAmount,
       frequency: form.frequency,
-      transaction_date: form.transaction_date,
+      transaction_date: dateStr,
     })
   } else {
-    await cashflow.createCashflow({ ...form })
+    await cashflow.createCashflow({
+      ...form,
+      amount: parsedAmount,
+      transaction_date: dateStr,
+    })
   }
   showFormModal.value = false
   await cashflow.fetchBalance()
@@ -386,7 +482,7 @@ onMounted(async () => {
                 </span>
               </td>
               <td class="px-6 py-4">
-                <span class="text-sm text-text-muted dark:text-text-dark-muted">{{ formatDate(item.transaction_date) }}</span>
+                <span class="text-sm text-text-muted dark:text-text-dark-muted">{{ formatDayMonth(item.transaction_date) }}</span>
               </td>
               <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -455,6 +551,7 @@ onMounted(async () => {
           label="Nom"
           placeholder="Ex: Salaire, Loyer, Netflix..."
           required
+          :error="errors.name"
         />
         <BaseSelect
           v-model="form.flow_type"
@@ -467,15 +564,26 @@ onMounted(async () => {
           label="Catégorie"
           placeholder="Ex: Salaire, Logement, Loisirs..."
           required
+          :error="errors.category"
         />
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput
-            v-model="form.amount"
-            label="Montant"
-            type="number"
-            placeholder="0.00"
-            required
-          />
+          <div class="space-y-1.5">
+            <label class="block text-sm font-medium text-text-main dark:text-text-dark-main">
+              Montant <span class="text-danger ml-0.5">*</span>
+            </label>
+            <input
+              v-model="amountInput"
+              type="text"
+              inputmode="decimal"
+              placeholder="0.00"
+              required
+              :class="[
+                'w-full px-4 py-2.5 rounded-input border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                errors.amount ? 'border-danger focus:ring-danger/20 focus:border-danger' : 'border-surface-border dark:border-surface-dark-border'
+              ]"
+            />
+            <p v-if="errors.amount" class="text-xs text-danger mt-1">{{ errors.amount }}</p>
+          </div>
           <BaseSelect
             v-model="form.frequency"
             label="Fréquence"
@@ -483,12 +591,20 @@ onMounted(async () => {
             required
           />
         </div>
-        <BaseInput
-          v-model="form.transaction_date"
-          label="Date"
-          type="date"
-          required
-        />
+        <div class="grid grid-cols-2 gap-4">
+          <BaseSelect
+            v-model="selectedDay"
+            label="Jour"
+            :options="dayOptions"
+            required
+          />
+          <BaseSelect
+            v-model="selectedMonth"
+            label="Mois"
+            :options="monthOptions"
+            required
+          />
+        </div>
       </form>
       <template #footer>
         <BaseButton variant="ghost" @click="showFormModal = false">Annuler</BaseButton>

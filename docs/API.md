@@ -267,12 +267,22 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 \`\`\`json
 {
   "name": "Updated",
+  "flow_type": "OUTFLOW",
   "category": "New Category",
   "amount": 4000.00,
   "frequency": "MONTHLY",
   "transaction_date": "2026-03-01"
 }
 \`\`\`
+
+| Field              | Type        | Required |
+| ------------------ | ----------- | -------- |
+| `name`             | `string`    | No       |
+| `flow_type`        | `FlowType`  | No       |
+| `category`         | `string`    | No       |
+| `amount`           | `number`    | No       |
+| `frequency`        | `Frequency` | No       |
+| `transaction_date` | `string`    | No       |
 
 **Response (200 OK)**: `CashflowResponse`
 
