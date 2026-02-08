@@ -22,7 +22,7 @@ const editingAccountId = ref<number | null>(null)
 
 const accountForm = reactive<CryptoAccountCreate>({
   name: '',
-  wallet_name: '',
+  platform: '',
   public_address: '',
 })
 
@@ -47,7 +47,7 @@ const txTypeOptions = [
 function openCreateAccount(): void {
   editingAccountId.value = null
   accountForm.name = ''
-  accountForm.wallet_name = ''
+  accountForm.platform = ''
   accountForm.public_address = ''
   showAccountModal.value = true
 }
@@ -55,7 +55,7 @@ function openCreateAccount(): void {
 function openEditAccount(account: any): void {
   editingAccountId.value = account.id
   accountForm.name = account.name
-  accountForm.wallet_name = account.wallet_name || ''
+  accountForm.platform = account.platform || ''
   accountForm.public_address = account.public_address || ''
   showAccountModal.value = true
 }
@@ -185,8 +185,8 @@ onMounted(() => {
           >
             <div class="flex items-center gap-3">
               <h3 class="font-semibold text-text-main dark:text-text-dark-main truncate">{{ account.name }}</h3>
-              <span v-if="account.wallet_name" class="px-2 py-0.5 rounded text-xs font-medium bg-surface-active dark:bg-surface-dark-active text-text-muted dark:text-text-dark-muted">
-                {{ account.wallet_name }}
+              <span v-if="account.platform" class="px-2 py-0.5 rounded text-xs font-medium bg-surface-active dark:bg-surface-dark-active text-text-muted dark:text-text-dark-muted">
+                {{ account.platform }}
               </span>
             </div>
             <div class="flex items-center gap-3 mt-1">
@@ -339,7 +339,7 @@ onMounted(() => {
     <BaseModal :open="showAccountModal" :title="editingAccountId ? 'Modifier le portefeuille' : 'Nouveau portefeuille crypto'" @close="showAccountModal = false">
       <form @submit.prevent="handleSubmitAccount" class="space-y-4">
         <BaseInput v-model="accountForm.name" label="Nom" placeholder="Ex: Binance" required />
-        <BaseInput v-model="accountForm.wallet_name!" label="Nom du wallet" placeholder="Ex: Cold Storage" />
+        <BaseInput v-model="accountForm.platform!" label="Nom du wallet" placeholder="Ex: Cold Storage" />
         <BaseInput v-model="accountForm.public_address!" label="Adresse publique" placeholder="Ex: bc1q..." />
       </form>
       <template #footer>

@@ -18,7 +18,7 @@ const editingId = ref<number | null>(null)
 const form = reactive<BankAccountCreate>({
   name: '',
   account_type: 'CHECKING' as BankAccountType,
-  bank_name: '',
+  institution_name: '',
   balance: 0,
 })
 
@@ -44,16 +44,16 @@ function openCreate(): void {
   editingId.value = null
   form.name = ''
   form.account_type = 'CHECKING'
-  form.bank_name = ''
+  form.institution_name = ''
   form.balance = 0
   showCreateModal.value = true
 }
 
-function openEdit(account: { id: number; name: string; account_type: BankAccountType; bank_name: string | null; balance: number }): void {
+function openEdit(account: { id: number; name: string; account_type: BankAccountType; institution_name: string | null; balance: number }): void {
   editingId.value = account.id
   form.name = account.name
   form.account_type = account.account_type
-  form.bank_name = account.bank_name ?? ''
+  form.institution_name = account.institution_name ?? ''
   form.balance = account.balance
   showCreateModal.value = true
 }
@@ -117,7 +117,7 @@ onMounted(() => {
             <h3 class="font-semibold text-text-main dark:text-text-dark-main">{{ account.name }}</h3>
             <div class="flex items-center gap-2 mt-1">
               <BaseBadge variant="secondary">{{ account.account_type }}</BaseBadge>
-              <span v-if="account.bank_name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.bank_name }}</span>
+              <span v-if="account.institution_name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.institution_name }}</span>
             </div>
           </div>
           <p class="text-xl font-bold text-text-main dark:text-text-dark-main">
@@ -150,7 +150,7 @@ onMounted(() => {
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <BaseInput v-model="form.name" label="Nom du compte" placeholder="Ex: Compte courant" required />
         <BaseSelect v-model="form.account_type" label="Type de compte" :options="accountTypeOptions" required />
-        <BaseInput v-model="form.bank_name!" label="Banque" placeholder="Ex: BNP Paribas" />
+        <BaseInput v-model="form.institution_name!" label="Banque" placeholder="Ex: BNP Paribas" />
         <BaseInput v-model="form.balance!" label="Solde" type="number" placeholder="0.00" />
       </form>
       <template #footer>
