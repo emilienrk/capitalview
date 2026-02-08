@@ -26,7 +26,7 @@ export const useBankStore = defineStore('bank', () => {
     }
   }
 
-  async function fetchAccount(id: number): Promise<void> {
+  async function fetchAccount(id: string): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
@@ -53,7 +53,7 @@ export const useBankStore = defineStore('bank', () => {
     }
   }
 
-  async function updateAccount(id: number, data: BankAccountUpdate): Promise<BankAccountResponse | null> {
+  async function updateAccount(id: string, data: BankAccountUpdate): Promise<BankAccountResponse | null> {
     isLoading.value = true
     error.value = null
     try {
@@ -68,7 +68,7 @@ export const useBankStore = defineStore('bank', () => {
     }
   }
 
-  async function deleteAccount(id: number): Promise<boolean> {
+  async function deleteAccount(id: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {

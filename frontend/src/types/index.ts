@@ -57,7 +57,7 @@ export interface BankAccountUpdate {
 }
 
 export interface BankAccountResponse {
-  id: number
+  id: string
   name: string
   institution_name: string | null
   balance: number
@@ -96,7 +96,7 @@ export interface CashflowUpdate {
 }
 
 export interface CashflowResponse {
-  id: number
+  id: string
   name: string
   flow_type: FlowType
   category: string
@@ -154,7 +154,7 @@ export interface StockAccountUpdate {
 }
 
 export interface StockAccountBasicResponse {
-  id: number
+  id: string
   name: string
   account_type: StockAccountType
   institution_name: string | null
@@ -164,7 +164,7 @@ export interface StockAccountBasicResponse {
 }
 
 export interface StockTransactionCreate {
-  account_id: number
+  account_id: string
   ticker: string
   exchange?: string
   type: StockTransactionType
@@ -176,8 +176,8 @@ export interface StockTransactionCreate {
 }
 
 export interface StockTransactionBasicResponse {
-  id: number
-  account_id: number
+  id: string
+  account_id: string
   ticker: string
   exchange: string | null
   type: StockTransactionType
@@ -216,7 +216,7 @@ export interface CryptoAccountUpdate {
 }
 
 export interface CryptoAccountBasicResponse {
-  id: number
+  id: string
   name: string
   platform: string | null
   public_address: string | null
@@ -225,7 +225,7 @@ export interface CryptoAccountBasicResponse {
 }
 
 export interface CryptoTransactionCreate {
-  account_id: number
+  account_id: string
   ticker: string
   type: CryptoTransactionType
   amount: number
@@ -238,8 +238,8 @@ export interface CryptoTransactionCreate {
 }
 
 export interface CryptoTransactionBasicResponse {
-  id: number
-  account_id: number
+  id: string
+  account_id: string
   ticker: string
   type: CryptoTransactionType
   amount: number
@@ -276,7 +276,7 @@ export interface NoteUpdate {
 }
 
 export interface NoteResponse {
-  id: number
+  id: string
   name: string
   description: string | null
   created_at: string
@@ -286,7 +286,7 @@ export interface NoteResponse {
 // ─── Shared / Portfolio ──────────────────────────────────────
 
 export interface TransactionResponse {
-  id: number
+  id: string
   ticker: string
   type: string
   amount: number
@@ -316,7 +316,7 @@ export interface PositionResponse {
 }
 
 export interface AccountSummaryResponse {
-  account_id: number
+  account_id: string
   account_name: string
   account_type: string
   total_invested: number

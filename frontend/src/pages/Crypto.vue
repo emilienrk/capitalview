@@ -14,11 +14,11 @@ const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useForm
 
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
-const selectedAccountId = ref<number | null>(null)
+const selectedAccountId = ref<string | null>(null)
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
-const editingTxId = ref<number | null>(null)
-const editingAccountId = ref<number | null>(null)
+const editingTxId = ref<string | null>(null)
+const editingAccountId = ref<string | null>(null)
 
 const accountForm = reactive<CryptoAccountCreate>({
   name: '',
@@ -27,7 +27,7 @@ const accountForm = reactive<CryptoAccountCreate>({
 })
 
 const txForm = reactive<CryptoTransactionCreate>({
-  account_id: 0,
+  account_id: '',
   ticker: '',
   type: 'BUY',
   amount: 0,
@@ -69,7 +69,7 @@ async function handleSubmitAccount(): Promise<void> {
   showAccountModal.value = false
 }
 
-function openAddTransaction(accountId: number): void {
+function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
   txForm.ticker = ''
@@ -84,13 +84,13 @@ function openAddTransaction(accountId: number): void {
 
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
-  txForm.account_id = tx.account_id || selectedAccountId.value!
+  txForm.account_id = selectedAccountId.value!
   txForm.ticker = tx.ticker
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
-  txForm.fees_ticker = tx.fees_ticker || 'EUR'
+  txForm.fees_ticker = 'EUR' // fees_ticker missing in response for now, defaulting
   txForm.executed_at = tx.executed_at.slice(0, 16)
   showTxModal.value = true
 }
@@ -110,7 +110,7 @@ async function handleSubmitTransaction(): Promise<void> {
   }
 }
 
-async function deleteTransaction(id: number): Promise<void> {
+async function deleteTransaction(id: string): Promise<void> {
   if (confirm('Supprimer cette transaction ?')) {
     await crypto.deleteTransaction(id)
     showTxModal.value = false
@@ -123,11 +123,11 @@ async function deleteTransaction(id: number): Promise<void> {
   }
 }
 
-async function fetchAccountTransactions(id: number): Promise<void> {
+async function fetchAccountTransactions(id: string): Promise<void> {
   accountTransactions.value = await crypto.fetchAccountTransactions(id)
 }
 
-async function selectAccount(id: number): Promise<void> {
+async function selectAccount(id: string): Promise<void> {
   selectedAccountId.value = id
   activeDetailTab.value = 'positions'
   await Promise.all([
@@ -136,7 +136,7 @@ async function selectAccount(id: number): Promise<void> {
   ])
 }
 
-async function handleDeleteAccount(id: number): Promise<void> {
+async function handleDeleteAccount(id: string): Promise<void> {
   if (confirm('Supprimer ce portefeuille crypto et toutes ses transactions ?')) {
     await crypto.deleteAccount(id)
     if (selectedAccountId.value === id) {

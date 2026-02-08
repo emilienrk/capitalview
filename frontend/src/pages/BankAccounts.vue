@@ -13,7 +13,7 @@ const bank = useBankStore()
 const { formatCurrency, formatDate } = useFormatters()
 
 const showCreateModal = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 
 const form = reactive<BankAccountCreate>({
   name: '',
@@ -49,7 +49,7 @@ function openCreate(): void {
   showCreateModal.value = true
 }
 
-function openEdit(account: { id: number; name: string; account_type: BankAccountType; institution_name: string | null; balance: number }): void {
+function openEdit(account: { id: string; name: string; account_type: BankAccountType; institution_name: string | null; balance: number }): void {
   editingId.value = account.id
   form.name = account.name
   form.account_type = account.account_type
@@ -67,7 +67,7 @@ async function handleSubmit(): Promise<void> {
   showCreateModal.value = false
 }
 
-async function handleDelete(id: number): Promise<void> {
+async function handleDelete(id: string): Promise<void> {
   if (confirm('Supprimer ce compte ?')) {
     await bank.deleteAccount(id)
     showCreateModal.value = false

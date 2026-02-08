@@ -254,7 +254,7 @@ async function handleRegister() {
       <!-- Footer Branding -->
       <div class="mt-6 text-center">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
-          CapitalView &copy; 2026 — Sécurisé par chiffrement AES-256
+          CapitalView &copy; 2026 — Sécurisé & Privé
         </p>
       </div>
     </div>

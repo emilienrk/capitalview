@@ -33,7 +33,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function fetchAccount(id: number): Promise<void> {
+  async function fetchAccount(id: string): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
@@ -60,7 +60,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function updateAccount(id: number, data: CryptoAccountUpdate): Promise<CryptoAccountBasicResponse | null> {
+  async function updateAccount(id: string, data: CryptoAccountUpdate): Promise<CryptoAccountBasicResponse | null> {
     isLoading.value = true
     error.value = null
     try {
@@ -75,7 +75,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function deleteAccount(id: number): Promise<boolean> {
+  async function deleteAccount(id: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
@@ -100,7 +100,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function fetchAccountTransactions(accountId: number): Promise<TransactionResponse[]> {
+  async function fetchAccountTransactions(accountId: string): Promise<TransactionResponse[]> {
     try {
       return await apiClient.get<TransactionResponse[]>(`/crypto/transactions/account/${accountId}`)
     } catch (e) {
@@ -123,7 +123,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function updateTransaction(id: number, data: CryptoTransactionUpdate): Promise<CryptoTransactionBasicResponse | null> {
+  async function updateTransaction(id: string, data: CryptoTransactionUpdate): Promise<CryptoTransactionBasicResponse | null> {
     isLoading.value = true
     error.value = null
     try {
@@ -137,7 +137,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function deleteTransaction(id: number): Promise<boolean> {
+  async function deleteTransaction(id: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {

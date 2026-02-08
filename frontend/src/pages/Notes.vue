@@ -11,7 +11,7 @@ import type { NoteCreate } from '@/types'
 const notes = useNotesStore()
 
 const showModal = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 
 const form = reactive<NoteCreate>({
   name: '',
@@ -25,7 +25,7 @@ function openCreate(): void {
   showModal.value = true
 }
 
-function openEdit(note: { id: number; name: string; description: string | null }): void {
+function openEdit(note: { id: string; name: string; description: string | null }): void {
   editingId.value = note.id
   form.name = note.name
   form.description = note.description ?? ''
@@ -41,7 +41,7 @@ async function handleSubmit(): Promise<void> {
   showModal.value = false
 }
 
-async function handleDelete(id: number): Promise<void> {
+async function handleDelete(id: string): Promise<void> {
   if (confirm('Supprimer cette note ?')) {
     await notes.deleteNote(id)
   }

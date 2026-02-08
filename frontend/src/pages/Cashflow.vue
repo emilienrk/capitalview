@@ -14,10 +14,10 @@ const { formatCurrency, formatDate, profitLossClass } = useFormatters()
 
 // ── State ────────────────────────────────────────────────────
 const showFormModal = ref(false)
-const editingId = ref<number | null>(null)
+const editingId = ref<string | null>(null)
 const activeTab = ref<'all' | 'inflows' | 'outflows'>('all')
 const searchQuery = ref('')
-const deleteConfirmId = ref<number | null>(null)
+const deleteConfirmId = ref<string | null>(null)
 
 const form = reactive<CashflowCreate>({
   name: '',
@@ -270,7 +270,7 @@ async function handleSubmit(): Promise<void> {
   await cashflow.fetchBalance()
 }
 
-async function handleDelete(id: number): Promise<void> {
+async function handleDelete(id: string): Promise<void> {
   await cashflow.deleteCashflow(id)
   deleteConfirmId.value = null
   await cashflow.fetchBalance()

@@ -72,7 +72,7 @@ export const useCashflowStore = defineStore('cashflow', () => {
     }
   }
 
-  async function updateCashflow(id: number, data: CashflowUpdate): Promise<CashflowResponse | null> {
+  async function updateCashflow(id: string, data: CashflowUpdate): Promise<CashflowResponse | null> {
     isLoading.value = true
     error.value = null
     try {
@@ -87,7 +87,7 @@ export const useCashflowStore = defineStore('cashflow', () => {
     }
   }
 
-  async function deleteCashflow(id: number): Promise<boolean> {
+  async function deleteCashflow(id: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
