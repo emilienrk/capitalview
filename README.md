@@ -12,7 +12,7 @@ CapitalView is a privacy-first wealth management application designed to track y
 - 📊 **Cashflow Tracking**: Monitor income and expenses with detailed categorization.
 - 💰 **Investment Portfolio**: Track Stocks (PEA, CTO) and Crypto accounts with real-time performance.
 - 🏦 **Multi-Banking**: Manage multiple bank accounts and balances.
-- 📝 **Encrypted Notes**: Document your investment strategies securely.
+- 📝 **Notes**: Document your investment strategies.
 - 📈 **Analytics**: Visualize your global net worth and asset distribution.
 
 ---
@@ -152,4 +152,4 @@ The API follows RESTful principles and is fully typed.
 
 ## Author
 
-**Emilien** — *Personal Finance Tracker*
+**Emilien**
