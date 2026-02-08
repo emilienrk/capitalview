@@ -13,26 +13,28 @@ class BankAccountCreate(BaseModel):
     """Create a bank account."""
     name: str
     account_type: BankAccountType
-    bank_name: Optional[str] = None
-    encrypted_iban: Optional[str] = None
+    institution_name: Optional[str] = None
+    identifier: Optional[str] = None
     balance: Decimal = Decimal("0")
 
 
 class BankAccountUpdate(BaseModel):
     """Update a bank account."""
     name: Optional[str] = None
-    bank_name: Optional[str] = None
-    encrypted_iban: Optional[str] = None
+    institution_name: Optional[str] = None
+    identifier: Optional[str] = None
     balance: Optional[Decimal] = None
 
 
 class BankAccountResponse(BaseModel):
     """Bank account response."""
-    id: int
+    id: str
     name: str
-    bank_name: Optional[str] = None
+    institution_name: Optional[str] = None
     balance: Decimal
     account_type: BankAccountType
+    identifier: Optional[str] = None
+    created_at: datetime
     updated_at: datetime
 
 

@@ -17,6 +17,7 @@ const API_BASE_URL = getApiBaseUrl()
 
 class ApiClient {
   private accessToken: string | null = null
+  private masterKey: string | null = null
 
   setToken(token: string | null) {
     this.accessToken = token
@@ -24,6 +25,10 @@ class ApiClient {
 
   getToken(): string | null {
     return this.accessToken
+  }
+
+  setMasterKey(key: string | null) {
+    this.masterKey = key
   }
 
   private async request<T>(
@@ -37,6 +42,10 @@ class ApiClient {
 
     if (this.accessToken) {
       ;(headers as Record<string, string>)['Authorization'] = `Bearer ${this.accessToken}`
+    }
+    
+    if (this.masterKey) {
+      ;(headers as Record<string, string>)['X-Master-Key'] = this.masterKey
     }
 
     let response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -64,6 +73,11 @@ class ApiClient {
 
           // Update Authorization header for retry
           ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
+          
+          // Re-inject master key for retry
+          if (this.masterKey) {
+            ;(headers as Record<string, string>)['X-Master-Key'] = this.masterKey
+          }
 
           // Retry original request
           response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -74,11 +88,13 @@ class ApiClient {
         } else {
           // Refresh failed -> Force logout
           this.setToken(null)
+          this.setMasterKey(null)
           window.location.href = '/login'
           throw new Error('Session expired')
         }
       } catch (error) {
         this.setToken(null)
+        this.setMasterKey(null)
         window.location.href = '/login'
         throw error
       }

@@ -128,7 +128,7 @@ onMounted(() => {
               <p class="font-medium text-text-main dark:text-text-dark-main">{{ account.name }}</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">
                 {{ account.account_type }}
-                <span v-if="account.bank_name"> · {{ account.bank_name }}</span>
+                <span v-if="account.institution_name"> · {{ account.institution_name }}</span>
               </p>
             </div>
             <p class="font-semibold text-text-main dark:text-text-dark-main">

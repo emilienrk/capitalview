@@ -21,7 +21,7 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function fetchNote(id: number): Promise<void> {
+  async function fetchNote(id: string): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
@@ -48,7 +48,7 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function updateNote(id: number, data: NoteUpdate): Promise<NoteResponse | null> {
+  async function updateNote(id: string, data: NoteUpdate): Promise<NoteResponse | null> {
     isLoading.value = true
     error.value = null
     try {
@@ -63,7 +63,7 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function deleteNote(id: number): Promise<boolean> {
+  async function deleteNote(id: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {

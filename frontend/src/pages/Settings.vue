@@ -80,11 +80,11 @@ const { formatDateTime } = useFormatters()
       <BaseCard title="Sécurité">
         <div class="space-y-4">
           <p class="text-sm text-text-muted dark:text-text-dark-muted">
-            Toutes les données sensibles (IBAN, adresses crypto) sont chiffrées avec AES-256.
+            Toutes vos données sensibles sont chiffrées pour garantir une confidentialité totale.
           </p>
           <div class="flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-success" />
-            <span class="text-sm text-text-body dark:text-text-dark-body">Chiffrement actif</span>
+            <span class="text-sm text-text-body dark:text-text-dark-body">Protection active</span>
           </div>
         </div>
       </BaseCard>

@@ -1,6 +1,7 @@
 """Authentication routes."""
 
-from datetime import date
+import uuid
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
@@ -11,7 +12,7 @@ from sqlmodel import Session, select
 from config import get_settings
 from database import get_session
 from models.user import User
-from schemas.auth import (
+from dtos.auth import (
     LoginRequest,
     MessageResponse,
     RegisterRequest,
@@ -24,11 +25,11 @@ from services.auth import (
     create_refresh_token,
     create_refresh_token_db,
     get_current_user,
-    hash_password,
     revoke_refresh_token,
     revoke_user_refresh_tokens,
     verify_refresh_token,
 )
+from services.encryption import get_masterkey, init_salt, hash_password
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -44,7 +45,7 @@ def rate_limit_key_func(request: Request):
 limiter = Limiter(key_func=rate_limit_key_func)
 
 
-@router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour")
 def register(
     request: Request,
@@ -61,7 +62,6 @@ def register(
     """
     settings = get_settings()
 
-    # Check if email or username already exists
     existing_user = session.exec(select(User).where(
         (User.email == payload.email) | (User.username == payload.username)
     )).first()
@@ -71,11 +71,17 @@ def register(
             detail="Un compte avec cet email ou ce nom d'utilisateur existe déjà"
         )
     
-    # Create user
+    user_uuid = str(uuid.uuid4())
+    auth_salt = init_salt()
+    hashed_password = hash_password(payload.password)
+    master_key = get_masterkey(payload.password, auth_salt)
+    
     user = User(
+        uuid=user_uuid,
         username=payload.username,
         email=payload.email,
-        password_hash=hash_password(payload.password)
+        auth_salt=auth_salt,
+        password_hash=hashed_password
     )
     
     session.add(user)
@@ -83,20 +89,12 @@ def register(
     session.refresh(user)
 
     access_token = create_access_token(
-        data={"sub": str(user.id)}
+        data={"sub": user.uuid}
     )
     refresh_token_str = create_refresh_token()
     
-    # Store refresh token in database
-    create_refresh_token_db(session, user.id, refresh_token_str)
+    create_refresh_token_db(session, user.uuid, refresh_token_str)
     
-    # Clear any existing cookie first (must match all attributes to delete properly)
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        secure=settings.environment == "production",
-        samesite="lax"
-    )
     response.set_cookie(
         key="refresh_token",
         value=refresh_token_str,
@@ -104,6 +102,15 @@ def register(
         secure=settings.environment == "production",
         samesite="lax",
         max_age=settings.refresh_token_expire_days * 86400,
+        path="/auth"
+    )
+
+    response.set_cookie(
+        key="master_key",
+        value=master_key,
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
         path="/"
     )
     
@@ -125,7 +132,7 @@ def login(
     """
     Login with email and password.
     
-    Returns access token (15 min). Refresh token stored in HttpOnly cookie.
+    Returns access token (15 min). Refresh token & Master Key stored in HttpOnly cookies.
     """
     settings = get_settings()
     
@@ -137,19 +144,15 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    master_key = get_masterkey(payload.password, user.auth_salt)
+
     access_token = create_access_token(
-        data={"sub": str(user.id)}
+        data={"sub": user.uuid}
     )
     refresh_token_str = create_refresh_token()
     
-    create_refresh_token_db(session, user.id, refresh_token_str)
+    create_refresh_token_db(session, user.uuid, refresh_token_str)
     
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        secure=settings.environment == "production",
-        samesite="lax"
-    )
     response.set_cookie(
         key="refresh_token",
         value=refresh_token_str,
@@ -157,6 +160,15 @@ def login(
         secure=settings.environment == "production",
         samesite="lax",
         max_age=settings.refresh_token_expire_days * 86400,
+        path="/auth"
+    )
+
+    response.set_cookie(
+        key="master_key",
+        value=master_key,
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
         path="/"
     )
     
@@ -168,11 +180,10 @@ def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-@limiter.limit("10/minute")
-def refresh_token(
+def refresh_token_endpoint(
     request: Request,
     response: Response,
-    refresh_token: str = Cookie(None),
+    refresh_token: Annotated[str | None, Cookie()] = None,
     session: Session = Depends(get_session)
 ):
     """
@@ -195,7 +206,8 @@ def refresh_token(
             detail="Invalid or expired refresh token"
         )
     
-    user = session.get(User, token_record.user_id)
+    # Use user_uuid directly
+    user = session.get(User, token_record.user_uuid)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -205,14 +217,8 @@ def refresh_token(
     # Rotate refresh token
     revoke_refresh_token(session, refresh_token)
     new_refresh_token = create_refresh_token()
-    create_refresh_token_db(session, user.id, new_refresh_token)
+    create_refresh_token_db(session, user.uuid, new_refresh_token)
     
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        secure=settings.environment == "production",
-        samesite="lax"
-    )
     response.set_cookie(
         key="refresh_token",
         value=new_refresh_token,
@@ -220,11 +226,11 @@ def refresh_token(
         secure=settings.environment == "production",
         samesite="lax",
         max_age=settings.refresh_token_expire_days * 86400,
-        path="/"
+        path="/auth"
     )
     
     access_token = create_access_token(
-        data={"sub": str(user.id)}
+        data={"sub": user.uuid}
     )
     
     return TokenResponse(
@@ -241,19 +247,15 @@ def logout(
     session: Session = Depends(get_session)
 ):
     """
-    Logout current user by revoking all refresh tokens and clearing cookie.
+    Logout current user by revoking all refresh tokens and clearing cookies.
     
     Requires authentication.
     """
     settings = get_settings()
-    revoke_user_refresh_tokens(session, current_user.id)
+    revoke_user_refresh_tokens(session, current_user.uuid)
 
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        secure=settings.environment == "production",
-        samesite="lax"
-    )
+    response.delete_cookie(key="refresh_token", path="/auth", secure=settings.environment == "production", samesite="lax")
+    response.delete_cookie(key="master_key", path="/", secure=settings.environment == "production", samesite="lax")
     
     return MessageResponse(message="Logged out successfully")
 

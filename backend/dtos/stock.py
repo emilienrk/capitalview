@@ -13,29 +13,31 @@ class StockAccountCreate(BaseModel):
     """Create a stock account."""
     name: str
     account_type: StockAccountType
-    bank_name: Optional[str] = None
-    encrypted_iban: Optional[str] = None
+    institution_name: Optional[str] = None
+    identifier: Optional[str] = None
 
 
 class StockAccountUpdate(BaseModel):
     """Update a stock account."""
     name: Optional[str] = None
-    bank_name: Optional[str] = None
-    encrypted_iban: Optional[str] = None
+    institution_name: Optional[str] = None
+    identifier: Optional[str] = None
 
 
 class StockAccountBasicResponse(BaseModel):
     """Basic stock account response (without positions)."""
-    id: int
+    id: str
     name: str
     account_type: StockAccountType
-    bank_name: Optional[str] = None
+    institution_name: Optional[str] = None
+    identifier: Optional[str] = None
     created_at: datetime
+    updated_at: datetime
 
 
 class StockTransactionCreate(BaseModel):
     """Create a stock transaction."""
-    account_id: int
+    account_id: str
     ticker: str
     exchange: Optional[str] = None
     type: StockTransactionType
@@ -43,6 +45,7 @@ class StockTransactionCreate(BaseModel):
     price_per_unit: Decimal
     fees: Decimal = Decimal("0")
     executed_at: datetime
+    notes: Optional[str] = None
 
 
 class StockTransactionUpdate(BaseModel):
@@ -54,6 +57,7 @@ class StockTransactionUpdate(BaseModel):
     price_per_unit: Optional[Decimal] = None
     fees: Optional[Decimal] = None
     executed_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class StockTransactionBulkCreate(BaseModel):
@@ -65,11 +69,12 @@ class StockTransactionBulkCreate(BaseModel):
     price_per_unit: Decimal
     fees: Decimal = Decimal("0")
     executed_at: datetime
+    notes: Optional[str] = None
 
 
 class StockBulkImportRequest(BaseModel):
     """Bulk import multiple stock transactions for a given account."""
-    account_id: int
+    account_id: str
     transactions: list[StockTransactionBulkCreate]
 
 
@@ -81,8 +86,8 @@ class StockBulkImportResponse(BaseModel):
 
 class StockTransactionBasicResponse(BaseModel):
     """Basic stock transaction response."""
-    id: int
-    account_id: int
+    id: str
+    account_id: str
     ticker: str
     exchange: Optional[str] = None
     type: StockTransactionType
@@ -90,3 +95,4 @@ class StockTransactionBasicResponse(BaseModel):
     price_per_unit: Decimal
     fees: Decimal
     executed_at: datetime
+    notes: Optional[str] = None

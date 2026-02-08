@@ -23,13 +23,13 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "username": "johndoe",
   "email": "john@example.com",
   "password": "SecurePassword123!"
 }
-\`\`\`
+```
 
 | Field      | Type     | Constraints                                             |
 | ---------- | -------- | ------------------------------------------------------- |
@@ -39,13 +39,13 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 
 **Response (201 Created)**:
 
-\`\`\`json
+```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "expires_in": 900
 }
-\`\`\`
+```
 
 ---
 
@@ -55,22 +55,22 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "email": "john@example.com",
   "password": "SecurePassword123!"
 }
-\`\`\`
+```
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "expires_in": 900
 }
-\`\`\`
+```
 
 _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/auth)._
 
@@ -82,13 +82,13 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "access_token": "new_access_token_here...",
   "token_type": "bearer",
   "expires_in": 900
 }
-\`\`\`
+```
 
 ---
 
@@ -98,11 +98,11 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "message": "Logged out successfully"
 }
-\`\`\`
+```
 
 ---
 
@@ -112,7 +112,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "username": "johndoe",
   "email": "john@example.com",
@@ -120,7 +120,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "last_login": "2026-02-01T10:30:00Z",
   "created_at": "2026-01-01T00:00:00Z"
 }
-\`\`\`
+```
 
 ---
 
@@ -132,21 +132,22 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "total_balance": 1500.50,
   "accounts": [
     {
       "id": 1,
       "name": "Checking Account",
-      "bank_name": "BNP Paribas",
+      "institution_name": "BNP Paribas",
       "balance": 1500.50,
       "account_type": "CHECKING",
+      "created_at": "2026-01-01T10:00:00Z",
       "updated_at": "2026-02-05T14:00:00Z"
     }
   ]
 }
-\`\`\`
+```
 
 ### Create Account
 
@@ -154,23 +155,23 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "Savings Account",
   "account_type": "SAVINGS",
-  "bank_name": "Revolut",
-  "encrypted_iban": null,
+  "institution_name": "Revolut",
+  "identifier": null,
   "balance": 500.00
 }
-\`\`\`
+```
 
-| Field            | Type              | Required | Default |
-| ---------------- | ----------------- | -------- | ------- |
-| `name`           | `string`          | Yes      | —       |
-| `account_type`   | `BankAccountType` | Yes      | —       |
-| `bank_name`      | `string \| null`  | No       | `null`  |
-| `encrypted_iban` | `string \| null`  | No       | `null`  |
-| `balance`        | `number`          | No       | `0`     |
+| Field              | Type              | Required | Default |
+| ------------------ | ----------------- | -------- | ------- |
+| `name`             | `string`          | Yes      | —       |
+| `account_type`     | `BankAccountType` | Yes      | —       |
+| `institution_name` | `string \| null`  | No       | `null`  |
+| `identifier`       | `string \| null`  | No       | `null`  |
+| `balance`          | `number`          | No       | `0`     |
 
 **Response (201 Created)**: `BankAccountResponse`
 
@@ -186,14 +187,14 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "Updated Name",
-  "bank_name": "New Bank",
-  "encrypted_iban": null,
+  "institution_name": "New Bank",
+  "identifier": null,
   "balance": 1000.00
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `BankAccountResponse`
 
@@ -213,7 +214,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "Salary",
   "flow_type": "INFLOW",
@@ -222,7 +223,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "frequency": "MONTHLY",
   "transaction_date": "2026-02-01"
 }
-\`\`\`
+```
 
 | Field              | Type        | Values                                         |
 | ------------------ | ----------- | ---------------------------------------------- |
@@ -239,7 +240,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 [
   {
     "id": 1,
@@ -249,10 +250,12 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
     "amount": 3500.00,
     "frequency": "MONTHLY",
     "transaction_date": "2026-02-01",
-    "monthly_amount": 3500.00
+    "monthly_amount": 3500.00,
+    "created_at": "2026-02-01T10:00:00Z",
+    "updated_at": "2026-02-01T10:00:00Z"
   }
 ]
-\`\`\`
+```
 
 ### Get Cashflow
 
@@ -264,7 +267,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `PUT /cashflow/{id}` — Update a cashflow (all fields optional).
 
-\`\`\`json
+```json
 {
   "name": "Updated",
   "flow_type": "OUTFLOW",
@@ -273,16 +276,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "frequency": "MONTHLY",
   "transaction_date": "2026-03-01"
 }
-\`\`\`
-
-| Field              | Type        | Required |
-| ------------------ | ----------- | -------- |
-| `name`             | `string`    | No       |
-| `flow_type`        | `FlowType`  | No       |
-| `category`         | `string`    | No       |
-| `amount`           | `number`    | No       |
-| `frequency`        | `Frequency` | No       |
-| `transaction_date` | `string`    | No       |
+```
 
 **Response (200 OK)**: `CashflowResponse`
 
@@ -296,43 +290,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `GET /cashflow/me/balance` — Get global inflows/outflows balance.
 
-**Response (200 OK)**:
-
-\`\`\`json
-{
-  "total_inflows": 3500.00,
-  "monthly_inflows": 3500.00,
-  "total_outflows": 2000.00,
-  "monthly_outflows": 2000.00,
-  "net_balance": 1500.00,
-  "monthly_balance": 1500.00,
-  "savings_rate": 42.86,
-  "inflows": {
-    "flow_type": "INFLOW",
-    "total_amount": 3500.00,
-    "monthly_total": 3500.00,
-    "categories": [
-      {
-        "category": "Revenus",
-        "total_amount": 3500.00,
-        "monthly_total": 3500.00,
-        "count": 1,
-        "items": []
-      }
-    ]
-  },
-  "outflows": {
-    "flow_type": "OUTFLOW",
-    "total_amount": 2000.00,
-    "monthly_total": 2000.00,
-    "categories": []
-  }
-}
-\`\`\`
-
-| Field          | Type             | Notes                |
-| -------------- | ---------------- | -------------------- |
-| `savings_rate` | `number \| null` | `null` if no inflows |
+**Response (200 OK)**: `CashflowBalanceResponse`
 
 ### Inflows Summary
 
@@ -356,17 +314,18 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 [
   {
     "id": 1,
     "name": "PEA Boursorama",
     "account_type": "PEA",
-    "bank_name": "Boursorama",
-    "created_at": "2026-01-10T12:00:00Z"
+    "institution_name": "Boursorama",
+    "created_at": "2026-01-10T12:00:00Z",
+    "updated_at": "2026-01-10T12:00:00Z"
   }
 ]
-\`\`\`
+```
 
 ### Create Stock Account
 
@@ -374,14 +333,14 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "PEA Boursorama",
   "account_type": "PEA",
-  "bank_name": "Boursorama",
-  "encrypted_iban": null
+  "institution_name": "Boursorama",
+  "identifier": null
 }
-\`\`\`
+```
 
 **Response (201 Created)**: `StockAccountBasicResponse`
 
@@ -389,49 +348,19 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `GET /stocks/accounts/{id}` — Get detailed account info including aggregated positions.
 
-**Response (200 OK)**:
-
-\`\`\`json
-{
-  "account_id": 1,
-  "account_name": "PEA Boursorama",
-  "account_type": "PEA",
-  "total_invested": 1000.00,
-  "total_fees": 5.00,
-  "current_value": null,
-  "profit_loss": null,
-  "profit_loss_percentage": null,
-  "positions": [
-    {
-      "ticker": "CW8",
-      "name": "Amundi MSCI World",
-      "total_amount": 2.0,
-      "average_buy_price": 500.00,
-      "total_invested": 1000.00,
-      "total_fees": 5.00,
-      "fees_percentage": 0.5,
-      "current_price": null,
-      "current_value": null,
-      "profit_loss": null,
-      "profit_loss_percentage": null
-    }
-  ]
-}
-\`\`\`
-
-> `current_value`, `profit_loss`, `profit_loss_percentage`, `current_price` are `null` until market data service is integrated.
+**Response (200 OK)**: `AccountSummaryResponse`
 
 ### Update Stock Account
 
 `PUT /stocks/accounts/{id}` — Update a stock account (all fields optional).
 
-\`\`\`json
+```json
 {
   "name": "Updated Name",
-  "bank_name": "New Bank",
-  "encrypted_iban": null
+  "institution_name": "New Bank",
+  "identifier": null
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `StockAccountBasicResponse`
 
@@ -447,7 +376,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "account_id": 1,
   "ticker": "CW8",
@@ -456,9 +385,10 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "amount": 2.0,
   "price_per_unit": 500.00,
   "fees": 5.00,
-  "executed_at": "2026-01-15T10:30:00Z"
+  "executed_at": "2026-01-15T10:30:00Z",
+  "notes": "Monthly DCA"
 }
-\`\`\`
+```
 
 **Response (201 Created)**: `StockTransactionBasicResponse`
 
@@ -484,7 +414,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `PUT /stocks/transactions/{id}` — Update a stock transaction (all fields optional).
 
-\`\`\`json
+```json
 {
   "ticker": "CW8",
   "exchange": "EPA",
@@ -492,9 +422,10 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "amount": 3.0,
   "price_per_unit": 510.00,
   "fees": 5.00,
-  "executed_at": "2026-01-20T10:00:00Z"
+  "executed_at": "2026-01-20T10:00:00Z",
+  "notes": "Correction"
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `StockTransactionBasicResponse`
 
@@ -503,87 +434,6 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 `DELETE /stocks/transactions/{id}` — Delete a stock transaction.
 
 **Response**: `204 No Content`
-
-### Bulk Import Stock Transactions
-
-`POST /stocks/transactions/bulk` — Import multiple stock transactions at once for a given account.
-
-**Request Body**:
-
-```json
-{
-  "account_id": 1,
-  "transactions": [
-    {
-      "ticker": "CW8",
-      "exchange": "EPA",
-      "type": "BUY",
-      "amount": 2.0,
-      "price_per_unit": 500.00,
-      "fees": 5.00,
-      "executed_at": "2026-01-15T10:30:00Z"
-    },
-    {
-      "ticker": "EWLD",
-      "exchange": "EPA",
-      "type": "BUY",
-      "amount": 10.0,
-      "price_per_unit": 25.00,
-      "fees": 1.50,
-      "executed_at": "2026-01-16T09:00:00Z"
-    }
-  ]
-}
-```
-
-| Field                          | Type                       | Required | Default |
-| ------------------------------ | -------------------------- | -------- | ------- |
-| `account_id`                   | `integer`                  | Yes      | —       |
-| `transactions`                 | `StockTransactionBulkCreate[]` | Yes  | —       |
-| `transactions[].ticker`        | `string`                   | Yes      | —       |
-| `transactions[].exchange`      | `string \| null`           | No       | `null`  |
-| `transactions[].type`          | `StockTransactionType`     | Yes      | —       |
-| `transactions[].amount`        | `number`                   | Yes      | —       |
-| `transactions[].price_per_unit`| `number`                   | Yes      | —       |
-| `transactions[].fees`          | `number`                   | No       | `0`     |
-| `transactions[].executed_at`   | `string (ISO 8601)`        | Yes      | —       |
-
-**Response (201 Created)**:
-
-```json
-{
-  "imported_count": 2,
-  "transactions": [
-    {
-      "id": 10,
-      "account_id": 1,
-      "ticker": "CW8",
-      "exchange": "EPA",
-      "type": "BUY",
-      "amount": 2.0,
-      "price_per_unit": 500.00,
-      "fees": 5.00,
-      "executed_at": "2026-01-15T10:30:00Z"
-    },
-    {
-      "id": 11,
-      "account_id": 1,
-      "ticker": "EWLD",
-      "exchange": "EPA",
-      "type": "BUY",
-      "amount": 10.0,
-      "price_per_unit": 25.00,
-      "fees": 1.50,
-      "executed_at": "2026-01-16T09:00:00Z"
-    }
-  ]
-}
-```
-
-**Error cases**:
-- `400` — Empty transactions list or invalid transaction type
-- `403` — Account does not belong to the authenticated user
-- `404` — Account not found
 
 ---
 
@@ -595,17 +445,18 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 [
   {
     "id": 1,
     "name": "Main Wallet",
-    "wallet_name": "Ledger",
+    "platform": "Ledger",
     "public_address": null,
-    "created_at": "2026-01-10T12:00:00Z"
+    "created_at": "2026-01-10T12:00:00Z",
+    "updated_at": "2026-01-10T12:00:00Z"
   }
 ]
-\`\`\`
+```
 
 ### Create Crypto Account
 
@@ -613,13 +464,13 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "Main Wallet",
-  "wallet_name": "Ledger",
+  "platform": "Ledger",
   "public_address": null
 }
-\`\`\`
+```
 
 **Response (201 Created)**: `CryptoAccountBasicResponse`
 
@@ -633,13 +484,13 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `PUT /crypto/accounts/{id}` — Update a crypto account (all fields optional).
 
-\`\`\`json
+```json
 {
   "name": "Updated Wallet",
-  "wallet_name": "Trezor",
+  "platform": "Trezor",
   "public_address": "0x..."
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `CryptoAccountBasicResponse`
 
@@ -655,7 +506,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "account_id": 1,
   "ticker": "BTC",
@@ -664,9 +515,11 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "price_per_unit": 45000.00,
   "fees": 25.00,
   "fees_ticker": "EUR",
-  "executed_at": "2026-01-15T10:30:00Z"
+  "executed_at": "2026-01-15T10:30:00Z",
+  "notes": "First buy",
+  "tx_hash": "0x123..."
 }
-\`\`\`
+```
 
 **Response (201 Created)**: `CryptoTransactionBasicResponse`
 
@@ -692,7 +545,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `PUT /crypto/transactions/{id}` — Update a crypto transaction (all fields optional).
 
-\`\`\`json
+```json
 {
   "ticker": "BTC",
   "type": "BUY",
@@ -702,7 +555,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "fees_ticker": "EUR",
   "executed_at": "2026-01-20T10:00:00Z"
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `CryptoTransactionBasicResponse`
 
@@ -711,136 +564,6 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 `DELETE /crypto/transactions/{id}` — Delete a crypto transaction.
 
 **Response**: `204 No Content`
-
-### Bulk Import Crypto Transactions
-
-`POST /crypto/transactions/bulk` — Import multiple crypto transactions at once for a given account.
-
-**Request Body**:
-
-```json
-{
-  "account_id": 1,
-  "transactions": [
-    {
-      "ticker": "BTC",
-      "type": "BUY",
-      "amount": 0.5,
-      "price_per_unit": 45000.00,
-      "fees": 25.00,
-      "fees_ticker": "EUR",
-      "executed_at": "2026-01-15T10:30:00Z"
-    },
-    {
-      "ticker": "ETH",
-      "type": "BUY",
-      "amount": 5.0,
-      "price_per_unit": 3200.00,
-      "fees": 0.002,
-      "fees_ticker": "ETH",
-      "executed_at": "2026-01-16T09:00:00Z"
-    }
-  ]
-}
-```
-
-| Field                          | Type                        | Required | Default |
-| ------------------------------ | --------------------------- | -------- | ------- |
-| `account_id`                   | `integer`                   | Yes      | —       |
-| `transactions`                 | `CryptoTransactionBulkCreate[]` | Yes  | —       |
-| `transactions[].ticker`        | `string`                    | Yes      | —       |
-| `transactions[].type`          | `CryptoTransactionType`     | Yes      | —       |
-| `transactions[].amount`        | `number`                    | Yes      | —       |
-| `transactions[].price_per_unit`| `number`                    | Yes      | —       |
-| `transactions[].fees`          | `number`                    | No       | `0`     |
-| `transactions[].fees_ticker`   | `string \| null`            | No       | `null`  |
-| `transactions[].executed_at`   | `string (ISO 8601)`         | Yes      | —       |
-
-**Response (201 Created)**:
-
-```json
-{
-  "imported_count": 2,
-  "transactions": [
-    {
-      "id": 10,
-      "account_id": 1,
-      "ticker": "BTC",
-      "type": "BUY",
-      "amount": 0.5,
-      "price_per_unit": 45000.00,
-      "fees": 25.00,
-      "fees_ticker": "EUR",
-      "executed_at": "2026-01-15T10:30:00Z"
-    },
-    {
-      "id": 11,
-      "account_id": 1,
-      "ticker": "ETH",
-      "type": "BUY",
-      "amount": 5.0,
-      "price_per_unit": 3200.00,
-      "fees": 0.002,
-      "fees_ticker": "ETH",
-      "executed_at": "2026-01-16T09:00:00Z"
-    }
-  ]
-}
-```
-
-**Error cases**:
-- `400` — Empty transactions list or invalid transaction type
-- `403` — Account does not belong to the authenticated user
-- `404` — Account not found
-
----
-
-## Dashboard
-
-### Global Portfolio
-
-`GET /dashboard/portfolio` — Aggregate all stock and crypto accounts.
-
-**Response (200 OK)**:
-
-\`\`\`json
-{
-  "total_invested": 15000.00,
-  "total_fees": 120.50,
-  "current_value": null,
-  "profit_loss": null,
-  "profit_loss_percentage": null,
-  "accounts": [
-    {
-      "account_id": 1,
-      "account_name": "Main PEA",
-      "account_type": "PEA",
-      "total_invested": 10000.00,
-      "total_fees": 50.00,
-      "current_value": null,
-      "profit_loss": null,
-      "profit_loss_percentage": null,
-      "positions": [
-        {
-          "ticker": "CW8",
-          "name": "Amundi MSCI World",
-          "total_amount": 2.0,
-          "average_buy_price": 500.00,
-          "total_invested": 1000.00,
-          "total_fees": 5.00,
-          "fees_percentage": 0.5,
-          "current_price": null,
-          "current_value": null,
-          "profit_loss": null,
-          "profit_loss_percentage": null
-        }
-      ]
-    }
-  ]
-}
-\`\`\`
-
-> Market data fields (`current_value`, `profit_loss`, etc.) are `null` until the market data service is implemented.
 
 ---
 
@@ -852,15 +575,17 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 [
   {
     "id": 1,
     "name": "DCA Strategy",
-    "description": "Buy CW8 every month on the 5th."
+    "description": "Buy CW8 every month on the 5th.",
+    "created_at": "2026-01-10T12:00:00Z",
+    "updated_at": "2026-01-10T12:00:00Z"
   }
 ]
-\`\`\`
+```
 
 ### Create Note
 
@@ -868,17 +593,12 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Request Body**:
 
-\`\`\`json
+```json
 {
   "name": "DCA Strategy",
   "description": "Buy CW8 every month on the 5th."
 }
-\`\`\`
-
-| Field         | Type             | Required |
-| ------------- | ---------------- | -------- |
-| `name`        | `string`         | Yes      |
-| `description` | `string \| null` | No       |
+```
 
 **Response (201 Created)**: `NoteResponse`
 
@@ -892,12 +612,12 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 `PUT /notes/{id}` — Update a note (all fields optional).
 
-\`\`\`json
+```json
 {
   "name": "Updated Strategy",
   "description": "Updated description"
 }
-\`\`\`
+```
 
 **Response (200 OK)**: `NoteResponse`
 
@@ -917,13 +637,13 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "status": "ok",
   "app": "CapitalView API",
   "version": "0.1.0"
 }
-\`\`\`
+```
 
 ### Database Health
 
@@ -931,55 +651,9 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 **Response (200 OK)**:
 
-\`\`\`json
+```json
 {
   "status": "ok",
   "database": "connected"
 }
-\`\`\`
-
-**Response (Error)**:
-
-\`\`\`json
-{
-  "status": "error",
-  "database": "unavailable"
-}
-\`\`\`
-
----
-
-## Schema Reference
-
-### Enum Types
-
-| Type                    | Values                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `BankAccountType`       | `CHECKING`, `SAVINGS`, `LIVRET_A`, `LIVRET_DEVE`, `LEP`, `LDD`, `PEL`, `CEL` |
-| `FlowType`              | `INFLOW`, `OUTFLOW`                                                           |
-| `Frequency`             | `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`                                |
-| `StockAccountType`      | `PEA`, `CTO`, `PEA_PME`                                                      |
-| `StockTransactionType`  | `BUY`, `SELL`, `DEPOSIT`, `DIVIDEND`                                          |
-| `CryptoTransactionType` | `BUY`, `SELL`, `SWAP`                                                         |
-
-### TransactionResponse (computed fields)
-
-| Field                    | Type             | Description                                  |
-| ------------------------ | ---------------- | -------------------------------------------- |
-| `total_cost`             | `number`         | `amount × price_per_unit + fees`             |
-| `fees_percentage`        | `number`         | `fees / total_cost × 100`                    |
-| `current_price`          | `number \| null` | Current market price (`null` if unavailable)  |
-| `current_value`          | `number \| null` | `amount × current_price` (`null`)            |
-| `profit_loss`            | `number \| null` | `current_value - total_cost` (`null`)        |
-| `profit_loss_percentage` | `number \| null` | `profit_loss / total_cost × 100` (`null`)    |
-
-### Security Headers
-
-All responses include:
-
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-- `X-XSS-Protection: 1; mode=block`
-- `Strict-Transport-Security` (production only)
+```

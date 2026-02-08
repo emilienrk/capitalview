@@ -44,24 +44,26 @@ export type BankAccountType =
 export interface BankAccountCreate {
   name: string
   account_type: BankAccountType
-  bank_name?: string
-  encrypted_iban?: string
+  institution_name?: string
+  identifier?: string
   balance?: number
 }
 
 export interface BankAccountUpdate {
   name?: string
-  bank_name?: string
-  encrypted_iban?: string
+  institution_name?: string
+  identifier?: string
   balance?: number
 }
 
 export interface BankAccountResponse {
-  id: number
+  id: string
   name: string
-  bank_name: string | null
+  institution_name: string | null
   balance: number
   account_type: BankAccountType
+  identifier: string | null
+  created_at: string
   updated_at: string
 }
 
@@ -94,7 +96,7 @@ export interface CashflowUpdate {
 }
 
 export interface CashflowResponse {
-  id: number
+  id: string
   name: string
   flow_type: FlowType
   category: string
@@ -102,6 +104,8 @@ export interface CashflowResponse {
   frequency: Frequency
   transaction_date: string
   monthly_amount: number
+  created_at: string
+  updated_at: string
 }
 
 export interface CashflowCategoryResponse {
@@ -139,26 +143,28 @@ export type StockTransactionType = 'BUY' | 'SELL' | 'DEPOSIT' | 'DIVIDEND'
 export interface StockAccountCreate {
   name: string
   account_type: StockAccountType
-  bank_name?: string
-  encrypted_iban?: string
+  institution_name?: string
+  identifier?: string
 }
 
 export interface StockAccountUpdate {
   name?: string
-  bank_name?: string
-  encrypted_iban?: string
+  institution_name?: string
+  identifier?: string
 }
 
 export interface StockAccountBasicResponse {
-  id: number
+  id: string
   name: string
   account_type: StockAccountType
-  bank_name: string | null
+  institution_name: string | null
+  identifier: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface StockTransactionCreate {
-  account_id: number
+  account_id: string
   ticker: string
   exchange?: string
   type: StockTransactionType
@@ -166,11 +172,12 @@ export interface StockTransactionCreate {
   price_per_unit: number
   fees?: number
   executed_at: string
+  notes?: string
 }
 
 export interface StockTransactionBasicResponse {
-  id: number
-  account_id: number
+  id: string
+  account_id: string
   ticker: string
   exchange: string | null
   type: StockTransactionType
@@ -178,6 +185,7 @@ export interface StockTransactionBasicResponse {
   price_per_unit: number
   fees: number
   executed_at: string
+  notes: string | null
 }
 
 export interface StockTransactionUpdate {
@@ -188,6 +196,7 @@ export interface StockTransactionUpdate {
   price_per_unit?: number
   fees?: number
   executed_at?: string
+  notes?: string
 }
 
 // ─── Crypto ──────────────────────────────────────────────────
@@ -196,26 +205,27 @@ export type CryptoTransactionType = 'BUY' | 'SELL' | 'SWAP'
 
 export interface CryptoAccountCreate {
   name: string
-  wallet_name?: string
+  platform?: string
   public_address?: string
 }
 
 export interface CryptoAccountUpdate {
   name?: string
-  wallet_name?: string
+  platform?: string
   public_address?: string
 }
 
 export interface CryptoAccountBasicResponse {
-  id: number
+  id: string
   name: string
-  wallet_name: string | null
+  platform: string | null
   public_address: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface CryptoTransactionCreate {
-  account_id: number
+  account_id: string
   ticker: string
   type: CryptoTransactionType
   amount: number
@@ -223,11 +233,13 @@ export interface CryptoTransactionCreate {
   fees?: number
   fees_ticker?: string
   executed_at: string
+  notes?: string
+  tx_hash?: string
 }
 
 export interface CryptoTransactionBasicResponse {
-  id: number
-  account_id: number
+  id: string
+  account_id: string
   ticker: string
   type: CryptoTransactionType
   amount: number
@@ -235,6 +247,8 @@ export interface CryptoTransactionBasicResponse {
   fees: number
   fees_ticker: string | null
   executed_at: string
+  notes: string | null
+  tx_hash: string | null
 }
 
 export interface CryptoTransactionUpdate {
@@ -245,6 +259,8 @@ export interface CryptoTransactionUpdate {
   fees?: number
   fees_ticker?: string
   executed_at?: string
+  notes?: string
+  tx_hash?: string
 }
 
 // ─── Notes ───────────────────────────────────────────────────
@@ -260,15 +276,17 @@ export interface NoteUpdate {
 }
 
 export interface NoteResponse {
-  id: number
+  id: string
   name: string
   description: string | null
+  created_at: string
+  updated_at: string
 }
 
 // ─── Shared / Portfolio ──────────────────────────────────────
 
 export interface TransactionResponse {
-  id: number
+  id: string
   ticker: string
   type: string
   amount: number
@@ -298,7 +316,7 @@ export interface PositionResponse {
 }
 
 export interface AccountSummaryResponse {
-  account_id: number
+  account_id: string
   account_name: string
   account_type: string
   total_invested: number

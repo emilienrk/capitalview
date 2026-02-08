@@ -16,22 +16,22 @@ const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
 const showDeleteModal = ref(false)
-const deleteTarget = ref<{ type: 'account' | 'transaction'; id: number; label: string } | null>(null)
-const selectedAccountId = ref<number | null>(null)
+const deleteTarget = ref<{ type: 'account' | 'transaction'; id: string; label: string } | null>(null)
+const selectedAccountId = ref<string | null>(null)
 const activeFilter = ref<'all' | 'PEA' | 'CTO' | 'PEA_PME'>('all')
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
-const editingTxId = ref<number | null>(null)
-const editingAccountId = ref<number | null>(null)
+const editingTxId = ref<string | null>(null)
+const editingAccountId = ref<string | null>(null)
 
 const accountForm = reactive<StockAccountCreate>({
   name: '',
   account_type: 'CTO' as StockAccountType,
-  bank_name: '',
+  institution_name: '',
 })
 
 const txForm = reactive<StockTransactionCreate>({
-  account_id: 0,
+  account_id: '',
   ticker: '',
   exchange: '',
   type: 'BUY',
@@ -100,7 +100,7 @@ function openCreateAccount(): void {
   accountForm.name = ''
   // Default to CTO, or PEA if no PEA exists yet
   accountForm.account_type = hasPea.value ? 'CTO' : 'PEA'
-  accountForm.bank_name = ''
+  accountForm.institution_name = ''
   showAccountModal.value = true
 }
 
@@ -108,7 +108,7 @@ function openEditAccount(account: any): void {
   editingAccountId.value = account.id
   accountForm.name = account.name
   accountForm.account_type = account.account_type
-  accountForm.bank_name = account.bank_name || ''
+  accountForm.institution_name = account.institution_name || ''
   showAccountModal.value = true
 }
 
@@ -121,7 +121,7 @@ async function handleSubmitAccount(): Promise<void> {
   showAccountModal.value = false
 }
 
-function openAddTransaction(accountId: number): void {
+function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
   txForm.ticker = ''
@@ -136,7 +136,7 @@ function openAddTransaction(accountId: number): void {
 
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
-  txForm.account_id = tx.account_id || selectedAccountId.value!
+  txForm.account_id = selectedAccountId.value!
   txForm.ticker = tx.ticker
   txForm.exchange = tx.exchange
   txForm.type = tx.type
@@ -162,7 +162,7 @@ async function handleSubmitTransaction(): Promise<void> {
   }
 }
 
-async function deleteTransaction(id: number): Promise<void> {
+async function deleteTransaction(id: string): Promise<void> {
   if (confirm('Supprimer cette transaction ?')) {
     await stocks.deleteTransaction(id)
     showTxModal.value = false
@@ -175,11 +175,11 @@ async function deleteTransaction(id: number): Promise<void> {
   }
 }
 
-async function fetchAccountTransactions(id: number): Promise<void> {
+async function fetchAccountTransactions(id: string): Promise<void> {
   accountTransactions.value = await stocks.fetchAccountTransactions(id)
 }
 
-async function selectAccount(id: number): Promise<void> {
+async function selectAccount(id: string): Promise<void> {
   if (selectedAccountId.value === id) {
     // Toggle: deselect
     selectedAccountId.value = null
@@ -194,7 +194,7 @@ async function selectAccount(id: number): Promise<void> {
   ])
 }
 
-function confirmDeleteAccount(account: { id: number; name: string }): void {
+function confirmDeleteAccount(account: { id: string; name: string }): void {
   deleteTarget.value = { type: 'account', id: account.id, label: account.name }
   showDeleteModal.value = true
 }
@@ -299,7 +299,7 @@ onMounted(() => {
               </BaseBadge>
             </div>
             <div class="flex items-center gap-3 mt-1">
-              <span v-if="account.bank_name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.bank_name }}</span>
+              <span v-if="account.institution_name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.institution_name }}</span>
               <span class="text-xs text-text-muted dark:text-text-dark-muted">Créé le {{ formatDate(account.created_at) }}</span>
             </div>
           </div>
@@ -506,7 +506,7 @@ onMounted(() => {
           :placeholder="accountForm.account_type === 'PEA' ? 'Ex: PEA Boursorama' : 'Ex: CTO Degiro'"
           required
         />
-        <BaseInput v-model="accountForm.bank_name!" label="Courtier / Banque" placeholder="Ex: Boursorama, Degiro..." />
+        <BaseInput v-model="accountForm.institution_name!" label="Courtier / Banque" placeholder="Ex: Boursorama, Degiro..." />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">
