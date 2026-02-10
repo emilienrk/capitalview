@@ -380,6 +380,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 {
   "account_id": 1,
   "symbol": "CW8",
+  "isin": "FR0013247244",
   "exchange": "EPA",
   "type": "BUY",
   "amount": 2.0,
@@ -389,6 +390,19 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
   "notes": "Monthly DCA"
 }
 ```
+
+| Field              | Type     | Required | Description                          |
+| ------------------ | -------- | -------- | ------------------------------------ |
+| `account_id`       | `string` | ✅       | UUID of the stock account            |
+| `symbol`           | `string` | ✅       | Stock symbol (e.g., "AAPL", "CW8")  |
+| `isin`             | `string` | ❌       | ISIN code (e.g., "US0378331005")    |
+| `exchange`         | `string` | ❌       | Exchange code (e.g., "NASDAQ")       |
+| `type`             | `string` | ✅       | BUY, SELL, DEPOSIT, DIVIDEND         |
+| `amount`           | `number` | ✅       | Quantity of shares                   |
+| `price_per_unit`   | `number` | ✅       | Price per share                      |
+| `fees`             | `number` | ❌       | Transaction fees (default: 0)        |
+| `executed_at`      | `string` | ✅       | ISO 8601 datetime                    |
+| `notes`            | `string` | ❌       | Optional notes                       |
 
 **Response (201 Created)**: `StockTransactionBasicResponse`
 
@@ -417,6 +431,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 ```json
 {
   "symbol": "CW8",
+  "isin": "FR0013247244",
   "exchange": "EPA",
   "type": "BUY",
   "amount": 3.0,
@@ -434,6 +449,59 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 `DELETE /stocks/transactions/{id}` — Delete a stock transaction.
 
 **Response**: `204 No Content`
+
+### Search Assets
+
+`GET /stocks/market/search?q={query}` — Search for stocks, ETFs by symbol or name.
+
+**Query Parameters**:
+- `q` (required): Search query (symbol or name, min 2 characters)
+
+**Response (200 OK)**:
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "exchange": "NASDAQ",
+    "type": "EQUITY",
+    "currency": "USD"
+  },
+  {
+    "symbol": "CW8.PA",
+    "name": "Amundi MSCI World",
+    "exchange": "PAR",
+    "type": "ETF",
+    "currency": "EUR"
+  }
+]
+```
+
+### Get Assets Info
+
+`POST /stocks/market/info` — Get current price and info for multiple assets.
+
+**Request Body**:
+
+```json
+["AAPL", "CW8.PA", "MSFT"]
+```
+
+**Response (200 OK)**:
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "price": 185.50,
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "type": "EQUITY"
+  }
+]
+```
 
 ---
 
@@ -564,6 +632,59 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 `DELETE /crypto/transactions/{id}` — Delete a crypto transaction.
 
 **Response**: `204 No Content`
+
+### Search Crypto Assets
+
+`GET /crypto/market/search?q={query}` — Search for cryptocurrencies by symbol or name.
+
+**Query Parameters**:
+- `q` (required): Search query (symbol or name, min 2 characters)
+
+**Response (200 OK)**:
+
+```json
+[
+  {
+    "symbol": "BTC",
+    "name": "Bitcoin",
+    "exchange": null,
+    "type": "CRYPTO",
+    "currency": "USD"
+  },
+  {
+    "symbol": "ETH",
+    "name": "Ethereum",
+    "exchange": null,
+    "type": "CRYPTO",
+    "currency": "USD"
+  }
+]
+```
+
+### Get Crypto Assets Info
+
+`POST /crypto/market/info` — Get current price and info for multiple cryptocurrencies.
+
+**Request Body**:
+
+```json
+["BTC", "ETH", "SOL"]
+```
+
+**Response (200 OK)**:
+
+```json
+[
+  {
+    "symbol": "BTC",
+    "name": "Bitcoin",
+    "price": 50245.32,
+    "currency": "USD",
+    "exchange": null,
+    "type": "CRYPTO"
+  }
+]
+```
 
 ---
 

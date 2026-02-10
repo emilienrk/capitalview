@@ -166,6 +166,7 @@ export interface StockAccountBasicResponse {
 export interface StockTransactionCreate {
   account_id: string
   symbol: string
+  isin?: string
   exchange?: string
   type: StockTransactionType
   amount: number
@@ -190,6 +191,7 @@ export interface StockTransactionBasicResponse {
 
 export interface StockTransactionUpdate {
   symbol?: string
+  isin?: string
   exchange?: string
   type?: StockTransactionType
   amount?: number

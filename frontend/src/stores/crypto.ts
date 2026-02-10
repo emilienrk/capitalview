@@ -10,6 +10,8 @@ import type {
   CryptoTransactionBasicResponse,
   AccountSummaryResponse,
   TransactionResponse,
+  AssetSearchResult,
+  AssetInfoResponse,
 } from '@/types'
 
 export const useCryptoStore = defineStore('crypto', () => {
@@ -18,6 +20,28 @@ export const useCryptoStore = defineStore('crypto', () => {
   const transactions = ref<TransactionResponse[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+
+  // ── Market Data ────────────────────────────────────────────
+
+  async function searchAssets(query: string): Promise<AssetSearchResult[]> {
+    if (!query) return []
+    try {
+      return await apiClient.get<AssetSearchResult[]>(`/crypto/market/search?q=${encodeURIComponent(query)}`)
+    } catch (e) {
+      console.error('Search error:', e)
+      return []
+    }
+  }
+
+  async function getAssetsInfo(symbols: string[]): Promise<AssetInfoResponse[]> {
+    if (!symbols.length) return []
+    try {
+      return await apiClient.post<AssetInfoResponse[]>('/crypto/market/info', symbols)
+    } catch (e) {
+      console.error('Assets Info error:', e)
+      return []
+    }
+  }
 
   // ── Accounts ───────────────────────────────────────────────
 
@@ -164,6 +188,8 @@ export const useCryptoStore = defineStore('crypto', () => {
     transactions,
     isLoading,
     error,
+    searchAssets,
+    getAssetsInfo,
     fetchAccounts,
     fetchAccount,
     createAccount,

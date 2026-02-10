@@ -5,9 +5,9 @@ import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
-  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge,
+  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseAutocomplete,
 } from '@/components'
-import type { CryptoAccountCreate, CryptoTransactionCreate, TransactionResponse } from '@/types'
+import type { CryptoAccountCreate, CryptoTransactionCreate, TransactionResponse, AssetSearchResult } from '@/types'
 
 const crypto = useCryptoStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
@@ -19,6 +19,10 @@ const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
 const editingTxId = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
+
+const searchResults = ref<AssetSearchResult[]>([])
+const isSearching = ref(false)
+const searchQuery = ref('')
 
 const accountForm = reactive<CryptoAccountCreate>({
   name: '',
@@ -79,6 +83,8 @@ function openAddTransaction(accountId: string): void {
   txForm.fees = 0
   txForm.fees_symbol = 'EUR'
   txForm.executed_at = new Date().toISOString().slice(0, 16)
+  searchQuery.value = ''
+  searchResults.value = []
   showTxModal.value = true
 }
 
@@ -92,7 +98,47 @@ function openEditTransaction(tx: any): void {
   txForm.fees = tx.fees
   txForm.fees_symbol = 'EUR' // fees_symbol missing in response for now, defaulting
   txForm.executed_at = tx.executed_at.slice(0, 16)
+  searchQuery.value = tx.symbol
+  searchResults.value = []
   showTxModal.value = true
+}
+
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+async function handleSearchInput(value: string): Promise<void> {
+  searchQuery.value = value
+  txForm.symbol = value
+  
+  if (!value || value.length < 2) {
+    searchResults.value = []
+    return
+  }
+  
+  if (searchTimeout) clearTimeout(searchTimeout)
+  
+  searchTimeout = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      searchResults.value = await crypto.searchAssets(value)
+    } catch (error) {
+      console.error('Search error:', error)
+      searchResults.value = []
+    } finally {
+      isSearching.value = false
+    }
+  }, 300)
+}
+
+function handleSelectAsset(asset: AssetSearchResult): void {
+  txForm.symbol = asset.symbol
+  searchQuery.value = asset.symbol
+  searchResults.value = []
+}
+
+function formatAssetDisplay(asset: AssetSearchResult): string {
+  if (asset.name) {
+    return `${asset.symbol} - ${asset.name}`
+  }
+  return asset.symbol
 }
 
 async function handleSubmitTransaction(): Promise<void> {
@@ -361,7 +407,21 @@ onMounted(() => {
     <!-- Create/Edit Transaction Modal -->
     <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction crypto'" @close="showTxModal = false">
       <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
-        <BaseInput v-model="txForm.symbol" label="Token" placeholder="Ex: BTC, ETH" required />
+        <BaseAutocomplete
+          :model-value="searchQuery"
+          @update:model-value="handleSearchInput"
+          @select="handleSelectAsset"
+          label="Token / Crypto"
+          placeholder="Ex: BTC, ETH, Bitcoin"
+          :options="searchResults"
+          :display-value="formatAssetDisplay"
+          :loading="isSearching"
+          remote
+          required
+        />
+        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
+          💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
+        </p>
         <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" required />

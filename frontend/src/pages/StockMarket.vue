@@ -33,6 +33,7 @@ const accountForm = reactive<StockAccountCreate>({
 const txForm = reactive<StockTransactionCreate>({
   account_id: '',
   symbol: '',
+  isin: '',
   exchange: '',
   type: 'BUY',
   amount: 0,
@@ -129,6 +130,7 @@ function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
   txForm.symbol = ''
+  txForm.isin = ''
   txForm.exchange = ''
   txForm.type = 'BUY'
   txForm.amount = 0
@@ -144,6 +146,7 @@ function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
   txForm.account_id = selectedAccountId.value!
   txForm.symbol = tx.symbol
+  txForm.isin = tx.isin || ''
   txForm.exchange = tx.exchange
   txForm.type = tx.type
   txForm.amount = tx.amount
@@ -586,7 +589,13 @@ onMounted(() => {
           remote
           required
         />
-        <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
+        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
+          💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
+        </p>
+        <div class="grid grid-cols-2 gap-4">
+          <BaseInput v-model="txForm.isin!" label="ISIN (optionnel)" placeholder="Ex: US0378331005" />
+          <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
+        </div>
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" required />
