@@ -167,7 +167,7 @@ onMounted(() => {
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-text-muted dark:text-text-dark-muted text-xs uppercase tracking-wider">
-                      <th class="px-4 py-2">Ticker</th>
+                      <th class="px-4 py-2">Symbole</th>
                       <th class="px-4 py-2 text-right">Quantité</th>
                       <th class="px-4 py-2 text-right">PRU</th>
                       <th class="px-4 py-2 text-right">Investi</th>
@@ -176,8 +176,8 @@ onMounted(() => {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                    <tr v-for="pos in account.positions" :key="pos.ticker" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                      <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.ticker }}</td>
+                    <tr v-for="pos in account.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                      <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>

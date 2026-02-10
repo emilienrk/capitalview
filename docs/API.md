@@ -379,7 +379,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 ```json
 {
   "account_id": 1,
-  "ticker": "CW8",
+  "symbol": "CW8",
   "exchange": "EPA",
   "type": "BUY",
   "amount": 2.0,
@@ -416,7 +416,7 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 ```json
 {
-  "ticker": "CW8",
+  "symbol": "CW8",
   "exchange": "EPA",
   "type": "BUY",
   "amount": 3.0,
@@ -509,12 +509,12 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 ```json
 {
   "account_id": 1,
-  "ticker": "BTC",
+  "symbol": "BTC",
   "type": "BUY",
   "amount": 0.5,
   "price_per_unit": 45000.00,
   "fees": 25.00,
-  "fees_ticker": "EUR",
+  "fees_symbol": "EUR",
   "executed_at": "2026-01-15T10:30:00Z",
   "notes": "First buy",
   "tx_hash": "0x123..."
@@ -547,12 +547,12 @@ _Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/aut
 
 ```json
 {
-  "ticker": "BTC",
+  "symbol": "BTC",
   "type": "BUY",
   "amount": 1.0,
   "price_per_unit": 46000.00,
   "fees": 30.00,
-  "fees_ticker": "EUR",
+  "fees_symbol": "EUR",
   "executed_at": "2026-01-20T10:00:00Z"
 }
 ```

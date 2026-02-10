@@ -10,6 +10,8 @@ import type {
   StockTransactionBasicResponse,
   AccountSummaryResponse,
   TransactionResponse,
+  AssetSearchResult,
+  AssetInfoResponse,
 } from '@/types'
 
 export const useStocksStore = defineStore('stocks', () => {
@@ -18,6 +20,28 @@ export const useStocksStore = defineStore('stocks', () => {
   const transactions = ref<TransactionResponse[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+
+  // ── Market Data ────────────────────────────────────────────
+
+  async function searchAssets(query: string): Promise<AssetSearchResult[]> {
+    if (!query) return []
+    try {
+      return await apiClient.get<AssetSearchResult[]>(`/stocks/market/search?q=${encodeURIComponent(query)}`)
+    } catch (e) {
+      console.error('Search error:', e)
+      return []
+    }
+  }
+
+  async function getAssetsInfo(symbols: string[]): Promise<AssetInfoResponse[]> {
+    if (!symbols.length) return []
+    try {
+      return await apiClient.post<AssetInfoResponse[]>('/stocks/market/info', symbols)
+    } catch (e) {
+      console.error('Assets Info error:', e)
+      return []
+    }
+  }
 
   // ── Accounts ───────────────────────────────────────────────
 
@@ -174,6 +198,8 @@ export const useStocksStore = defineStore('stocks', () => {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    searchAssets,
+    getAssetsInfo,
     reset,
   }
 })

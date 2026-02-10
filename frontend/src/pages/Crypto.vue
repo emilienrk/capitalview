@@ -28,12 +28,12 @@ const accountForm = reactive<CryptoAccountCreate>({
 
 const txForm = reactive<CryptoTransactionCreate>({
   account_id: '',
-  ticker: '',
+  symbol: '',
   type: 'BUY',
   amount: 0,
   price_per_unit: 0,
   fees: 0,
-  fees_ticker: 'EUR',
+  fees_symbol: 'EUR',
   executed_at: new Date().toISOString().slice(0, 16),
 })
 
@@ -72,12 +72,12 @@ async function handleSubmitAccount(): Promise<void> {
 function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
-  txForm.ticker = ''
+  txForm.symbol = ''
   txForm.type = 'BUY'
   txForm.amount = 0
   txForm.price_per_unit = 0
   txForm.fees = 0
-  txForm.fees_ticker = 'EUR'
+  txForm.fees_symbol = 'EUR'
   txForm.executed_at = new Date().toISOString().slice(0, 16)
   showTxModal.value = true
 }
@@ -85,12 +85,12 @@ function openAddTransaction(accountId: string): void {
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
   txForm.account_id = selectedAccountId.value!
-  txForm.ticker = tx.ticker
+  txForm.symbol = tx.symbol
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
-  txForm.fees_ticker = 'EUR' // fees_ticker missing in response for now, defaulting
+  txForm.fees_symbol = 'EUR' // fees_symbol missing in response for now, defaulting
   txForm.executed_at = tx.executed_at.slice(0, 16)
   showTxModal.value = true
 }
@@ -266,8 +266,8 @@ onMounted(() => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                  <tr v-for="pos in crypto.currentAccount.positions" :key="pos.ticker" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.ticker }}</td>
+                  <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(pos.average_buy_price) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(pos.total_invested) }}</td>
@@ -306,7 +306,7 @@ onMounted(() => {
                         {{ tx.type }}
                       </BaseBadge>
                     </td>
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.ticker }}</td>
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 6) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
                     <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
@@ -361,7 +361,7 @@ onMounted(() => {
     <!-- Create/Edit Transaction Modal -->
     <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction crypto'" @close="showTxModal = false">
       <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
-        <BaseInput v-model="txForm.ticker" label="Token" placeholder="Ex: BTC, ETH" required />
+        <BaseInput v-model="txForm.symbol" label="Token" placeholder="Ex: BTC, ETH" required />
         <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" required />
@@ -369,7 +369,7 @@ onMounted(() => {
         </div>
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.fees!" label="Frais" type="number" />
-          <BaseInput v-model="txForm.fees_ticker!" label="Devise frais" placeholder="EUR" />
+          <BaseInput v-model="txForm.fees_symbol!" label="Devise frais" placeholder="EUR" />
         </div>
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
