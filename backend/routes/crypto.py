@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models import User, CryptoAccount, CryptoTransaction
 from services.auth import get_current_user, get_master_key
-from models.enums import CryptoTransactionType
+from models.enums import CryptoTransactionType, AssetType
 from dtos import (
     CryptoAccountCreate,
     CryptoAccountUpdate,
@@ -20,6 +20,8 @@ from dtos import (
     CryptoTransactionBasicResponse,
     AccountSummaryResponse,
     TransactionResponse,
+    AssetSearchResult,
+    AssetInfoResponse,
 )
 from services.crypto_account import (
     create_crypto_account,
@@ -36,6 +38,7 @@ from services.crypto_transaction import (
     delete_crypto_transaction,
     get_crypto_account_summary
 )
+from services.market_data.manager import market_data_manager
 
 router = APIRouter(prefix="/crypto", tags=["Crypto"])
 
@@ -71,12 +74,10 @@ def get_account(
     session: Session = Depends(get_session)
 ):
     """Get a crypto account with positions and calculated values."""
-    # Verify ownership
     account_basic = get_crypto_account(session, account_id, current_user.uuid, master_key)
     if not account_basic:
         raise HTTPException(status_code=404, detail="Account not found")
         
-    # We need the model for the summary service
     account_model = session.get(CryptoAccount, account_id)
     
     return get_crypto_account_summary(session, account_model, master_key)
@@ -91,7 +92,6 @@ def update_account(
     session: Session = Depends(get_session)
 ):
     """Update a crypto account."""
-    # Verify ownership
     existing = get_crypto_account(session, account_id, current_user.uuid, master_key)
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -108,7 +108,6 @@ def delete_account(
     session: Session = Depends(get_session)
 ):
     """Delete a crypto account and all its transactions."""
-    # Verify ownership
     existing = get_crypto_account(session, account_id, current_user.uuid, master_key)
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -127,7 +126,6 @@ def create_transaction(
     session: Session = Depends(get_session)
 ):
     """Create a new crypto transaction."""
-    # Verify account ownership
     account = get_crypto_account(session, data.account_id, current_user.uuid, master_key)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -137,12 +135,12 @@ def create_transaction(
     return CryptoTransactionBasicResponse(
         id=resp.id,
         account_id=data.account_id,
-        ticker=resp.ticker,
+        symbol=resp.symbol,
         type=data.type,
         amount=resp.amount,
         price_per_unit=resp.price_per_unit,
-        fees=data.fees, # Original fees
-        fees_ticker=data.fees_ticker,
+        fees=data.fees,
+        fees_symbol=data.fees_symbol,
         executed_at=resp.executed_at,
         notes=data.notes,
         tx_hash=data.tx_hash
@@ -156,16 +154,13 @@ def list_transactions(
     session: Session = Depends(get_session)
 ):
     """List all crypto transactions for current user (history)."""
-    # 1. Get all user accounts
     accounts = get_user_crypto_accounts(session, current_user.uuid, master_key)
     
-    # 2. Get transactions for each account
     all_transactions = []
     for acc in accounts:
         txs = get_account_transactions(session, acc.id, master_key)
         all_transactions.extend(txs)
         
-    # Sort by date desc
     all_transactions.sort(key=lambda x: x.executed_at, reverse=True)
     
     return all_transactions
@@ -183,7 +178,6 @@ def get_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
         
-    # Implicit ownership check via decryption success
     return transaction
 
 
@@ -205,13 +199,13 @@ def update_transaction(
         
         return CryptoTransactionBasicResponse(
             id=resp.id,
-            account_id="unknown", # We don't have account_id easily accessible
-            ticker=resp.ticker,
-            type=CryptoTransactionType.BUY, # Placeholder
+            account_id="unknown",
+            symbol=resp.symbol,
+            type=CryptoTransactionType.BUY,
             amount=resp.amount,
             price_per_unit=resp.price_per_unit,
             fees=resp.fees,
-            fees_ticker=None,
+            fees_symbol=None,
             executed_at=resp.executed_at,
             notes=None,
             tx_hash=None
@@ -228,7 +222,6 @@ def delete_transaction(
     session: Session = Depends(get_session)
 ):
     """Delete a crypto transaction."""
-    # Implicit ownership check
     tx = get_crypto_transaction(session, transaction_id, master_key)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -245,7 +238,6 @@ def get_transactions_by_account(
     session: Session = Depends(get_session)
 ):
     """Get all transactions for a specific account."""
-    # Verify account
     account = get_crypto_account(session, account_id, current_user.uuid, master_key)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -261,7 +253,6 @@ def bulk_import_transactions(
     session: Session = Depends(get_session)
 ):
     """Bulk import multiple crypto transactions."""
-    # Verify account
     account = get_crypto_account(session, data.account_id, current_user.uuid, master_key)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -271,12 +262,12 @@ def bulk_import_transactions(
     for item in data.transactions:
         create_dto = CryptoTransactionCreate(
             account_id=data.account_id,
-            ticker=item.ticker,
+            symbol=item.symbol,
             type=item.type,
             amount=item.amount,
             price_per_unit=item.price_per_unit,
             fees=item.fees,
-            fees_ticker=item.fees_ticker,
+            fees_symbol=item.fees_symbol,
             executed_at=item.executed_at,
             notes=item.notes,
             tx_hash=item.tx_hash
@@ -287,12 +278,12 @@ def bulk_import_transactions(
         basic = CryptoTransactionBasicResponse(
             id=resp.id,
             account_id=data.account_id,
-            ticker=resp.ticker,
+            symbol=resp.symbol,
             type=item.type,
             amount=resp.amount,
             price_per_unit=resp.price_per_unit,
             fees=item.fees, 
-            fees_ticker=item.fees_ticker,
+            fees_symbol=item.fees_symbol,
             executed_at=resp.executed_at,
             notes=item.notes,
             tx_hash=item.tx_hash
@@ -303,3 +294,48 @@ def bulk_import_transactions(
         imported_count=len(created_responses),
         transactions=created_responses
     )
+
+
+@router.get("/market/search", response_model=list[AssetSearchResult])
+def search_assets(
+    q: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Search for crypto assets by name or symbol."""
+    if not q:
+        return []
+    results = market_data_manager.search(q, AssetType.CRYPTO)
+
+    return [
+        AssetSearchResult(
+            symbol=r["symbol"],
+            name=r.get("name"),
+            exchange=r.get("exchange"),
+            type=r.get("type"),
+            currency=r.get("currency")
+        ) for r in results
+    ]
+
+
+@router.post("/market/info", response_model=list[AssetInfoResponse])
+def get_assets_info(
+    symbols: list[str],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get live data for multiple crypto assets."""
+    if not symbols:
+        return []
+
+    data = market_data_manager.get_bulk_info(symbols, AssetType.CRYPTO)
+
+    response = []
+    for symbol, info in data.items():
+        response.append(AssetInfoResponse(
+            symbol=symbol,
+            name=info.get("name"),
+            price=info.get("price"),
+            currency=info.get("currency"),
+            exchange=info.get("exchange"),
+            type=None
+        ))
+    return response

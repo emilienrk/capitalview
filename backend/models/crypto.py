@@ -17,7 +17,7 @@ class CryptoAccount(SQLModel, table=True):
     user_uuid_bidx: str = Field(sa_column=Column(TEXT, nullable=False))
     name_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     platform_enc: Optional[str] = Field(sa_column=Column(TEXT)) # Renamed from wallet_name, made optional
-    public_address_enc: Optional[str] = Field(sa_column=Column(TEXT)) # Made optional
+    public_address_enc: Optional[str] = Field(sa_column=Column(TEXT))
     
     created_at: datetime = Field(
         default=sa.func.now(),
@@ -40,12 +40,12 @@ class CryptoTransaction(SQLModel, table=True):
 
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     account_id_bidx: str = Field(sa_column=Column(TEXT, nullable=False))
-    ticker_enc: str = Field(sa_column=Column(TEXT, nullable=False))
+    symbol_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     type_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     amount_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     price_per_unit_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     fees_enc: str = Field(sa_column=Column(TEXT, nullable=False))
-    fees_ticker_enc: Optional[str] = Field(sa_column=Column(TEXT))
+    fees_symbol_enc: Optional[str] = Field(sa_column=Column(TEXT))
     executed_at_enc: str = Field(sa_column=Column(TEXT, nullable=False))
     tx_hash_enc: Optional[str] = Field(sa_column=Column(TEXT))
     notes_enc: Optional[str] = Field(sa_column=Column(TEXT))

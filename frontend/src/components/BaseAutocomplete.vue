@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import BaseSpinner from './BaseSpinner.vue'
 
 interface Props {
   modelValue: string
   label?: string
   placeholder?: string
-  options: string[]
+  options: any[]
   error?: string
   disabled?: boolean
   required?: boolean
   id?: string
+  remote?: boolean
+  loading?: boolean
+  displayValue?: (option: any) => string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,33 +21,52 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   required: false,
   options: () => [],
+  remote: false,
+  loading: false,
+  displayValue: (option: any) => typeof option === 'string' ? option : String(option),
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'select': [option: any]
 }>()
 
 const isOpen = ref(false)
 const inputRef = ref<HTMLInputElement | null>(null)
 const wrapperRef = ref<HTMLDivElement | null>(null)
 
-// Filter options based on input
 const filteredOptions = computed(() => {
+  if (props.remote) return props.options
   if (!props.modelValue) return []
   const query = props.modelValue.toLowerCase()
   return props.options
-    .filter(opt => opt.toLowerCase().includes(query) && opt.toLowerCase() !== query)
-    .slice(0, 5) // Limit to 5 suggestions
+    .filter(opt => {
+      const val = props.displayValue(opt)
+      return val.toLowerCase().includes(query) && val.toLowerCase() !== query
+    })
+    .slice(0, 5)
+})
+
+watch(() => props.options, (newOptions) => {
+  if (props.remote && newOptions.length > 0 && props.modelValue && props.modelValue.length >= 2) {
+    isOpen.value = true
+  }
 })
 
 function onInput(event: Event): void {
   const target = event.target as HTMLInputElement
   emit('update:modelValue', target.value)
-  isOpen.value = true
+  if (target.value.length >= 2) {
+    isOpen.value = true
+  } else {
+    isOpen.value = false
+  }
 }
 
-function selectOption(option: string): void {
-  emit('update:modelValue', option)
+function selectOption(option: any): void {
+  const val = props.displayValue(option)
+  emit('update:modelValue', val)
+  emit('select', option)
   isOpen.value = false
 }
 
@@ -111,6 +134,11 @@ onUnmounted(() => {
         ]"
       />
       
+      <!-- Loading Indicator -->
+      <div v-if="loading" class="absolute right-3 top-2.5 text-text-muted">
+         <BaseSpinner size="sm" />
+      </div>
+
       <!-- Autocomplete Dropdown -->
       <div
         v-if="isOpen && filteredOptions.length > 0"
@@ -119,14 +147,16 @@ onUnmounted(() => {
         <ul class="max-h-60 overflow-auto py-1">
           <li
             v-for="(option, index) in filteredOptions"
-            :key="option"
+            :key="index"
             @click="selectOption(option)"
             class="px-4 py-2 text-sm text-text-main dark:text-text-dark-main hover:bg-surface-hover dark:hover:bg-surface-dark-hover cursor-pointer flex justify-between items-center group"
           >
-            <span>
-              {{ option }}
+            <span class="w-full">
+              <slot name="item" :item="option">
+                {{ props.displayValue(option) }}
+              </slot>
             </span>
-            <span v-if="index === 0" class="text-xs text-text-muted dark:text-text-dark-muted hidden group-hover:inline-block md:inline-block">
+            <span v-if="index === 0 && !remote" class="text-xs text-text-muted dark:text-text-dark-muted hidden group-hover:inline-block md:inline-block shrink-0 ml-2">
               Tab
             </span>
           </li>

@@ -165,7 +165,8 @@ export interface StockAccountBasicResponse {
 
 export interface StockTransactionCreate {
   account_id: string
-  ticker: string
+  symbol: string
+  isin?: string
   exchange?: string
   type: StockTransactionType
   amount: number
@@ -178,7 +179,7 @@ export interface StockTransactionCreate {
 export interface StockTransactionBasicResponse {
   id: string
   account_id: string
-  ticker: string
+  symbol: string
   exchange: string | null
   type: StockTransactionType
   amount: number
@@ -189,7 +190,8 @@ export interface StockTransactionBasicResponse {
 }
 
 export interface StockTransactionUpdate {
-  ticker?: string
+  symbol?: string
+  isin?: string
   exchange?: string
   type?: StockTransactionType
   amount?: number
@@ -197,6 +199,24 @@ export interface StockTransactionUpdate {
   fees?: number
   executed_at?: string
   notes?: string
+}
+
+export interface AssetSearchResult {
+  symbol: string
+  name: string | null
+  exchange: string | null
+  type: string | null
+  currency: string | null
+}
+
+export interface AssetInfoResponse {
+  symbol: string
+  name: string | null
+  price: number | null
+  currency: string | null
+  exchange: string | null
+  type: string | null
+  change_percent: number | null
 }
 
 // ─── Crypto ──────────────────────────────────────────────────
@@ -226,12 +246,12 @@ export interface CryptoAccountBasicResponse {
 
 export interface CryptoTransactionCreate {
   account_id: string
-  ticker: string
+  symbol: string
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
   fees?: number
-  fees_ticker?: string
+  fees_symbol?: string
   executed_at: string
   notes?: string
   tx_hash?: string
@@ -240,24 +260,24 @@ export interface CryptoTransactionCreate {
 export interface CryptoTransactionBasicResponse {
   id: string
   account_id: string
-  ticker: string
+  symbol: string
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
   fees: number
-  fees_ticker: string | null
+  fees_symbol: string | null
   executed_at: string
   notes: string | null
   tx_hash: string | null
 }
 
 export interface CryptoTransactionUpdate {
-  ticker?: string
+  symbol?: string
   type?: CryptoTransactionType
   amount?: number
   price_per_unit?: number
   fees?: number
-  fees_ticker?: string
+  fees_symbol?: string
   executed_at?: string
   notes?: string
   tx_hash?: string
@@ -287,7 +307,7 @@ export interface NoteResponse {
 
 export interface TransactionResponse {
   id: string
-  ticker: string
+  symbol: string
   type: string
   amount: number
   price_per_unit: number
@@ -302,7 +322,7 @@ export interface TransactionResponse {
 }
 
 export interface PositionResponse {
-  ticker: string
+  symbol: string
   name: string | null
   total_amount: number
   average_buy_price: number

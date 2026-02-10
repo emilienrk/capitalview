@@ -5,9 +5,9 @@ import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
-  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard,
+  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse } from '@/types'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult } from '@/types'
 
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
@@ -32,7 +32,8 @@ const accountForm = reactive<StockAccountCreate>({
 
 const txForm = reactive<StockTransactionCreate>({
   account_id: '',
-  ticker: '',
+  symbol: '',
+  isin: '',
   exchange: '',
   type: 'BUY',
   amount: 0,
@@ -40,6 +41,10 @@ const txForm = reactive<StockTransactionCreate>({
   fees: 0,
   executed_at: new Date().toISOString().slice(0, 16),
 })
+
+const searchResults = ref<AssetSearchResult[]>([])
+const isSearching = ref(false)
+const searchQuery = ref('')
 
 // ── Options ──────────────────────────────────────────────────
 const txTypeOptions = [
@@ -124,26 +129,32 @@ async function handleSubmitAccount(): Promise<void> {
 function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
-  txForm.ticker = ''
+  txForm.symbol = ''
+  txForm.isin = ''
   txForm.exchange = ''
   txForm.type = 'BUY'
   txForm.amount = 0
   txForm.price_per_unit = 0
   txForm.fees = 0
   txForm.executed_at = new Date().toISOString().slice(0, 16)
+  searchQuery.value = ''
+  searchResults.value = []
   showTxModal.value = true
 }
 
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
   txForm.account_id = selectedAccountId.value!
-  txForm.ticker = tx.ticker
+  txForm.symbol = tx.symbol
+  txForm.isin = tx.isin || ''
   txForm.exchange = tx.exchange
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
   txForm.executed_at = tx.executed_at.slice(0, 16)
+  searchQuery.value = tx.symbol
+  searchResults.value = []
   showTxModal.value = true
 }
 
@@ -227,6 +238,45 @@ function badgeVariant(type: string): 'primary' | 'info' | 'warning' {
   if (type === 'PEA') return 'primary'
   if (type === 'PEA_PME') return 'warning'
   return 'info'
+}
+
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+async function handleSearchInput(value: string): Promise<void> {
+  searchQuery.value = value
+  txForm.symbol = value
+  
+  if (!value || value.length < 2) {
+    searchResults.value = []
+    return
+  }
+  
+  if (searchTimeout) clearTimeout(searchTimeout)
+  
+  searchTimeout = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      searchResults.value = await stocks.searchAssets(value)
+    } catch (error) {
+      console.error('Search error:', error)
+      searchResults.value = []
+    } finally {
+      isSearching.value = false
+    }
+  }, 300)
+}
+
+function handleSelectAsset(asset: AssetSearchResult): void {
+  txForm.symbol = asset.symbol
+  txForm.exchange = asset.exchange || ''
+  searchQuery.value = asset.symbol
+  searchResults.value = []
+}
+
+function formatAssetDisplay(asset: AssetSearchResult): string {
+  if (asset.name) {
+    return `${asset.symbol} - ${asset.name}${asset.exchange ? ` (${asset.exchange})` : ''}`
+  }
+  return asset.symbol
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
@@ -370,7 +420,7 @@ onMounted(() => {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                    <th class="px-4 py-2">Ticker</th>
+                    <th class="px-4 py-2">Symbole</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">PRU</th>
                     <th class="px-4 py-2 text-right">Investi</th>
@@ -382,11 +432,11 @@ onMounted(() => {
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
                   <tr
                     v-for="pos in selectedAccountSummary.positions"
-                    :key="pos.ticker"
+                    :key="pos.symbol"
                     class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
                   >
                     <td class="px-4 py-2.5">
-                      <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.ticker }}</span>
+                      <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
                       <span v-if="pos.name" class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">{{ pos.name }}</span>
                     </td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
@@ -419,7 +469,7 @@ onMounted(() => {
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
                     <th class="px-4 py-2">Date</th>
                     <th class="px-4 py-2">Type</th>
-                    <th class="px-4 py-2">Ticker</th>
+                    <th class="px-4 py-2">Symbole</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">Prix</th>
                     <th class="px-4 py-2 text-right">Total</th>
@@ -434,7 +484,7 @@ onMounted(() => {
                         {{ tx.type }}
                       </BaseBadge>
                     </td>
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.ticker }}</td>
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
                     <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
@@ -527,14 +577,31 @@ onMounted(() => {
     <!-- ── Create/Edit Transaction Modal ─────────────────────── -->
     <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction'" @close="showTxModal = false">
       <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
-        <BaseInput v-model="txForm.ticker" label="Ticker" placeholder="Ex: AAPL, MSFT, CW8.PA" required />
-        <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
+        <BaseAutocomplete
+          :model-value="searchQuery"
+          @update:model-value="handleSearchInput"
+          @select="handleSelectAsset"
+          label="Action / symbol"
+          placeholder="Ex: AAPL, Microsoft, CW8.PA"
+          :options="searchResults"
+          :display-value="formatAssetDisplay"
+          :loading="isSearching"
+          remote
+          required
+        />
+        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
+          💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
+        </p>
+        <div class="grid grid-cols-2 gap-4">
+          <BaseInput v-model="txForm.isin!" label="ISIN (optionnel)" placeholder="Ex: US0378331005" />
+          <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
+        </div>
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.amount" label="Quantité" type="number" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" required />
+          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" required />
+          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" required />
         </div>
-        <BaseInput v-model="txForm.fees!" label="Frais (€)" type="number" placeholder="0.00" />
+        <BaseInput v-model="txForm.fees!" label="Frais (€)" type="number" step="any" placeholder="0.00" />
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
       <template #footer>
