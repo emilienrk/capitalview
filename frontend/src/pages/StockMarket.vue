@@ -323,16 +323,18 @@ async function handleIsinBlur(): Promise<void> {
     if (results && results.length > 0) {
       const asset = results[0]
       
-      txForm.symbol = asset.symbol
-      if (asset.name) {
-         txForm.name = asset.name 
+      if (asset) {
+        txForm.symbol = asset.symbol
+        if (asset.name) {
+           txForm.name = asset.name 
+        }
+        if (asset.exchange) {
+          txForm.exchange = asset.exchange
+        }
+        
+        searchQuery.value = asset.symbol
+        searchResults.value = []
       }
-      if (asset.exchange) {
-        txForm.exchange = asset.exchange
-      }
-      
-      searchQuery.value = asset.symbol
-      searchResults.value = []
     } else {
       isinError.value = "Aucun actif trouvé pour cet ISIN"
     }
@@ -365,12 +367,14 @@ async function handleSelectAsset(asset: AssetSearchResult): Promise<void> {
         const details = await stocks.getAssetsInfo([asset.symbol])
         if (details.length > 0) {
           const detail = details[0]
-          if (detail.isin) {
-            txForm.isin = detail.isin
-          }
-          // Update name if we got a better one
-          if (detail.name) {
-             txForm.name = detail.name
+          if (detail) {
+            if (detail.isin) {
+              txForm.isin = detail.isin
+            }
+            // Update name if we got a better one
+            if (detail.name) {
+               txForm.name = detail.name
+            }
           }
         }
       } catch (e) {
