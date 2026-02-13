@@ -7,13 +7,16 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseAutocomplete,
 } from '@/components'
-import type { CryptoAccountCreate, CryptoTransactionCreate, TransactionResponse, AssetSearchResult } from '@/types'
+import CsvImportModal from '@/components/CsvImportModal.vue'
+import type { CryptoAccountCreate, CryptoTransactionCreate, TransactionResponse, AssetSearchResult, CryptoTransactionBulkCreate } from '@/types'
 
 const crypto = useCryptoStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
+const showCsvImportModal = ref(false)
+const csvImportAccountId = ref<string | null>(null)
 const selectedAccountId = ref<string | null>(null)
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
@@ -33,6 +36,7 @@ const accountForm = reactive<CryptoAccountCreate>({
 const txForm = reactive<CryptoTransactionCreate>({
   account_id: '',
   symbol: '',
+  name: '',
   type: 'BUY',
   amount: 0,
   price_per_unit: 0,
@@ -77,6 +81,7 @@ function openAddTransaction(accountId: string): void {
   editingTxId.value = null
   txForm.account_id = accountId
   txForm.symbol = ''
+  txForm.name = ''
   txForm.type = 'BUY'
   txForm.amount = 0
   txForm.price_per_unit = 0
@@ -88,17 +93,34 @@ function openAddTransaction(accountId: string): void {
   showTxModal.value = true
 }
 
+function openCsvImport(accountId: string): void {
+  csvImportAccountId.value = accountId
+  showCsvImportModal.value = true
+}
+
+async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Promise<void> {
+  if (!csvImportAccountId.value) return
+
+  const result = await crypto.bulkImportTransactions(csvImportAccountId.value, transactions)
+  
+  if (result) {
+    showCsvImportModal.value = false
+    await selectAccount(csvImportAccountId.value)
+  }
+}
+
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
   txForm.account_id = selectedAccountId.value!
   txForm.symbol = tx.symbol
+  txForm.name = tx.name || ''
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
   txForm.fees_symbol = 'EUR' // fees_symbol missing in response for now, defaulting
   txForm.executed_at = tx.executed_at.slice(0, 16)
-  searchQuery.value = tx.symbol
+  searchQuery.value = tx.name || tx.symbol
   searchResults.value = []
   showTxModal.value = true
 }
@@ -106,7 +128,6 @@ function openEditTransaction(tx: any): void {
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 async function handleSearchInput(value: string): Promise<void> {
   searchQuery.value = value
-  txForm.symbol = value
   
   if (!value || value.length < 2) {
     searchResults.value = []
@@ -130,18 +151,33 @@ async function handleSearchInput(value: string): Promise<void> {
 
 function handleSelectAsset(asset: AssetSearchResult): void {
   txForm.symbol = asset.symbol
-  searchQuery.value = asset.symbol
+  txForm.name = asset.name || asset.symbol
+  searchQuery.value = asset.name || asset.symbol
   searchResults.value = []
 }
 
 function formatAssetDisplay(asset: AssetSearchResult): string {
   if (asset.name) {
-    return `${asset.symbol} - ${asset.name}`
+    return `${asset.name} (${asset.symbol})`
   }
   return asset.symbol
 }
 
 async function handleSubmitTransaction(): Promise<void> {
+  if (!txForm.symbol && searchQuery.value) {
+      // Fallback: if user typed something but didn't select, assume it's the symbol
+      txForm.symbol = searchQuery.value.toUpperCase()
+  }
+
+  if (txForm.amount <= 0) {
+    alert("La quantité doit être strictement positive.")
+    return
+  }
+  if (txForm.price_per_unit < 0 || (txForm.fees !== undefined && txForm.fees < 0)) {
+    alert("Le prix et les frais doivent être positifs ou nuls.")
+    return
+  }
+
   if (editingTxId.value) {
     await crypto.updateTransaction(editingTxId.value, { ...txForm })
   } else {
@@ -236,13 +272,17 @@ onMounted(() => {
               </span>
             </div>
             <div class="flex items-center gap-3 mt-1">
-              <span v-if="account.public_address" class="text-xs text-text-muted dark:text-text-dark-muted font-mono truncate max-w-[200px]">{{ account.public_address }}</span>
+              <span v-if="account.public_address" class="text-xs text-text-muted dark:text-text-dark-muted font-mono truncate max-w-50">{{ account.public_address }}</span>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
               <span class="sm:hidden text-lg leading-none">+</span>
               <span class="hidden sm:inline">+ Transaction</span>
+            </BaseButton>
+            <BaseButton size="sm" variant="secondary" @click.stop="openCsvImport(account.id)" title="Importer des transactions depuis un fichier CSV">
+              <span class="text-sm">📥</span>
+              <span class="hidden sm:inline ml-1">CSV</span>
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,24 +451,31 @@ onMounted(() => {
           :model-value="searchQuery"
           @update:model-value="handleSearchInput"
           @select="handleSelectAsset"
-          label="Token / Crypto"
-          placeholder="Ex: BTC, ETH, Bitcoin"
+          label="Nom de la crypto"
+          placeholder="Rechercher (ex: Bitcoin)"
           :options="searchResults"
           :display-value="formatAssetDisplay"
           :loading="isSearching"
           remote
           required
         />
-        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
-          💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
+        
+        <BaseInput 
+          v-model="txForm.symbol" 
+          label="Symbole" 
+          placeholder="BTC"
+        />
+        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-3 mb-2">
+          Le symbole est rempli automatiquement, mais vous pouvez le modifier si besoin.
         </p>
+
         <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.amount" label="Quantité" type="number" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" required />
+          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
+          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" min="0" required />
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.fees!" label="Frais" type="number" />
+          <BaseInput v-model="txForm.fees!" label="Frais" type="number" step="any" min="0" />
           <BaseInput v-model="txForm.fees_symbol!" label="Devise frais" placeholder="EUR" />
         </div>
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
@@ -448,5 +495,14 @@ onMounted(() => {
         </div>
       </template>
     </BaseModal>
+
+    <!-- ── CSV Import Modal ────────────────────────────── -->
+    <CsvImportModal
+      :open="showCsvImportModal"
+      :account-id="csvImportAccountId || ''"
+      asset-type="crypto"
+      @close="showCsvImportModal = false"
+      @import="handleCsvImport"
+    />
   </div>
 </template>

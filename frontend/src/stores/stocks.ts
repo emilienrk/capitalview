@@ -8,6 +8,8 @@ import type {
   StockTransactionCreate,
   StockTransactionUpdate,
   StockTransactionBasicResponse,
+  StockBulkImportRequest,
+  StockBulkImportResponse,
   AccountSummaryResponse,
   TransactionResponse,
   AssetSearchResult,
@@ -175,6 +177,24 @@ export const useStocksStore = defineStore('stocks', () => {
     }
   }
 
+  async function bulkImportTransactions(accountId: string, transactions: StockBulkImportRequest['transactions']): Promise<StockBulkImportResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const data: StockBulkImportRequest = {
+        account_id: accountId,
+        transactions,
+      }
+      const result = await apiClient.post<StockBulkImportResponse>('/stocks/transactions/bulk', data)
+      return result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de l\'import'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function reset(): void {
     accounts.value = []
     currentAccount.value = null
@@ -198,6 +218,7 @@ export const useStocksStore = defineStore('stocks', () => {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    bulkImportTransactions,
     searchAssets,
     getAssetsInfo,
     reset,
