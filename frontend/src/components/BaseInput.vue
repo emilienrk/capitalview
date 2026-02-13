@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 interface Props {
   modelValue: string | number
   label?: string
@@ -19,12 +21,17 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
+  'blur': [event: FocusEvent]
 }>()
 
 function onInput(event: Event): void {
   const target = event.target as HTMLInputElement
   const value = props.type === 'number' ? Number(target.value) : target.value
   emit('update:modelValue', value)
+}
+
+function onBlur(event: FocusEvent): void {
+  emit('blur', event)
 }
 </script>
 
@@ -39,6 +46,7 @@ function onInput(event: Event): void {
       <span v-if="props.required" class="text-danger ml-0.5">*</span>
     </label>
     <input
+      v-bind="$attrs"
       :id="props.id"
       :type="props.type"
       :value="props.modelValue"
@@ -46,6 +54,7 @@ function onInput(event: Event): void {
       :disabled="props.disabled"
       :required="props.required"
       @input="onInput"
+      @blur="onBlur"
       :class="[
         'w-full px-4 py-2.5 rounded-input border bg-surface dark:bg-surface-dark transition-all duration-150',
         'text-text-main dark:text-text-dark-main placeholder:text-text-muted/50',

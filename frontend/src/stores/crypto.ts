@@ -8,6 +8,8 @@ import type {
   CryptoTransactionCreate,
   CryptoTransactionUpdate,
   CryptoTransactionBasicResponse,
+  CryptoBulkImportRequest,
+  CryptoBulkImportResponse,
   AccountSummaryResponse,
   TransactionResponse,
   AssetSearchResult,
@@ -175,6 +177,24 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
+  async function bulkImportTransactions(accountId: string, transactions: CryptoBulkImportRequest['transactions']): Promise<CryptoBulkImportResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const data: CryptoBulkImportRequest = {
+        account_id: accountId,
+        transactions,
+      }
+      const result = await apiClient.post<CryptoBulkImportResponse>('/crypto/transactions/bulk', data)
+      return result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de l\'import'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function reset(): void {
     accounts.value = []
     currentAccount.value = null
@@ -200,6 +220,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    bulkImportTransactions,
     reset,
   }
 })

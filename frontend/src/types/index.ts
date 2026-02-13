@@ -167,6 +167,7 @@ export interface StockTransactionCreate {
   account_id: string
   symbol: string
   isin?: string
+  name?: string
   exchange?: string
   type: StockTransactionType
   amount: number
@@ -180,6 +181,7 @@ export interface StockTransactionBasicResponse {
   id: string
   account_id: string
   symbol: string
+  name: string | null
   exchange: string | null
   type: StockTransactionType
   amount: number
@@ -192,6 +194,7 @@ export interface StockTransactionBasicResponse {
 export interface StockTransactionUpdate {
   symbol?: string
   isin?: string
+  name?: string
   exchange?: string
   type?: StockTransactionType
   amount?: number
@@ -203,6 +206,7 @@ export interface StockTransactionUpdate {
 
 export interface AssetSearchResult {
   symbol: string
+  isin?: string | null
   name: string | null
   exchange: string | null
   type: string | null
@@ -211,12 +215,34 @@ export interface AssetSearchResult {
 
 export interface AssetInfoResponse {
   symbol: string
+  isin?: string | null
   name: string | null
   price: number | null
   currency: string | null
   exchange: string | null
   type: string | null
   change_percent: number | null
+}
+
+export interface StockTransactionBulkCreate {
+  symbol: string
+  exchange?: string
+  type: StockTransactionType
+  amount: number
+  price_per_unit: number
+  fees?: number
+  executed_at: string
+  notes?: string
+}
+
+export interface StockBulkImportRequest {
+  account_id: string
+  transactions: StockTransactionBulkCreate[]
+}
+
+export interface StockBulkImportResponse {
+  imported_count: number
+  transactions: StockTransactionBasicResponse[]
 }
 
 // ─── Crypto ──────────────────────────────────────────────────
@@ -247,6 +273,7 @@ export interface CryptoAccountBasicResponse {
 export interface CryptoTransactionCreate {
   account_id: string
   symbol: string
+  name?: string
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
@@ -273,6 +300,7 @@ export interface CryptoTransactionBasicResponse {
 
 export interface CryptoTransactionUpdate {
   symbol?: string
+  name?: string
   type?: CryptoTransactionType
   amount?: number
   price_per_unit?: number
@@ -281,6 +309,28 @@ export interface CryptoTransactionUpdate {
   executed_at?: string
   notes?: string
   tx_hash?: string
+}
+
+export interface CryptoTransactionBulkCreate {
+  symbol: string
+  type: CryptoTransactionType
+  amount: number
+  price_per_unit: number
+  fees?: number
+  fees_symbol?: string
+  executed_at: string
+  notes?: string
+  tx_hash?: string
+}
+
+export interface CryptoBulkImportRequest {
+  account_id: string
+  transactions: CryptoTransactionBulkCreate[]
+}
+
+export interface CryptoBulkImportResponse {
+  imported_count: number
+  transactions: CryptoTransactionBasicResponse[]
 }
 
 // ─── Notes ───────────────────────────────────────────────────
@@ -308,6 +358,8 @@ export interface NoteResponse {
 export interface TransactionResponse {
   id: string
   symbol: string
+  isin: string | null
+  exchange: string | null
   type: string
   amount: number
   price_per_unit: number
@@ -323,6 +375,7 @@ export interface TransactionResponse {
 
 export interface PositionResponse {
   symbol: string
+  exchange: string | null
   name: string | null
   total_amount: number
   average_buy_price: number

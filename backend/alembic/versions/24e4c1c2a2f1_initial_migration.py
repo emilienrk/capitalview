@@ -1,8 +1,9 @@
-"""Initial migration
+"""
+initial migration
 
-Revision ID: c669d294e844
+Revision ID: 24e4c1c2a2f1
 Revises: 
-Create Date: 2026-02-08 13:47:07.476522
+Create Date: 2026-02-13 21:56:46.398608
 
 """
 from typing import Sequence, Union
@@ -13,7 +14,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c669d294e844'
+revision: str = '24e4c1c2a2f1'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -78,20 +79,18 @@ def upgrade() -> None:
     op.create_index(op.f('ix_crypto_transactions_account_id_bidx'), 'crypto_transactions', ['account_id_bidx'], unique=False)
     op.create_table('market_prices',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('symbol', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('isin', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('symbol', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('exchange', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('isin', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('sector', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('current_price', sa.Numeric(precision=15, scale=4), nullable=False),
+    sa.Column('current_price', sa.Numeric(precision=20, scale=8), nullable=False),
     sa.Column('currency', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('last_updated', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_market_prices_isin'), 'market_prices', ['isin'], unique=True)
     op.create_index(op.f('ix_market_prices_symbol'), 'market_prices', ['symbol'], unique=False)
-    op.create_index(op.f('ix_market_prices_exchange'), 'market_prices', ['exchange'], unique=False)
-    op.create_index(op.f('ix_market_prices_isin'), 'market_prices', ['isin'], unique=False)
-    op.create_unique_constraint('unique_symbol_exchange', 'market_prices', ['symbol', 'exchange'])
     op.create_table('notes',
     sa.Column('uuid', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('user_uuid_bidx', sa.TEXT(), nullable=False),
@@ -117,9 +116,7 @@ def upgrade() -> None:
     op.create_table('stock_transactions',
     sa.Column('uuid', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('account_id_bidx', sa.TEXT(), nullable=False),
-    sa.Column('symbol_enc', sa.TEXT(), nullable=False),
-    sa.Column('isin_enc', sa.TEXT(), nullable=True),
-    sa.Column('exchange_enc', sa.TEXT(), nullable=True),
+    sa.Column('isin_enc', sa.TEXT(), nullable=False),
     sa.Column('type_enc', sa.TEXT(), nullable=False),
     sa.Column('amount_enc', sa.TEXT(), nullable=False),
     sa.Column('price_per_unit_enc', sa.TEXT(), nullable=False),
@@ -141,9 +138,11 @@ def upgrade() -> None:
     sa.Column('tax_pea_rate', sa.Numeric(precision=5, scale=4), nullable=False),
     sa.Column('yield_expectation', sa.Numeric(precision=5, scale=4), nullable=False),
     sa.Column('inflation_rate', sa.Numeric(precision=5, scale=4), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_user_settings_user_uuid_bidx'), 'user_settings', ['user_uuid_bidx'], unique=False)
+    op.create_index(op.f('ix_user_settings_user_uuid_bidx'), 'user_settings', ['user_uuid_bidx'], unique=True)
     op.create_table('users',
     sa.Column('uuid', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('auth_salt', sa.TEXT(), nullable=False),
@@ -157,14 +156,15 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('uuid')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
     op.create_table('refresh_tokens',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_uuid', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('user_uuid', sa.String(), nullable=False),
     sa.Column('token', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('expires_at', sa.DateTime(), nullable=False),
     sa.Column('revoked', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['user_uuid'], ['users.uuid'], ),
+    sa.ForeignKeyConstraint(['user_uuid'], ['users.uuid'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_refresh_tokens_token'), 'refresh_tokens', ['token'], unique=True)
@@ -177,6 +177,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_refresh_tokens_user_uuid'), table_name='refresh_tokens')
     op.drop_index(op.f('ix_refresh_tokens_token'), table_name='refresh_tokens')
     op.drop_table('refresh_tokens')
+    op.drop_index(op.f('ix_users_username'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
     op.drop_index(op.f('ix_user_settings_user_uuid_bidx'), table_name='user_settings')
@@ -187,10 +188,8 @@ def downgrade() -> None:
     op.drop_table('stock_accounts')
     op.drop_index(op.f('ix_notes_user_uuid_bidx'), table_name='notes')
     op.drop_table('notes')
-    op.drop_constraint('unique_symbol_exchange', 'market_prices', type_='unique')
-    op.drop_index(op.f('ix_market_prices_isin'), table_name='market_prices')
-    op.drop_index(op.f('ix_market_prices_exchange'), table_name='market_prices')
     op.drop_index(op.f('ix_market_prices_symbol'), table_name='market_prices')
+    op.drop_index(op.f('ix_market_prices_isin'), table_name='market_prices')
     op.drop_table('market_prices')
     op.drop_index(op.f('ix_crypto_transactions_account_id_bidx'), table_name='crypto_transactions')
     op.drop_table('crypto_transactions')

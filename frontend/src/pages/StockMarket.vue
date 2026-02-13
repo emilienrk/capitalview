@@ -7,7 +7,8 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult } from '@/types'
+import CsvImportModal from '@/components/CsvImportModal.vue'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate } from '@/types'
 
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
@@ -16,6 +17,8 @@ const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
 const showDeleteModal = ref(false)
+const showCsvImportModal = ref(false)
+const csvImportAccountId = ref<string | null>(null)
 const deleteTarget = ref<{ type: 'account' | 'transaction'; id: string; label: string } | null>(null)
 const selectedAccountId = ref<string | null>(null)
 const activeFilter = ref<'all' | 'PEA' | 'CTO' | 'PEA_PME'>('all')
@@ -45,6 +48,7 @@ const txForm = reactive<StockTransactionCreate>({
 const searchResults = ref<AssetSearchResult[]>([])
 const isSearching = ref(false)
 const searchQuery = ref('')
+const isinError = ref<string | null>(null)
 
 // ── Options ──────────────────────────────────────────────────
 const txTypeOptions = [
@@ -142,6 +146,22 @@ function openAddTransaction(accountId: string): void {
   showTxModal.value = true
 }
 
+function openCsvImport(accountId: string): void {
+  csvImportAccountId.value = accountId
+  showCsvImportModal.value = true
+}
+
+async function handleCsvImport(transactions: StockTransactionBulkCreate[]): Promise<void> {
+  if (!csvImportAccountId.value) return
+
+  const result = await stocks.bulkImportTransactions(csvImportAccountId.value, transactions)
+  
+  if (result) {
+    showCsvImportModal.value = false
+    await selectAccount(csvImportAccountId.value)
+  }
+}
+
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
   txForm.account_id = selectedAccountId.value!
@@ -159,6 +179,30 @@ function openEditTransaction(tx: any): void {
 }
 
 async function handleSubmitTransaction(): Promise<void> {
+  if (isinError.value) {
+    return
+  }
+  
+  if (!txForm.isin || txForm.isin.trim() === '') {
+    alert("L'ISIN est obligatoire.")
+    return
+  }
+
+  // Basic ISIN format check (2 letters + 9 alphanum + 1 digit/char check) - length 12
+  if (txForm.isin.length !== 12) {
+      alert("Format ISIN invalide (doit faire 12 caractères).")
+      return
+  }
+
+  if (txForm.amount <= 0) {
+    alert("La quantité doit être strictement positive.")
+    return
+  }
+  if (txForm.price_per_unit < 0 || (txForm.fees !== undefined && txForm.fees < 0)) {
+    alert("Le prix et les frais doivent être positifs ou nuls.")
+    return
+  }
+
   if (editingTxId.value) {
     await stocks.updateTransaction(editingTxId.value, { ...txForm })
   } else {
@@ -265,11 +309,75 @@ async function handleSearchInput(value: string): Promise<void> {
   }, 300)
 }
 
-function handleSelectAsset(asset: AssetSearchResult): void {
+async function handleIsinBlur(): Promise<void> {
+  const isin = txForm.isin?.trim()
+  if (!isin) {
+    isinError.value = null
+    return
+  }
+
+  isinError.value = null
+  isSearching.value = true
+  try {
+    const results = await stocks.searchAssets(isin)
+    if (results && results.length > 0) {
+      const asset = results[0]
+      
+      txForm.symbol = asset.symbol
+      if (asset.name) {
+         txForm.name = asset.name 
+      }
+      if (asset.exchange) {
+        txForm.exchange = asset.exchange
+      }
+      
+      searchQuery.value = asset.symbol
+      searchResults.value = []
+    } else {
+      isinError.value = "Aucun actif trouvé pour cet ISIN"
+    }
+  } catch (e) {
+    console.error(e)
+    isinError.value = "Erreur lors de la recherche"
+  } finally {
+    isSearching.value = false
+  }
+}
+
+async function handleSelectAsset(asset: AssetSearchResult): Promise<void> {
   txForm.symbol = asset.symbol
   txForm.exchange = asset.exchange || ''
+  
+  if (asset.name) txForm.name = asset.name
   searchQuery.value = asset.symbol
   searchResults.value = []
+  
+  if (asset.isin) {
+    txForm.isin = asset.isin
+  } else {
+    // Attempt to fetch ISIN via detailed info
+    // Only fetch if we have a symbol
+    if (asset.symbol) {
+      // Show loading indicator in autocomplete or somewhere appropriate?
+      // Re-using isSearching might be confusing if the dropdown is closed.
+      // But let's try to get it.
+      try {
+        const details = await stocks.getAssetsInfo([asset.symbol])
+        if (details.length > 0) {
+          const detail = details[0]
+          if (detail.isin) {
+            txForm.isin = detail.isin
+          }
+          // Update name if we got a better one
+          if (detail.name) {
+             txForm.name = detail.name
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch asset details", e)
+      }
+    }
+  }
 }
 
 function formatAssetDisplay(asset: AssetSearchResult): string {
@@ -358,6 +466,10 @@ onMounted(() => {
               <span class="sm:hidden text-lg leading-none">+</span>
               <span class="hidden sm:inline">+ Transaction</span>
             </BaseButton>
+            <BaseButton size="sm" variant="secondary" @click.stop="openCsvImport(account.id)" title="Importer des transactions depuis un fichier CSV">
+              <span class="text-sm">📥</span>
+              <span class="hidden sm:inline ml-1">CSV</span>
+            </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -432,11 +544,12 @@ onMounted(() => {
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
                   <tr
                     v-for="pos in selectedAccountSummary.positions"
-                    :key="pos.symbol"
+                    :key="`${pos.symbol}-${pos.exchange || 'NONE'}`"
                     class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
                   >
                     <td class="px-4 py-2.5">
                       <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
+                      <span v-if="pos.exchange" class="ml-1 text-xs text-text-muted dark:text-text-dark-muted">({{ pos.exchange }})</span>
                       <span v-if="pos.name" class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">{{ pos.name }}</span>
                     </td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
@@ -470,6 +583,8 @@ onMounted(() => {
                     <th class="px-4 py-2">Date</th>
                     <th class="px-4 py-2">Type</th>
                     <th class="px-4 py-2">Symbole</th>
+                    <th class="px-4 py-2">ISIN</th>
+                    <th class="px-4 py-2">Place</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">Prix</th>
                     <th class="px-4 py-2 text-right">Total</th>
@@ -485,6 +600,8 @@ onMounted(() => {
                       </BaseBadge>
                     </td>
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
+                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.isin || '-' }}</td>
+                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.exchange || '-' }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
                     <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
@@ -593,15 +710,15 @@ onMounted(() => {
           💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
         </p>
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.isin!" label="ISIN (optionnel)" placeholder="Ex: US0378331005" />
+          <BaseInput v-model="txForm.isin!" label="ISIN" placeholder="Ex: US0378331005" @blur="handleIsinBlur" :error="isinError || undefined" required />
           <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
         </div>
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" required />
+          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
+          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" min="0" required />
         </div>
-        <BaseInput v-model="txForm.fees!" label="Frais (€)" type="number" step="any" placeholder="0.00" />
+        <BaseInput v-model="txForm.fees!" label="Frais (€)" type="number" step="any" min="0" placeholder="0.00" />
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
       <template #footer>
@@ -630,5 +747,14 @@ onMounted(() => {
         <BaseButton variant="danger" :loading="stocks.isLoading" @click="handleDelete">Supprimer</BaseButton>
       </template>
     </BaseModal>
+
+    <!-- ── CSV Import Modal ────────────────────────────── -->
+    <CsvImportModal
+      :open="showCsvImportModal"
+      :account-id="csvImportAccountId || ''"
+      asset-type="stocks"
+      @close="showCsvImportModal = false"
+      @import="handleCsvImport"
+    />
   </div>
 </template>

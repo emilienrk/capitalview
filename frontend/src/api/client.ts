@@ -5,7 +5,6 @@ const getApiBaseUrl = (): string => {
 
   const { hostname, protocol } = window.location
   
-  // Localhost dev
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8000'
   }
@@ -17,7 +16,6 @@ const API_BASE_URL = getApiBaseUrl()
 
 class ApiClient {
   private accessToken: string | null = null
-  private masterKey: string | null = null
 
   setToken(token: string | null) {
     this.accessToken = token
@@ -25,10 +23,6 @@ class ApiClient {
 
   getToken(): string | null {
     return this.accessToken
-  }
-
-  setMasterKey(key: string | null) {
-    this.masterKey = key
   }
 
   private async request<T>(
@@ -43,10 +37,6 @@ class ApiClient {
     if (this.accessToken) {
       ;(headers as Record<string, string>)['Authorization'] = `Bearer ${this.accessToken}`
     }
-    
-    if (this.masterKey) {
-      ;(headers as Record<string, string>)['X-Master-Key'] = this.masterKey
-    }
 
     let response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
@@ -54,10 +44,8 @@ class ApiClient {
       credentials: 'include',
     })
 
-    // Interception 401 (Token Expired)
     if (response.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
       try {
-        // Attempt refresh
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -68,33 +56,22 @@ class ApiClient {
           const data = await refreshResponse.json()
           const newAccessToken = data.access_token
 
-          // Update token in memory
           this.setToken(newAccessToken)
 
-          // Update Authorization header for retry
           ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
-          
-          // Re-inject master key for retry
-          if (this.masterKey) {
-            ;(headers as Record<string, string>)['X-Master-Key'] = this.masterKey
-          }
 
-          // Retry original request
           response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers,
             credentials: 'include',
           })
         } else {
-          // Refresh failed -> Force logout
           this.setToken(null)
-          this.setMasterKey(null)
           window.location.href = '/login'
           throw new Error('Session expired')
         }
       } catch (error) {
         this.setToken(null)
-        this.setMasterKey(null)
         window.location.href = '/login'
         throw error
       }
@@ -105,7 +82,6 @@ class ApiClient {
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
 
-    // Handle 204 No Content
     if (response.status === 204) {
       return {} as T
     }
