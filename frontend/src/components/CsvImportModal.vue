@@ -288,36 +288,33 @@ function downloadTemplate(): void {
   <BaseModal :open="props.open" title="Importer des transactions (CSV)" size="lg" @close="handleClose">
     <div class="space-y-6">
       <!-- Instructions -->
-      <div class="bg-background-subtle dark:bg-surface-dark-hover p-4 rounded-secondary">
-        <h3 class="text-sm font-semibold text-text-main dark:text-text-dark-main mb-2">
-          Format CSV attendu
-        </h3>
-        <p class="text-sm text-text-muted dark:text-text-dark-muted mb-3">
-          Le fichier CSV doit contenir les colonnes suivantes (dans l'ordre) :
-        </p>
+      <div class="bg-background-subtle dark:bg-background-dark-subtle p-4 rounded-secondary">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-text-main dark:text-text-dark-main">
+            Format CSV
+          </h3>
+          <button
+            @click="downloadTemplate"
+            class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Modèle
+          </button>
+        </div>
         <code
           class="block text-xs bg-background dark:bg-surface-dark p-2 rounded border border-surface-border dark:border-surface-dark-border overflow-x-auto"
         >
           {{ csvTemplate }}
         </code>
-        <div class="mt-3 space-y-2">
-          <button
-            @click="downloadTemplate"
-            class="text-sm text-primary hover:text-primary-light dark:text-primary-light dark:hover:text-primary transition-colors"
-          >
-            📥 Télécharger un modèle
-          </button>
-          <p class="text-xs text-text-muted dark:text-text-dark-muted">
-            💡 <strong>Séparateur :</strong> Point-virgule, virgule ou tabulation détectés automatiquement
-          </p>
-          <p class="text-xs text-text-muted dark:text-text-dark-muted">
-            💡 <strong>Nombres décimaux :</strong> Points (16.39) ou virgules (16,39) acceptés
-          </p>
-        </div>
+        <p class="mt-2 text-xs text-text-muted dark:text-text-dark-muted">
+          Séparateurs et décimales détectés automatiquement.
+        </p>
       </div>
 
       <!-- Error Alert -->
-      <BaseAlert v-if="error" type="danger" @close="error = null">
+      <BaseAlert v-if="error" variant="danger" dismissible @dismiss="error = null">
         {{ error }}
       </BaseAlert>
 
@@ -346,10 +343,10 @@ function downloadTemplate(): void {
             />
           </svg>
           <p class="text-sm text-text-body dark:text-text-dark-body mb-3">
-            Sélectionnez un fichier CSV ou glissez-le ici
+            Glissez un fichier CSV ici ou
           </p>
-          <BaseButton variant="secondary" @click="triggerFileInput">
-            Choisir un fichier
+          <BaseButton variant="outline" @click="triggerFileInput">
+            Parcourir
           </BaseButton>
         </div>
 
@@ -368,8 +365,11 @@ function downloadTemplate(): void {
                 <p class="font-medium text-text-main dark:text-text-dark-main">
                   {{ fileName }}
                 </p>
-                <p v-if="parsedTransactions.length > 0" class="text-sm text-success">
-                  ✓ {{ parsedTransactions.length }} transaction(s) détectée(s)
+                <p v-if="parsedTransactions.length > 0" class="text-sm text-success flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {{ parsedTransactions.length }} transaction(s) détectée(s)
                 </p>
               </div>
             </div>
@@ -387,16 +387,17 @@ function downloadTemplate(): void {
     </div>
 
     <template #footer>
-      <BaseButton variant="secondary" @click="handleClose">
-        Annuler
-      </BaseButton>
-      <BaseButton
-        variant="primary"
-        :disabled="!hasFile"
-        @click="handleImport"
-      >
-        Importer {{ parsedTransactions.length }} transaction(s)
-      </BaseButton>
+      <div class="flex justify-end gap-2 w-full">
+        <BaseButton variant="ghost" @click="handleClose">
+          Annuler
+        </BaseButton>
+        <BaseButton
+          :disabled="!hasFile"
+          @click="handleImport"
+        >
+          Importer {{ parsedTransactions.length }} transaction(s)
+        </BaseButton>
+      </div>
     </template>
   </BaseModal>
 </template>
