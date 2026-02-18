@@ -99,23 +99,12 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  if (to.name === 'landing') {
-    if (!auth.isInitialized) {
-      auth.checkAuth().then(() => {
-        if (auth.isAuthenticated) {
-          router.replace({ name: 'dashboard' })
-        }
-      })
-      return
-    }
-    if (auth.isAuthenticated) {
-      return { name: 'dashboard' }
-    }
-    return
-  }
-
   if (!auth.isInitialized) {
     await auth.checkAuth()
+  }
+
+  if (to.name === 'landing' && auth.isAuthenticated) {
+    return { name: 'dashboard' }
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
