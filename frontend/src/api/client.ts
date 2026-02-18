@@ -79,7 +79,20 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
-      throw new Error(error.detail || `HTTP ${response.status}`)
+      const detail = error.detail || `HTTP ${response.status}`
+
+      // Master Key missing → session incomplete, redirect to login
+      if (
+        response.status === 400 &&
+        typeof detail === 'string' &&
+        detail.toLowerCase().includes('master key')
+      ) {
+        this.setToken(null)
+        window.location.href = '/login'
+        throw new Error(detail)
+      }
+
+      throw new Error(detail)
     }
 
     if (response.status === 204) {

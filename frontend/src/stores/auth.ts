@@ -111,11 +111,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function checkAuth(): Promise<void> {
+    if (isInitialized.value) return
+
     try {
       const response = await apiClient.post<TokenResponse>('/auth/refresh')
       setToken(response.access_token)
-      user.value = await apiClient.get<User>('/auth/me')
+
       isAuthenticated.value = true
+
+      apiClient.get<User>('/auth/me').then((u) => {
+        user.value = u
+      }).catch(() => {
+      })
     } catch {
       clearSession()
       isAuthenticated.value = false

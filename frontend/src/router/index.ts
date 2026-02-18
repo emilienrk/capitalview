@@ -1,18 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-import Dashboard from '@/pages/Dashboard.vue'
 import Landing from '@/pages/Landing.vue'
 import Login from '@/pages/Login.vue'
-import StockMarket from '@/pages/StockMarket.vue'
-import Cashflow from '@/pages/Cashflow.vue'
-import BankAccounts from '@/pages/BankAccounts.vue'
-import Wealth from '@/pages/Wealth.vue'
-import Crypto from '@/pages/Crypto.vue'
-import OtherInvestments from '@/pages/OtherInvestments.vue'
-import Notes from '@/pages/Notes.vue'
-import Settings from '@/pages/Settings.vue'
-import Register from '@/pages/Register.vue'
+
+const Dashboard = () => import('@/pages/Dashboard.vue')
+const StockMarket = () => import('@/pages/StockMarket.vue')
+const Cashflow = () => import('@/pages/Cashflow.vue')
+const BankAccounts = () => import('@/pages/BankAccounts.vue')
+const Wealth = () => import('@/pages/Wealth.vue')
+const Crypto = () => import('@/pages/Crypto.vue')
+const OtherInvestments = () => import('@/pages/OtherInvestments.vue')
+const Notes = () => import('@/pages/Notes.vue')
+const Settings = () => import('@/pages/Settings.vue')
+const Register = () => import('@/pages/Register.vue')
 
 const routes = [
   {
@@ -98,13 +99,29 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  if (!auth.isInitialized && !auth.isAuthenticated) {
+  if (to.name === 'landing') {
+    if (!auth.isInitialized) {
+      auth.checkAuth().then(() => {
+        if (auth.isAuthenticated) {
+          router.replace({ name: 'dashboard' })
+        }
+      })
+      return
+    }
+    if (auth.isAuthenticated) {
+      return { name: 'dashboard' }
+    }
+    return
+  }
+
+  if (!auth.isInitialized) {
     await auth.checkAuth()
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
+
   if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
     return { name: 'dashboard' }
   }
