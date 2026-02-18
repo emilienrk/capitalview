@@ -1,18 +1,78 @@
 <script setup lang="ts">
+import { onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
-import { BaseCard, BaseButton } from '@/components'
+import { BaseCard, BaseButton, BaseInput, BaseAlert, BaseSkeleton } from '@/components'
 
 const auth = useAuthStore()
+const settingsStore = useSettingsStore()
 const { isDark, toggleDarkMode } = useDarkMode()
 const { formatDateTime } = useFormatters()
+
+// Local form state for financial settings
+const flatTaxRate = ref(30)
+const taxPeaRate = ref(17.2)
+const yieldExpectation = ref(5)
+const inflationRate = ref(2)
+const objectives = ref('')
+const isSaving = ref(false)
+const saveSuccess = ref(false)
+
+onMounted(async () => {
+  await settingsStore.fetchSettings()
+  if (settingsStore.settings) {
+    flatTaxRate.value = +(settingsStore.settings.flat_tax_rate * 100).toFixed(2)
+    taxPeaRate.value = +(settingsStore.settings.tax_pea_rate * 100).toFixed(2)
+    yieldExpectation.value = +(settingsStore.settings.yield_expectation * 100).toFixed(2)
+    inflationRate.value = +(settingsStore.settings.inflation_rate * 100).toFixed(2)
+    objectives.value = settingsStore.settings.objectives ?? ''
+  }
+})
+
+async function saveFinancialSettings(): Promise<void> {
+  isSaving.value = true
+  saveSuccess.value = false
+  const success = await settingsStore.updateSettings({
+    flat_tax_rate: flatTaxRate.value / 100,
+    tax_pea_rate: taxPeaRate.value / 100,
+    yield_expectation: yieldExpectation.value / 100,
+    inflation_rate: inflationRate.value / 100,
+  })
+  isSaving.value = false
+  if (success) {
+    saveSuccess.value = true
+    setTimeout(() => { saveSuccess.value = false }, 2000)
+  }
+}
+
+async function saveObjectives(): Promise<void> {
+  isSaving.value = true
+  saveSuccess.value = false
+  const success = await settingsStore.updateSettings({
+    objectives: objectives.value || null,
+  })
+  isSaving.value = false
+  if (success) {
+    saveSuccess.value = true
+    setTimeout(() => { saveSuccess.value = false }, 2000)
+  }
+}
 </script>
 
 <template>
   <div>
     <PageHeader title="Paramètres" description="Configuration de votre compte et préférences" />
+
+    <BaseAlert v-if="settingsStore.error" variant="danger" dismissible @dismiss="settingsStore.error = null" class="mb-6">
+      {{ settingsStore.error }}
+    </BaseAlert>
+
+    <BaseAlert v-if="saveSuccess" variant="success" class="mb-6">
+      Paramètres sauvegardés.
+    </BaseAlert>
 
     <div class="space-y-6 max-w-2xl">
       <!-- Profile -->
@@ -74,6 +134,95 @@ const { formatDateTime } = useFormatters()
             />
           </button>
         </div>
+      </BaseCard>
+
+      <!-- Financial Parameters -->
+      <BaseCard title="Paramètres financiers">
+        <template v-if="settingsStore.isLoading && !settingsStore.settings">
+          <div class="space-y-4">
+            <div v-for="i in 4" :key="i" class="space-y-2">
+              <BaseSkeleton variant="rect" width="30%" height="0.75rem" />
+              <BaseSkeleton variant="rect" height="2.5rem" />
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-text-muted dark:text-text-dark-muted mb-4">
+            Ces taux sont utilisés pour les projections et calculs de fiscalité.
+          </p>
+          <form @submit.prevent="saveFinancialSettings" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <BaseInput
+                v-model="flatTaxRate"
+                label="Flat Tax / PFU (%)"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="30"
+              />
+              <BaseInput
+                v-model="taxPeaRate"
+                label="Prélèvements sociaux PEA (%)"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="17.2"
+              />
+              <BaseInput
+                v-model="yieldExpectation"
+                label="Rendement attendu (%)"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="5"
+              />
+              <BaseInput
+                v-model="inflationRate"
+                label="Taux d'inflation (%)"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="2"
+              />
+            </div>
+            <div class="flex justify-end">
+              <BaseButton type="submit" :loading="isSaving" size="sm">
+                Enregistrer
+              </BaseButton>
+            </div>
+          </form>
+        </template>
+      </BaseCard>
+
+      <!-- Objectives -->
+      <BaseCard title="Objectifs patrimoniaux">
+        <template v-if="settingsStore.isLoading && !settingsStore.settings">
+          <div class="space-y-2">
+            <BaseSkeleton variant="rect" height="5rem" />
+          </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-text-muted dark:text-text-dark-muted mb-4">
+            Notez vos objectifs d'investissement et d'épargne.
+          </p>
+          <form @submit.prevent="saveObjectives" class="space-y-4">
+            <textarea
+              v-model="objectives"
+              rows="4"
+              placeholder="Ex: Atteindre 100 000 € d'investissements d'ici 2030..."
+              class="w-full rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main placeholder:text-text-muted/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-y"
+            />
+            <div class="flex justify-end">
+              <BaseButton type="submit" :loading="isSaving" size="sm">
+                Enregistrer
+              </BaseButton>
+            </div>
+          </form>
+        </template>
       </BaseCard>
 
       <!-- Security -->

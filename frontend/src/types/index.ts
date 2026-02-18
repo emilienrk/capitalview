@@ -408,3 +408,25 @@ export interface PortfolioResponse {
   profit_loss_percentage: number | null
   accounts: AccountSummaryResponse[]
 }
+
+// ── Settings ─────────────────────────────────────────────
+
+export interface UserSettingsUpdate {
+  objectives?: string | null
+  theme?: string
+  flat_tax_rate?: number
+  tax_pea_rate?: number
+  yield_expectation?: number
+  inflation_rate?: number
+}
+
+export interface UserSettingsResponse {
+  objectives: string | null
+  theme: string
+  flat_tax_rate: number
+  tax_pea_rate: number
+  yield_expectation: number
+  inflation_rate: number
+  created_at: string
+  updated_at: string
+}
