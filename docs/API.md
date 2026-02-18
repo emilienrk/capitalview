@@ -17,6 +17,55 @@ All endpoints (except `/auth/register`, `/auth/login`, and `/health`) require a 
 
 Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` is set as a **HttpOnly, Secure, SameSite=Strict** cookie scoped to `/auth`.
 
+### Master Key Transport
+
+Most data endpoints also require the **Master Key** for encryption/decryption. Two transport modes are supported:
+
+| Mode | Header / Cookie | Use case |
+|------|----------------|----------|
+| **Cookie** (default) | `master_key` HttpOnly cookie | Web frontend (set automatically on login) |
+| **Header** | `X-Master-Key: <base64_key>` | Automation (n8n, Postman, scripts) |
+
+The cookie takes priority if both are present.
+
+#### 🔒 Security: Opt-In Master Key in Response
+
+**By default**, the `master_key` is **NOT returned** in the JSON response body for security reasons:
+- Prevents accidental logging in server logs
+- Reduces exposure in proxies/CDN
+- Follows principle of least exposure
+
+**For automation tools only**, you can request the master_key in the response by adding:
+```
+X-Return-Master-Key: true
+```
+
+This header must be explicitly set on `/auth/login` or `/auth/register` requests.
+
+**Example (n8n / curl)**:
+```bash
+# 1. Login WITH opt-in header to capture the master_key
+curl -X POST https://api.capitalview.example.com/auth/login \
+  -H "Content-Type: application/json" \
+  -H "X-Return-Master-Key: true" \
+  -d '{"email": "john@example.com", "password": "SecurePassword123!"}'
+
+# Response:
+# {
+#   "access_token": "eyJ...",
+#   "token_type": "bearer",
+#   "expires_in": 900,
+#   "master_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+# }
+
+# 2. Use both on subsequent requests
+curl -X GET https://api.capitalview.example.com/bank/accounts \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "X-Master-Key: $MASTER_KEY"
+```
+
+⚠️ **Warning**: `X-Return-Master-Key: true` is designed for **server-side automation** (n8n, scripts, Postman). Do not use it in the **web frontend** (Vue.js) — the browser should rely on the HttpOnly cookie instead, which is protected against XSS.
+
 ### Registration
 
 `POST /auth/register` — Create a new user.
@@ -43,9 +92,12 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
-  "expires_in": 900
+  "expires_in": 900,
+  "master_key": null
 }
 ```
+
+**Note**: `master_key` is `null` by default. To receive it (automation only), add header `X-Return-Master-Key: true`.
 
 ---
 
@@ -68,11 +120,14 @@ Tokens are stored **in memory only** (never `localStorage`). A `refresh_token` i
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
-  "expires_in": 900
+  "expires_in": 900,
+  "master_key": null
 }
 ```
 
-_Also sets a `refresh_token` HttpOnly cookie (Secure, SameSite=Strict, path=/auth)._
+_Also sets `refresh_token` and `master_key` HttpOnly cookies._
+
+**Note**: `master_key` is `null` by default. To receive it (automation only), add header `X-Return-Master-Key: true`.
 
 ---
 

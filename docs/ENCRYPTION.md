@@ -160,16 +160,57 @@ CREATE TABLE bank_accounts (
    ↓
    DB Salt retrieval
    Master Key derivation (in memory)
+   Master Key set as HttpOnly cookie
+   Master Key in JSON only if X-Return-Master-Key header present (opt-in)
    
 3. Active Session
    ↓
-   Master Key in memory (frontend/secure backend)
+   Master Key via Cookie (web) or X-Master-Key header (automation)
    Encryption/decryption on demand
    
 4. Logout
    ↓
-   Master Key removal from memory
+   Master Key removal (cookie cleared)
 ```
+
+### Transport Modes
+
+The Master Key can be transmitted to the API in two ways:
+
+| Mode | Transport | Use case | Security |
+|------|-----------|----------|----------|
+| **Cookie** | `master_key` HttpOnly cookie | Web frontend | Highest (HttpOnly, Secure, SameSite) |
+| **Header** | `X-Master-Key: <base64>` | n8n, Postman, scripts | Requires HTTPS |
+
+The cookie takes priority if both are present.
+
+#### 🔒 Opt-In Security Model
+
+**By default**, the master_key is **NOT returned** in the login/register JSON response.
+This prevents:
+- Accidental exposure in server logs
+- Logging by proxies, load balancers, CDNs
+- Unnecessary exposure in network traces
+
+**For automation only**, you can opt-in by adding the header:
+```
+X-Return-Master-Key: true
+```
+
+This must be explicitly set on `/auth/login` or `/auth/register` requests.
+
+**Important**: When using the `X-Master-Key` header or `X-Return-Master-Key: true`:
+- The connection uses **HTTPS/TLS** (encrypted in transit)
+- The key is stored securely (n8n credentials, environment variables)
+- Never log or expose the key in URLs or query parameters
+- Do **not** use `X-Return-Master-Key` from the web frontend (use HttpOnly cookie instead)
+
+**n8n Example**:
+1. HTTP Request node → `POST /auth/login` with header `X-Return-Master-Key: true`
+2. Capture `access_token` and `master_key` from response
+3. Set them as headers on subsequent nodes:
+   - `Authorization: Bearer <access_token>`
+   - `X-Master-Key: <master_key>`
 
 ### Key Rotation
 
