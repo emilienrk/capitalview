@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
-import { BaseCard, BaseSpinner, BaseAlert, BaseEmptyState, BaseStatCard } from '@/components'
+import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton } from '@/components'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
@@ -24,80 +24,98 @@ onMounted(() => {
       :description="`Bienvenue ${auth.user?.username ?? ''} — Vue d'ensemble de votre patrimoine`"
     />
 
-    <!-- Loading -->
-    <div v-if="dashboard.isLoading" class="flex justify-center py-20">
-      <BaseSpinner size="lg" label="Chargement du dashboard..." />
-    </div>
-
     <!-- Error -->
-    <BaseAlert v-else-if="dashboard.error" variant="danger" dismissible @dismiss="dashboard.error = null">
+    <BaseAlert v-if="dashboard.error" variant="danger" dismissible @dismiss="dashboard.error = null" class="mb-6">
       {{ dashboard.error }}
     </BaseAlert>
 
-    <!-- Content -->
-    <div v-else class="space-y-8">
+    <div class="space-y-8">
       <!-- ── Summary KPI Cards ──────────────────────────── -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <BaseStatCard
-          label="Solde bancaire"
-          :value="formatCurrency(dashboard.bankAccounts?.total_balance)"
-        >
-          <template #icon>
-            <div class="w-10 h-10 rounded-primary bg-info/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
+        <!-- Skeleton KPI cards -->
+        <template v-if="dashboard.isLoading">
+          <div v-for="i in 4" :key="i" class="rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-5 shadow-soft">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 space-y-3">
+                <BaseSkeleton variant="rect" width="60%" height="0.75rem" />
+                <BaseSkeleton variant="rect" width="80%" height="1.5rem" />
+              </div>
+              <BaseSkeleton variant="circle" width="2.5rem" />
             </div>
-          </template>
-        </BaseStatCard>
+          </div>
+        </template>
 
-        <BaseStatCard
-          label="Portfolio investi"
-          :value="formatCurrency(dashboard.portfolio?.total_invested)"
-        >
-          <template #icon>
-            <div class="w-10 h-10 rounded-primary bg-primary/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
-          </template>
-        </BaseStatCard>
+        <!-- Real KPI cards -->
+        <template v-else>
+          <BaseStatCard
+            label="Solde bancaire"
+            :value="formatCurrency(dashboard.bankAccounts?.total_balance)"
+          >
+            <template #icon>
+              <div class="w-10 h-10 rounded-primary bg-info/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+            </template>
+          </BaseStatCard>
 
-        <BaseStatCard
-          label="Valeur actuelle"
-          :value="formatCurrency(dashboard.portfolio?.current_value)"
-          :sub-value="formatPercent(dashboard.portfolio?.profit_loss_percentage)"
-          :sub-value-class="profitLossClass(dashboard.portfolio?.profit_loss_percentage)"
-        >
-          <template #icon>
-            <div class="w-10 h-10 rounded-primary bg-success/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </template>
-        </BaseStatCard>
+          <BaseStatCard
+            label="Portfolio investi"
+            :value="formatCurrency(dashboard.portfolio?.total_invested)"
+          >
+            <template #icon>
+              <div class="w-10 h-10 rounded-primary bg-primary/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+            </template>
+          </BaseStatCard>
 
-        <BaseStatCard
-          label="Épargne mensuelle"
-          :value="formatCurrency(dashboard.cashflowBalance?.monthly_balance)"
-          :sub-value="dashboard.cashflowBalance?.savings_rate != null ? `Taux ${formatPercent(dashboard.cashflowBalance.savings_rate)}` : undefined"
-          sub-value-class="text-text-muted dark:text-text-dark-muted"
-        >
-          <template #icon>
-            <div class="w-10 h-10 rounded-primary bg-warning/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-          </template>
-        </BaseStatCard>
+          <BaseStatCard
+            label="Valeur actuelle"
+            :value="formatCurrency(dashboard.portfolio?.current_value)"
+            :sub-value="formatPercent(dashboard.portfolio?.profit_loss_percentage)"
+            :sub-value-class="profitLossClass(dashboard.portfolio?.profit_loss_percentage)"
+          >
+            <template #icon>
+              <div class="w-10 h-10 rounded-primary bg-success/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </template>
+          </BaseStatCard>
+
+          <BaseStatCard
+            label="Épargne mensuelle"
+            :value="formatCurrency(dashboard.cashflowBalance?.monthly_balance)"
+            :sub-value="dashboard.cashflowBalance?.savings_rate != null ? `Taux ${formatPercent(dashboard.cashflowBalance.savings_rate)}` : undefined"
+            sub-value-class="text-text-muted dark:text-text-dark-muted"
+          >
+            <template #icon>
+              <div class="w-10 h-10 rounded-primary bg-warning/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </template>
+          </BaseStatCard>
+        </template>
       </div>
 
       <!-- ── Cashflow Summary ───────────────────────────── -->
       <BaseCard title="Flux de trésorerie" subtitle="Revenus et dépenses mensuels">
-        <div v-if="dashboard.cashflowBalance" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Skeleton -->
+        <div v-if="dashboard.isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div v-for="i in 3" :key="i" class="text-center p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border">
+            <BaseSkeleton variant="rect" width="50%" height="0.75rem" class="mx-auto" />
+            <BaseSkeleton variant="rect" width="70%" height="1.25rem" class="mx-auto mt-3" />
+          </div>
+        </div>
+        <!-- Data -->
+        <div v-else-if="dashboard.cashflowBalance" class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="text-center p-4 rounded-secondary bg-success/5 border border-success/10">
             <p class="text-sm text-text-muted dark:text-text-dark-muted">Revenus mensuels</p>
             <p class="text-xl font-bold text-success mt-1">{{ formatCurrency(dashboard.cashflowBalance.monthly_inflows) }}</p>
@@ -118,7 +136,18 @@ onMounted(() => {
 
       <!-- ── Bank Accounts ──────────────────────────────── -->
       <BaseCard title="Comptes bancaires">
-        <div v-if="dashboard.bankAccounts?.accounts?.length" class="divide-y divide-surface-border dark:divide-surface-dark-border">
+        <!-- Skeleton -->
+        <div v-if="dashboard.isLoading" class="space-y-4">
+          <div v-for="i in 3" :key="i" class="flex items-center justify-between">
+            <div class="space-y-2 flex-1">
+              <BaseSkeleton variant="rect" width="40%" height="0.875rem" />
+              <BaseSkeleton variant="rect" width="25%" height="0.625rem" />
+            </div>
+            <BaseSkeleton variant="rect" width="5rem" height="0.875rem" />
+          </div>
+        </div>
+        <!-- Data -->
+        <div v-else-if="dashboard.bankAccounts?.accounts?.length" class="divide-y divide-surface-border dark:divide-surface-dark-border">
           <div
             v-for="account in dashboard.bankAccounts.accounts"
             :key="account.id"
@@ -141,7 +170,26 @@ onMounted(() => {
 
       <!-- ── Investment Portfolio ────────────────────────── -->
       <BaseCard title="Portfolio d'investissement" subtitle="Actions et crypto-monnaies">
-        <div v-if="dashboard.portfolio?.accounts?.length">
+        <!-- Skeleton -->
+        <div v-if="dashboard.isLoading" class="space-y-4">
+          <div class="rounded-secondary border border-surface-border dark:border-surface-dark-border overflow-hidden">
+            <div class="px-4 py-3 bg-background-subtle dark:bg-background-dark-subtle flex items-center justify-between">
+              <div class="space-y-2">
+                <BaseSkeleton variant="rect" width="8rem" height="0.875rem" />
+                <BaseSkeleton variant="rect" width="4rem" height="0.625rem" />
+              </div>
+              <div class="space-y-2 text-right">
+                <BaseSkeleton variant="rect" width="6rem" height="0.875rem" />
+                <BaseSkeleton variant="rect" width="4rem" height="0.625rem" />
+              </div>
+            </div>
+            <div class="p-4 space-y-3">
+              <BaseSkeleton v-for="i in 3" :key="i" variant="rect" height="1rem" />
+            </div>
+          </div>
+        </div>
+        <!-- Data -->
+        <div v-else-if="dashboard.portfolio?.accounts?.length">
           <div class="space-y-6">
             <div
               v-for="account in dashboard.portfolio.accounts"

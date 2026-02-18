@@ -121,8 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       apiClient.get<User>('/auth/me').then((u) => {
         user.value = u
-      }).catch(() => {
-      })
+      }).catch(() => {})
     } catch {
       clearSession()
       isAuthenticated.value = false
