@@ -20,12 +20,12 @@ function toNumber(value: NumericValue): number | null {
 }
 
 export function useFormatters() {
-  function formatCurrency(value: NumericValue): string {
+  function formatCurrency(value: NumericValue, currency: string = 'EUR'): string {
     const n = toNumber(value)
     if (n === null) return '—'
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'EUR',
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n)

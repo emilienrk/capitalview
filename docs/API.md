@@ -893,12 +893,14 @@ All crypto endpoints require authentication **and** the Master Key (except marke
   "amount": 0.5,
   "price_per_unit": 45000.00,
   "fees": 25.00,
-  "fees_symbol": "EUR",
+  "fees_symbol": "USD",
   "executed_at": "2026-01-15T10:30:00Z",
   "notes": "First buy",
   "tx_hash": "0x123..."
 }
 ```
+
+> **Note**: All crypto monetary values (price_per_unit, fees) are in **USD**. The API returns `currency: "USD"` on crypto responses.
 
 | Field            | Type                    | Required | Description                           |
 | ---------------- | ----------------------- | -------- | ------------------------------------- |
@@ -907,9 +909,9 @@ All crypto endpoints require authentication **and** the Master Key (except marke
 | `name`           | `string \| null`        | ❌       | Asset name (e.g., "Bitcoin")          |
 | `type`           | `CryptoTransactionType` | ✅       | `BUY`, `SELL`, `SWAP`, `STAKING`     |
 | `amount`         | `number`                | ✅       | Quantity (> 0)                        |
-| `price_per_unit` | `number`                | ✅       | Price per unit (≥ 0)                  |
-| `fees`           | `number`                | ❌       | Transaction fees (default: 0, ≥ 0)   |
-| `fees_symbol`    | `string \| null`        | ❌       | Currency of fees (e.g., "EUR", "BTC") |
+| `price_per_unit` | `number`                | ✅       | Price per unit in USD (≥ 0)           |
+| `fees`           | `number`                | ❌       | Transaction fees in USD (default: 0, ≥ 0) |
+| `fees_symbol`    | `string \| null`        | ❌       | Currency of fees (e.g., "USD", "BTC"). Converted to USD if different. |
 | `executed_at`    | `string`                | ✅       | ISO 8601 datetime                     |
 | `tx_hash`        | `string \| null`        | ❌       | Blockchain transaction hash           |
 | `notes`          | `string \| null`        | ❌       | Optional notes                        |
@@ -925,7 +927,7 @@ All crypto endpoints require authentication **and** the Master Key (except marke
   "amount": 0.5,
   "price_per_unit": 45000.00,
   "fees": 25.00,
-  "fees_symbol": "EUR",
+  "fees_symbol": "USD",
   "executed_at": "2026-01-15T10:30:00Z",
   "tx_hash": "0x123...",
   "notes": "First buy"
@@ -966,7 +968,7 @@ All crypto endpoints require authentication **and** the Master Key (except marke
   "amount": 1.0,
   "price_per_unit": 46000.00,
   "fees": 30.00,
-  "fees_symbol": "EUR",
+  "fees_symbol": "USD",
   "executed_at": "2026-01-20T10:00:00Z",
   "tx_hash": null,
   "notes": null
@@ -997,7 +999,7 @@ All crypto endpoints require authentication **and** the Master Key (except marke
       "amount": 0.5,
       "price_per_unit": 45000.00,
       "fees": 25.00,
-      "fees_symbol": "EUR",
+      "fees_symbol": "USD",
       "executed_at": "2026-01-15T10:30:00Z",
       "tx_hash": "0x123...",
       "notes": "First buy"
@@ -1027,7 +1029,7 @@ Each transaction in the array follows the same schema as `CryptoTransactionCreat
       "amount": 0.5,
       "price_per_unit": 45000.00,
       "fees": 25.00,
-      "fees_symbol": "EUR",
+      "fees_symbol": "USD",
       "executed_at": "2026-01-15T10:30:00Z",
       "tx_hash": "0x123...",
       "notes": "First buy"
@@ -1345,6 +1347,7 @@ Used by both stock and crypto transaction endpoints. Includes computed fields.
 | `price_per_unit`         | `number`         | Price per unit at time of transaction  |
 | `fees`                   | `number`         | Fees                                   |
 | `executed_at`            | `string`         | ISO 8601 datetime                      |
+| `currency`               | `string`         | Currency of monetary values ("EUR" for stocks, "USD" for crypto) |
 | `total_cost`             | `number`         | `amount × price_per_unit + fees`       |
 | `fees_percentage`        | `number`         | `fees / total_cost × 100`             |
 | `current_price`          | `number \| null` | Live price (if available)              |
@@ -1367,6 +1370,7 @@ Aggregated position for a single asset within an account.
 | `total_invested`         | `number`         | Total cost basis                       |
 | `total_fees`             | `number`         | Total fees paid                        |
 | `fees_percentage`        | `number`         | Fees as percentage of invested         |
+| `currency`               | `string`         | Currency of monetary values ("EUR" for stocks, "USD" for crypto) |
 | `current_price`          | `number \| null` | Live price (if available)              |
 | `current_value`          | `number \| null` | `total_amount × current_price`        |
 | `profit_loss`            | `number \| null` | `current_value - total_invested`       |
@@ -1383,6 +1387,7 @@ Summary of an account with aggregated positions.
 | `account_type`           | `string`             | Account type                   |
 | `total_invested`         | `number`             | Total invested across positions |
 | `total_fees`             | `number`             | Total fees across positions    |
+| `currency`               | `string`             | Currency of monetary values ("EUR" for stocks, "USD" for crypto) |
 | `current_value`          | `number \| null`     | Sum of position current values |
 | `profit_loss`            | `number \| null`     | Total P&L                      |
 | `profit_loss_percentage` | `number \| null`     | P&L percentage                 |

@@ -35,22 +35,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  function formatCurrency(value: number | string | null | undefined): string {
-    const n = value !== null && value !== undefined ? Number(value) : NaN
-    if (isNaN(n)) return '-'
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(n)
-  }
-
-  function formatPercent(value: number | string | null | undefined): string {
-    const n = value !== null && value !== undefined ? Number(value) : NaN
-    if (isNaN(n)) return '-'
-    const sign = n >= 0 ? '+' : ''
-    return `${sign}${n.toFixed(2)}%`
-  }
-
   function reset() {
     portfolio.value = null
     bankAccounts.value = null
@@ -65,8 +49,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isLoading,
     error,
     fetchAll,
-    formatCurrency,
-    formatPercent,
     reset,
   }
 })

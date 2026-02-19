@@ -247,7 +247,7 @@ export interface StockBulkImportResponse {
 
 // ─── Crypto ──────────────────────────────────────────────────
 
-export type CryptoTransactionType = 'BUY' | 'SELL' | 'SWAP'
+export type CryptoTransactionType = 'BUY' | 'SELL' | 'SWAP' | 'STAKING'
 
 export interface CryptoAccountCreate {
   name: string
@@ -357,6 +357,7 @@ export interface NoteResponse {
 
 export interface TransactionResponse {
   id: string
+  name: string | null
   symbol: string
   isin: string | null
   exchange: string | null
@@ -365,6 +366,7 @@ export interface TransactionResponse {
   price_per_unit: number
   fees: number
   executed_at: string
+  currency: string
   total_cost: number
   fees_percentage: number
   current_price: number | null
@@ -382,6 +384,7 @@ export interface PositionResponse {
   total_invested: number
   total_fees: number
   fees_percentage: number
+  currency: string
   current_price: number | null
   current_value: number | null
   profit_loss: number | null
@@ -394,6 +397,7 @@ export interface AccountSummaryResponse {
   account_type: string
   total_invested: number
   total_fees: number
+  currency: string
   current_value: number | null
   profit_loss: number | null
   profit_loss_percentage: number | null

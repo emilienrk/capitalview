@@ -2,6 +2,7 @@
 import { onMounted, ref, reactive } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
 import { useFormatters } from '@/composables/useFormatters'
+import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -12,6 +13,7 @@ import type { CryptoAccountCreate, CryptoTransactionCreate, TransactionResponse,
 
 const crypto = useCryptoStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
+const { displayCurrency, activeCurrency, convertFromUsd, formatUsdValue, toggleCurrency, fetchRate } = useCurrencyToggle()
 
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
@@ -41,7 +43,7 @@ const txForm = reactive<CryptoTransactionCreate>({
   amount: 0,
   price_per_unit: 0,
   fees: 0,
-  fees_symbol: 'EUR',
+  fees_symbol: 'USD',
   executed_at: new Date().toISOString().slice(0, 16),
 })
 
@@ -86,7 +88,7 @@ function openAddTransaction(accountId: string): void {
   txForm.amount = 0
   txForm.price_per_unit = 0
   txForm.fees = 0
-  txForm.fees_symbol = 'EUR'
+  txForm.fees_symbol = 'USD'
   txForm.executed_at = new Date().toISOString().slice(0, 16)
   searchQuery.value = ''
   searchResults.value = []
@@ -118,7 +120,7 @@ function openEditTransaction(tx: any): void {
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
-  txForm.fees_symbol = 'EUR' // fees_symbol missing in response for now, defaulting
+  txForm.fees_symbol = 'USD' // fees_symbol missing in response for now, defaulting
   txForm.executed_at = tx.executed_at.slice(0, 16)
   searchQuery.value = tx.name || tx.symbol
   searchResults.value = []
@@ -231,6 +233,7 @@ async function handleDeleteAccount(id: string): Promise<void> {
 
 onMounted(() => {
   crypto.fetchAccounts()
+  fetchRate()
 })
 </script>
 
@@ -238,6 +241,9 @@ onMounted(() => {
   <div>
     <PageHeader title="Crypto" description="Portefeuilles et transactions crypto-monnaies">
       <template #actions>
+        <BaseButton variant="outline" size="sm" @click="toggleCurrency" class="mr-2">
+          {{ displayCurrency === 'USD' ? '$ USD' : '€ EUR' }}
+        </BaseButton>
         <BaseButton @click="openCreateAccount">+ Nouveau portefeuille</BaseButton>
       </template>
     </PageHeader>
@@ -303,12 +309,12 @@ onMounted(() => {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatCurrency(crypto.currentAccount.total_invested) }}</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatUsdValue(crypto.currentAccount.total_invested) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
               <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
-                {{ formatCurrency(crypto.currentAccount.profit_loss) }}
+                {{ formatUsdValue(crypto.currentAccount.profit_loss) }}
               </p>
             </div>
             <div>
@@ -357,10 +363,10 @@ onMounted(() => {
                   <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(pos.average_buy_price) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(pos.current_price) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(pos.current_value) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ formatUsdValue(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ formatUsdValue(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ formatUsdValue(pos.current_price) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ formatUsdValue(pos.current_value) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
                     </td>
@@ -396,8 +402,8 @@ onMounted(() => {
                     </td>
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ formatUsdValue(tx.price_per_unit) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ formatUsdValue(tx.amount * tx.price_per_unit) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -474,11 +480,11 @@ onMounted(() => {
         <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" min="0" required />
+          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire ($)" type="number" step="any" min="0" required />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.fees!" label="Frais" type="number" step="any" min="0" />
-          <BaseInput v-model="txForm.fees_symbol!" label="Devise frais" placeholder="EUR" />
+          <BaseInput v-model="txForm.fees_symbol!" label="Devise frais" placeholder="USD" />
         </div>
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
