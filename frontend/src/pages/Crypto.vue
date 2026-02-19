@@ -249,9 +249,31 @@ onMounted(() => {
   <div>
     <PageHeader title="Crypto" description="Portefeuilles et transactions crypto-monnaies">
       <template #actions>
-        <BaseButton variant="outline" size="sm" @click="toggleCurrency" class="mr-2">
-          {{ displayCurrency === 'USD' ? '$ USD' : '€ EUR' }}
-        </BaseButton>
+        <!-- Currency toggle segmented control -->
+        <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border mr-2">
+          <button
+            @click="displayCurrency === 'EUR' && toggleCurrency()"
+            :class="[
+              'px-3 py-1.5 text-sm font-medium rounded-secondary transition-all',
+              displayCurrency === 'USD'
+                ? 'bg-primary text-primary-content shadow-sm'
+                : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main'
+            ]"
+          >
+            $ USD
+          </button>
+          <button
+            @click="displayCurrency === 'USD' && toggleCurrency()"
+            :class="[
+              'px-3 py-1.5 text-sm font-medium rounded-secondary transition-all',
+              displayCurrency === 'EUR'
+                ? 'bg-primary text-primary-content shadow-sm'
+                : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main'
+            ]"
+          >
+            € EUR
+          </button>
+        </div>
         <BaseButton @click="openCreateAccount">+ Nouveau portefeuille</BaseButton>
       </template>
     </PageHeader>

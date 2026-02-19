@@ -348,6 +348,7 @@ export interface NoteResponse {
   id: string
   name: string
   description: string | null
+  position: number
   created_at: string
   updated_at: string
 }

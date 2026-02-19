@@ -78,6 +78,15 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
+  async function reorderNotes(noteIds: string[]): Promise<void> {
+    try {
+      const result = await apiClient.put<NoteResponse[]>('/notes/reorder', { note_ids: noteIds })
+      if (result) notes.value = result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du réordonnancement'
+    }
+  }
+
   function reset(): void {
     notes.value = []
     currentNote.value = null
@@ -94,6 +103,7 @@ export const useNotesStore = defineStore('notes', () => {
     createNote,
     updateNote,
     deleteNote,
+    reorderNotes,
     reset,
   }
 })

@@ -26,7 +26,7 @@ export function useFormatters() {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency,
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n)
   }
@@ -36,7 +36,7 @@ export function useFormatters() {
     if (n === null) return '—'
     const sign = n >= 0 ? '+' : ''
     const formatted = new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n)
     return `${sign}${formatted} %`
