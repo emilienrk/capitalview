@@ -30,14 +30,14 @@ const hasFile = computed(() => parsedTransactions.value.length > 0)
 
 const csvTemplate = computed(() => {
   if (props.assetType === 'stocks') {
-    return 'symbol,isin,exchange,type,amount,price_per_unit,fees,executed_at,notes'
+    return 'isin,type,amount,price_per_unit,fees,executed_at,notes'
   }
   return 'symbol,type,amount,price_per_unit,fees,fees_symbol,executed_at,tx_hash,notes'
 })
 
 const csvExample = computed(() => {
   if (props.assetType === 'stocks') {
-    return 'AAPL,US0378331005,NASDAQ,BUY,10,150.50,2.99,2026-01-15T10:30:00,Premier achat\nTSLA,US88160R1014,NASDAQ,SELL,5,250.00,1.50,2026-01-20T14:00:00,'
+    return 'US0378331005,BUY,10,150.50,2.99,2026-01-15T10:30:00,Premier achat\nUS88160R1014,SELL,5,250.00,1.50,2026-01-20T14:00:00,'
   }
   return 'BTC,BUY,0.5,45000.00,15.00,USDT,2026-01-15T10:30:00,0x123abc...,\nETH,SELL,2,3000.00,8.00,USDT,2026-01-20T14:00:00,0x456def...,'
 })
@@ -174,7 +174,7 @@ function validateTransaction(transaction: any): void {
   if (transaction.type) transaction.type = String(transaction.type).trim()
 
   const requiredFields = props.assetType === 'stocks'
-    ? ['type', 'amount', 'price_per_unit', 'executed_at'] // Symbol checked separately
+    ? ['isin', 'type', 'amount', 'price_per_unit', 'executed_at']
     : ['symbol', 'type', 'amount', 'price_per_unit', 'executed_at']
 
   for (const field of requiredFields) {
@@ -183,18 +183,10 @@ function validateTransaction(transaction: any): void {
     }
   }
 
-  // Special handling for Stocks: require Symbol OR ISIN
+  // Stock-specific validation
   if (props.assetType === 'stocks') {
-    if ((!transaction.symbol || transaction.symbol === '') && (!transaction.isin || transaction.isin === '')) {
-      throw new Error('Vous devez renseigner le Symbole OU l\'ISIN')
-    }
-    // If symbol is missing but ISIN is present, use ISIN as symbol (backend will try to resolve it)
-    if ((!transaction.symbol || transaction.symbol === '') && transaction.isin) {
-      transaction.symbol = transaction.isin
-    }
-
-    if (transaction.isin && transaction.isin.length !== 12) {
-       throw new Error('Format ISIN invalide (doit faire 12 caractères)')
+    if (transaction.isin.length !== 12) {
+      throw new Error('Format ISIN invalide (doit faire 12 caractères)')
     }
   } else {
     // Crypto: Symbol always required

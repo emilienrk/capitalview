@@ -225,8 +225,7 @@ export interface AssetInfoResponse {
 }
 
 export interface StockTransactionBulkCreate {
-  symbol: string
-  exchange?: string
+  isin: string
   type: StockTransactionType
   amount: number
   price_per_unit: number
