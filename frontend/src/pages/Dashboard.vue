@@ -8,7 +8,7 @@ import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton } from 
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
-const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
+const { formatCurrency, formatPercent, formatNumber, profitLossClass, formatAccountType } = useFormatters()
 
 onMounted(() => {
   if (auth.isAuthenticated) {
@@ -126,7 +126,7 @@ onMounted(() => {
           </div>
           <div class="text-center p-4 rounded-secondary bg-primary/5 border border-primary/10">
             <p class="text-sm text-text-muted dark:text-text-dark-muted">Balance nette</p>
-            <p :class="['text-xl font-bold mt-1', profitLossClass(dashboard.cashflowBalance.monthly_balance)]">
+            <p class="text-xl font-bold mt-1 text-text-main dark:text-text-dark-main">
               {{ formatCurrency(dashboard.cashflowBalance.monthly_balance) }}
             </p>
           </div>
@@ -156,7 +156,7 @@ onMounted(() => {
             <div>
               <p class="font-medium text-text-main dark:text-text-dark-main">{{ account.name }}</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                {{ account.account_type }}
+                {{ formatAccountType(account.account_type) }}
                 <span v-if="account.institution_name"> · {{ account.institution_name }}</span>
               </p>
             </div>
@@ -200,7 +200,7 @@ onMounted(() => {
               <div class="px-4 py-3 bg-background-subtle dark:bg-background-dark-subtle flex items-center justify-between">
                 <div>
                   <p class="font-semibold text-text-main dark:text-text-dark-main">{{ account.account_name }}</p>
-                  <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.account_type }}</p>
+                  <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ formatAccountType(account.account_type) }}</p>
                 </div>
                 <div class="text-right">
                   <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(account.current_value) }}</p>
@@ -215,7 +215,7 @@ onMounted(() => {
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-text-muted dark:text-text-dark-muted text-xs uppercase tracking-wider">
-                      <th class="px-4 py-2">Symbole</th>
+                      <th class="px-4 py-2">Nom</th>
                       <th class="px-4 py-2 text-right">Quantité</th>
                       <th class="px-4 py-2 text-right">PRU</th>
                       <th class="px-4 py-2 text-right">Investi</th>
@@ -225,7 +225,7 @@ onMounted(() => {
                   </thead>
                   <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
                     <tr v-for="pos in account.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                      <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</td>
+                      <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>

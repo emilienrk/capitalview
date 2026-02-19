@@ -26,7 +26,7 @@ export function useFormatters() {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency,
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(n)
   }
@@ -35,7 +35,11 @@ export function useFormatters() {
     const n = toNumber(value)
     if (n === null) return '—'
     const sign = n >= 0 ? '+' : ''
-    return `${sign}${n.toFixed(2)} %`
+    const formatted = new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n)
+    return `${sign}${formatted} %`
   }
 
   function formatDate(value: string | null | undefined): string {
@@ -58,12 +62,12 @@ export function useFormatters() {
     }).format(new Date(value))
   }
 
-  function formatNumber(value: NumericValue, decimals = 2): string {
+  function formatNumber(value: NumericValue, maxDecimals = 3): string {
     const n = toNumber(value)
     if (n === null) return '—'
     return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: Math.min(maxDecimals, 6),
     }).format(n)
   }
 
@@ -74,6 +78,25 @@ export function useFormatters() {
     return n >= 0 ? 'text-success' : 'text-danger'
   }
 
+  const accountTypeLabels: Record<string, string> = {
+    CHECKING: 'Compte courant',
+    SAVINGS: 'Épargne',
+    LIVRET_A: 'Livret A',
+    LIVRET_DEVE: 'LDDS',
+    LEP: 'LEP',
+    LDD: 'LDD',
+    PEL: 'PEL',
+    CEL: 'CEL',
+    PEA: 'PEA',
+    CTO: 'CTO',
+    PEA_PME: 'PEA-PME',
+  }
+
+  /** Translate a backend account type enum to a French label. */
+  function formatAccountType(type: string): string {
+    return accountTypeLabels[type] ?? type
+  }
+
   return {
     formatCurrency,
     formatPercent,
@@ -81,5 +104,6 @@ export function useFormatters() {
     formatDateTime,
     formatNumber,
     profitLossClass,
+    formatAccountType,
   }
 }

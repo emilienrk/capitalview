@@ -122,12 +122,15 @@ function openEditAccount(account: any): void {
 }
 
 async function handleSubmitAccount(): Promise<void> {
+  let result
   if (editingAccountId.value) {
-    await stocks.updateAccount(editingAccountId.value, { ...accountForm })
+    result = await stocks.updateAccount(editingAccountId.value, { ...accountForm })
   } else {
-    await stocks.createAccount({ ...accountForm })
+    result = await stocks.createAccount({ ...accountForm })
   }
-  showAccountModal.value = false
+  if (result) {
+    showAccountModal.value = false
+  }
 }
 
 function openAddTransaction(accountId: string): void {
@@ -151,15 +154,17 @@ function openCsvImport(accountId: string): void {
   showCsvImportModal.value = true
 }
 
-async function handleCsvImport(transactions: StockTransactionBulkCreate[]): Promise<void> {
-  if (!csvImportAccountId.value) return
+async function handleCsvImport(transactions: StockTransactionBulkCreate[]): Promise<boolean> {
+  if (!csvImportAccountId.value) return false
 
   const result = await stocks.bulkImportTransactions(csvImportAccountId.value, transactions)
   
   if (result) {
     showCsvImportModal.value = false
     await selectAccount(csvImportAccountId.value)
+    return true
   }
+  return false
 }
 
 function openEditTransaction(tx: any): void {
@@ -203,17 +208,20 @@ async function handleSubmitTransaction(): Promise<void> {
     return
   }
 
+  let result
   if (editingTxId.value) {
-    await stocks.updateTransaction(editingTxId.value, { ...txForm })
+    result = await stocks.updateTransaction(editingTxId.value, { ...txForm })
   } else {
-    await stocks.createTransaction({ ...txForm })
+    result = await stocks.createTransaction({ ...txForm })
   }
-  showTxModal.value = false
-  if (selectedAccountId.value) {
-    await Promise.all([
-      stocks.fetchAccount(selectedAccountId.value),
-      fetchAccountTransactions(selectedAccountId.value)
-    ])
+  if (result) {
+    showTxModal.value = false
+    if (selectedAccountId.value) {
+      await Promise.all([
+        stocks.fetchAccount(selectedAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value)
+      ])
+    }
   }
 }
 
@@ -538,7 +546,7 @@ onMounted(() => {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                    <th class="px-4 py-2">Symbole</th>
+                    <th class="px-4 py-2">Nom</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">PRU</th>
                     <th class="px-4 py-2 text-right">Investi</th>
@@ -554,9 +562,8 @@ onMounted(() => {
                     class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
                   >
                     <td class="px-4 py-2.5">
-                      <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
+                      <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</span>
                       <span v-if="pos.exchange" class="ml-1 text-xs text-text-muted dark:text-text-dark-muted">({{ pos.exchange }})</span>
-                      <span v-if="pos.name" class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">{{ pos.name }}</span>
                     </td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
@@ -759,8 +766,8 @@ onMounted(() => {
       :open="showCsvImportModal"
       :account-id="csvImportAccountId || ''"
       asset-type="stocks"
+      :on-import="handleCsvImport"
       @close="showCsvImportModal = false"
-      @import="handleCsvImport"
     />
   </div>
 </template>

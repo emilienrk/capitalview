@@ -9,6 +9,7 @@ interface Props {
   title?: string
   accountId: string
   assetType: 'stocks' | 'crypto'
+  onImport: (transactions: any[]) => Promise<boolean>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,7 +18,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   close: []
-  import: [transactions: any[]]
 }>()
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -254,9 +254,23 @@ function resetFile(): void {
   }
 }
 
-function handleImport(): void {
+async function handleImport(): Promise<void> {
   if (parsedTransactions.value.length === 0) return
-  emit('import', parsedTransactions.value)
+  isLoading.value = true
+  error.value = null
+  try {
+    const success = await props.onImport(parsedTransactions.value)
+    if (success) {
+      resetFile()
+      emit('close')
+    } else {
+      error.value = "L'import a échoué. Vérifiez vos données et réessayez."
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Erreur inattendue lors de l'import"
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function handleClose(): void {
@@ -384,7 +398,8 @@ function downloadTemplate(): void {
           Annuler
         </BaseButton>
         <BaseButton
-          :disabled="!hasFile"
+          :disabled="!hasFile || isLoading"
+          :loading="isLoading"
           @click="handleImport"
         >
           Importer {{ parsedTransactions.length }} transaction(s)

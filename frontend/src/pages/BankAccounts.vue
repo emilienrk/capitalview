@@ -10,7 +10,7 @@ import {
 import type { BankAccountCreate, BankAccountType } from '@/types'
 
 const bank = useBankStore()
-const { formatCurrency, formatDate } = useFormatters()
+const { formatCurrency, formatDate, formatAccountType } = useFormatters()
 
 const showCreateModal = ref(false)
 const editingId = ref<string | null>(null)
@@ -116,7 +116,7 @@ onMounted(() => {
           <div>
             <h3 class="font-semibold text-text-main dark:text-text-dark-main">{{ account.name }}</h3>
             <div class="flex items-center gap-2 mt-1">
-              <BaseBadge variant="secondary">{{ account.account_type }}</BaseBadge>
+              <BaseBadge variant="secondary">{{ formatAccountType(account.account_type) }}</BaseBadge>
               <span v-if="account.institution_name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.institution_name }}</span>
             </div>
           </div>

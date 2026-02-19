@@ -10,7 +10,7 @@ import {
 
 const dashboard = useDashboardStore()
 const bank = useBankStore()
-const { formatCurrency, formatPercent, profitLossClass } = useFormatters()
+const { formatCurrency, formatPercent, profitLossClass, formatAccountType } = useFormatters()
 
 onMounted(async () => {
   await Promise.all([
@@ -76,7 +76,7 @@ function totalNetWorth(): number | null {
           >
             <div>
               <p class="font-medium text-text-main dark:text-text-dark-main">{{ account.account_name }}</p>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ account.account_type }}</p>
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ formatAccountType(account.account_type) }}</p>
             </div>
             <div class="text-right">
               <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(account.current_value ?? account.total_invested) }}</p>

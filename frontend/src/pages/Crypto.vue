@@ -71,12 +71,15 @@ function openEditAccount(account: any): void {
 }
 
 async function handleSubmitAccount(): Promise<void> {
+  let result
   if (editingAccountId.value) {
-    await crypto.updateAccount(editingAccountId.value, { ...accountForm })
+    result = await crypto.updateAccount(editingAccountId.value, { ...accountForm })
   } else {
-    await crypto.createAccount({ ...accountForm })
+    result = await crypto.createAccount({ ...accountForm })
   }
-  showAccountModal.value = false
+  if (result) {
+    showAccountModal.value = false
+  }
 }
 
 function openAddTransaction(accountId: string): void {
@@ -100,15 +103,17 @@ function openCsvImport(accountId: string): void {
   showCsvImportModal.value = true
 }
 
-async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Promise<void> {
-  if (!csvImportAccountId.value) return
+async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Promise<boolean> {
+  if (!csvImportAccountId.value) return false
 
   const result = await crypto.bulkImportTransactions(csvImportAccountId.value, transactions)
   
   if (result) {
     showCsvImportModal.value = false
     await selectAccount(csvImportAccountId.value)
+    return true
   }
+  return false
 }
 
 function openEditTransaction(tx: any): void {
@@ -180,17 +185,20 @@ async function handleSubmitTransaction(): Promise<void> {
     return
   }
 
+  let result
   if (editingTxId.value) {
-    await crypto.updateTransaction(editingTxId.value, { ...txForm })
+    result = await crypto.updateTransaction(editingTxId.value, { ...txForm })
   } else {
-    await crypto.createTransaction({ ...txForm })
+    result = await crypto.createTransaction({ ...txForm })
   }
-  showTxModal.value = false
-  if (selectedAccountId.value) {
-    await Promise.all([
-      crypto.fetchAccount(selectedAccountId.value),
-      fetchAccountTransactions(selectedAccountId.value)
-    ])
+  if (result) {
+    showTxModal.value = false
+    if (selectedAccountId.value) {
+      await Promise.all([
+        crypto.fetchAccount(selectedAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value)
+      ])
+    }
   }
 }
 
@@ -350,7 +358,7 @@ onMounted(() => {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                    <th class="px-4 py-2">Token</th>
+                    <th class="px-4 py-2">Nom</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">PRU</th>
                     <th class="px-4 py-2 text-right">Investi</th>
@@ -361,7 +369,7 @@ onMounted(() => {
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
                   <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</td>
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatUsdValue(pos.average_buy_price) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatUsdValue(pos.total_invested) }}</td>
@@ -509,8 +517,8 @@ onMounted(() => {
       :open="showCsvImportModal"
       :account-id="csvImportAccountId || ''"
       asset-type="crypto"
+      :on-import="handleCsvImport"
       @close="showCsvImportModal = false"
-      @import="handleCsvImport"
     />
   </div>
 </template>
