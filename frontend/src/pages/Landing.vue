@@ -40,12 +40,6 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    title: 'Dashboard Global',
-    description: 'Vue d\'ensemble de votre patrimoine : répartition des actifs, performance globale et évolution dans le temps.',
-    icon: 'dashboard',
-    color: 'primary',
-  },
-  {
     title: 'Actions & PEA',
     description: 'Suivi de vos comptes-titres et PEA avec données de marché en temps réel, plus-values et historique de transactions.',
     icon: 'stock',
@@ -67,6 +61,12 @@ const features: Feature[] = [
     title: 'Comptes Bancaires',
     description: 'Centralisez tous vos comptes en un seul endroit. Visualisez vos soldes et mouvements en un coup d\'œil.',
     icon: 'bank',
+    color: 'primary',
+  },
+  {
+    title: 'Biens Personnels',
+    description: 'Suivez vos possessions : véhicules, skins, bijoux, collections… avec estimation de valeur, historique et plus-value.',
+    icon: 'asset',
     color: 'secondary',
   },
   {
@@ -158,7 +158,7 @@ const highlights = [
           Votre patrimoine, simplifié.
         </p>
         <p class="text-base md:text-lg text-text-muted dark:text-text-dark-muted max-w-xl mx-auto mb-10 animate-slide-up" style="animation-delay: 160ms">
-          Suivez vos actions, crypto, comptes bancaires et cashflow depuis une seule interface. Données chiffrées, auto-hébergeable, 100% open source.
+          Suivez vos actions, crypto, comptes bancaires, biens personnels et cashflow depuis une seule interface. Données chiffrées, auto-hébergeable, 100% open source.
         </p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center animate-slide-up" style="animation-delay: 240ms">
           <router-link
@@ -205,12 +205,8 @@ const highlights = [
                 'bg-danger/10 text-danger': feature.color === 'danger',
               }"
             >
-              <!-- Dashboard -->
-              <svg v-if="feature.icon === 'dashboard'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-2a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z" />
-              </svg>
               <!-- Stock -->
-              <svg v-else-if="feature.icon === 'stock'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg v-if="feature.icon === 'stock'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
               <!-- Crypto -->
@@ -224,6 +220,10 @@ const highlights = [
               <!-- Bank -->
               <svg v-else-if="feature.icon === 'bank'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v4m4-4v4m4-4v4" />
+              </svg>
+              <!-- Asset -->
+              <svg v-else-if="feature.icon === 'asset'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               <!-- Notes -->
               <svg v-else-if="feature.icon === 'notes'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

@@ -346,7 +346,6 @@ onMounted(async () => {
       <BaseStatCard
         label="Taux d'épargne"
         :value="savingsRate !== null ? `${savingsRate.toFixed(1)} %` : '—'"
-        :sub-value="savingsRate !== null && savingsRate > 0 ? 'Positif' : savingsRate !== null ? 'Négatif' : undefined"
         :sub-value-class="savingsRate !== null && savingsRate >= 0 ? 'text-success' : 'text-danger'"
       >
         <template #icon>

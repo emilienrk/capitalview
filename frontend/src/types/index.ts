@@ -434,3 +434,70 @@ export interface UserSettingsResponse {
   created_at: string
   updated_at: string
 }
+
+// ─── Assets (Personal Possessions) ──────────────────────────
+
+export interface AssetCreate {
+  name: string
+  description?: string | null
+  category: string
+  purchase_price?: number | null
+  estimated_value: number
+  currency?: string
+  acquisition_date?: string | null
+}
+
+export interface AssetUpdate {
+  name?: string
+  description?: string | null
+  category?: string
+  purchase_price?: number | null
+  estimated_value?: number
+  currency?: string
+  acquisition_date?: string | null
+}
+
+export interface AssetResponse {
+  id: string
+  name: string
+  description: string | null
+  category: string
+  purchase_price: number | null
+  estimated_value: number
+  currency: string
+  acquisition_date: string | null
+  profit_loss: number | null
+  profit_loss_percentage: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssetValuationCreate {
+  estimated_value: number
+  note?: string | null
+  valued_at: string
+}
+
+export interface AssetValuationResponse {
+  id: string
+  asset_id: string
+  estimated_value: number
+  note: string | null
+  valued_at: string
+  created_at: string
+}
+
+export interface AssetCategorySummary {
+  category: string
+  count: number
+  total_estimated_value: number
+}
+
+export interface AssetSummaryResponse {
+  total_estimated_value: number
+  total_purchase_price: number
+  total_profit_loss: number | null
+  asset_count: number
+  categories: AssetCategorySummary[]
+  assets: AssetResponse[]
+}
