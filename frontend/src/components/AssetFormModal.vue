@@ -38,7 +38,7 @@ const description = ref('')
 const category = ref('')
 const customCategory = ref('')
 const purchasePrice = ref<number | string>('')
-const estimatedValue = ref<number | string>(0)
+const estimatedValue = ref<number | string>('')
 const currency = ref('EUR')
 const acquisitionDate = ref('')
 
@@ -48,7 +48,7 @@ function resetForm(): void {
   category.value = ''
   customCategory.value = ''
   purchasePrice.value = ''
-  estimatedValue.value = 0
+  estimatedValue.value = ''
   currency.value = 'EUR'
   acquisitionDate.value = ''
 }
@@ -67,7 +67,7 @@ watch(() => props.open, (isOpen) => {
       customCategory.value = props.asset.category
     }
     purchasePrice.value = props.asset.purchase_price ?? ''
-    estimatedValue.value = props.asset.estimated_value
+    estimatedValue.value = props.asset.estimated_value ?? ''
     currency.value = props.asset.currency
     acquisitionDate.value = props.asset.acquisition_date ?? ''
   } else if (isOpen) {
@@ -79,11 +79,13 @@ const effectiveCategory = computed(() =>
   category.value === '_custom' ? customCategory.value : category.value
 )
 
-const isValid = computed(() =>
-  name.value.trim().length > 0 &&
-  effectiveCategory.value.trim().length > 0 &&
-  Number(estimatedValue.value) >= 0
-)
+const isValid = computed(() => {
+  const hasName = name.value.trim().length > 0
+  const hasCat = effectiveCategory.value.trim().length > 0
+  const hasPurchase = purchasePrice.value !== '' && purchasePrice.value !== null && Number(purchasePrice.value) >= 0
+  const hasEstimated = estimatedValue.value !== '' && estimatedValue.value !== null && Number(estimatedValue.value) >= 0
+  return hasName && hasCat && (hasPurchase || hasEstimated)
+})
 
 function onSubmit(): void {
   if (!isValid.value) return
@@ -92,12 +94,16 @@ function onSubmit(): void {
     ? Number(purchasePrice.value)
     : null
 
+  const ev = estimatedValue.value !== '' && estimatedValue.value !== null
+    ? Number(estimatedValue.value)
+    : null
+
   const base = {
     name: name.value.trim(),
     description: description.value.trim() || null,
     category: effectiveCategory.value.trim(),
     purchase_price: pp,
-    estimated_value: Number(estimatedValue.value),
+    estimated_value: ev,
     currency: currency.value,
     acquisition_date: acquisitionDate.value || null,
   }
@@ -147,14 +153,13 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
           v-model="purchasePrice"
           label="Prix d'achat"
           type="number"
-          placeholder="Optionnel"
+          placeholder="Optionnel si valeur estimée renseignée"
         />
         <BaseInput
           v-model="estimatedValue"
           label="Valeur estimée actuelle"
           type="number"
-          placeholder="0"
-          required
+          placeholder="Optionnel si prix d'achat renseigné"
         />
       </div>
 

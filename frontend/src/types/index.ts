@@ -442,7 +442,7 @@ export interface AssetCreate {
   description?: string | null
   category: string
   purchase_price?: number | null
-  estimated_value: number
+  estimated_value?: number | null
   currency?: string
   acquisition_date?: string | null
 }
@@ -457,6 +457,11 @@ export interface AssetUpdate {
   acquisition_date?: string | null
 }
 
+export interface AssetSell {
+  sold_price: number
+  sold_at: string
+}
+
 export interface AssetResponse {
   id: string
   name: string
@@ -467,7 +472,8 @@ export interface AssetResponse {
   currency: string
   acquisition_date: string | null
   profit_loss: number | null
-  profit_loss_percentage: number | null
+  sold_price: number | null
+  sold_at: string | null
   created_at: string
   updated_at: string
 }

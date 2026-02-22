@@ -71,6 +71,16 @@ export function useFormatters() {
     }).format(n)
   }
 
+  /** Short date format DD/MM/YY — useful for mobile. */
+  function formatDateShort(value: string | null | undefined): string {
+    if (!value) return '—'
+    return new Intl.DateTimeFormat('fr-FR', {
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(value))
+  }
+
   /** Returns 'text-success' or 'text-danger' based on sign */
   function profitLossClass(value: NumericValue): string {
     const n = toNumber(value)
@@ -101,6 +111,7 @@ export function useFormatters() {
     formatCurrency,
     formatPercent,
     formatDate,
+    formatDateShort,
     formatDateTime,
     formatNumber,
     profitLossClass,

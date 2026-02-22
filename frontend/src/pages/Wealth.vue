@@ -8,21 +8,26 @@ import PageHeader from '@/components/PageHeader.vue'
 import AssetFormModal from '@/components/AssetFormModal.vue'
 import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
 import {
-  BaseCard, BaseSpinner, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton,
+  BaseCard, BaseSpinner, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton, BaseModal, BaseInput,
 } from '@/components'
 import type { AssetCreate, AssetUpdate, AssetResponse } from '@/types'
 
 const dashboard = useDashboardStore()
 const bank = useBankStore()
 const asset = useAssetStore()
-const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate } = useFormatters()
+const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate, formatDateShort } = useFormatters()
 
 // Asset modal state
 const showAssetModal = ref(false)
 const editingAsset = ref<AssetResponse | null>(null)
 const showHistoryModal = ref(false)
 const historyAsset = ref<AssetResponse | null>(null)
-const deleteConfirmId = ref<string | null>(null)
+
+// Sell modal state
+const showSellModal = ref(false)
+const sellingAsset = ref<AssetResponse | null>(null)
+const sellPrice = ref<number | string>('')
+const sellDate = ref(new Date().toISOString().split('T')[0])
 
 onMounted(async () => {
   await Promise.all([
@@ -58,6 +63,30 @@ function openHistory(a: AssetResponse): void {
   showHistoryModal.value = true
 }
 
+function openSellModal(a: AssetResponse): void {
+  sellingAsset.value = a
+  sellPrice.value = a.estimated_value
+  sellDate.value = new Date().toISOString().split('T')[0]
+  showSellModal.value = true
+}
+
+async function confirmSell(): Promise<void> {
+  if (!sellingAsset.value) return
+  await asset.sellAsset(sellingAsset.value.id, {
+    sold_price: Number(sellPrice.value) || 0,
+    sold_at: sellDate.value,
+  })
+  showSellModal.value = false
+  sellingAsset.value = null
+}
+
+async function confirmHardDelete(): Promise<void> {
+  if (!sellingAsset.value) return
+  await asset.deleteAsset(sellingAsset.value.id)
+  showSellModal.value = false
+  sellingAsset.value = null
+}
+
 async function onSaveAsset(data: AssetCreate | AssetUpdate): Promise<void> {
   if (editingAsset.value) {
     await asset.updateAsset(editingAsset.value.id, data as AssetUpdate)
@@ -65,11 +94,6 @@ async function onSaveAsset(data: AssetCreate | AssetUpdate): Promise<void> {
     await asset.createAsset(data as AssetCreate)
   }
   showAssetModal.value = false
-}
-
-async function confirmDeleteAsset(id: string): Promise<void> {
-  await asset.deleteAsset(id)
-  deleteConfirmId.value = null
 }
 
 // ─── Computed helpers ────────────────────────────────────
@@ -105,7 +129,7 @@ const groupedAssets = computed(() => {
       </div>
 
       <!-- Breakdown -->
-      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <BaseStatCard
           label="Liquidités"
           :value="formatCurrency(bank.summary?.total_balance)"
@@ -120,10 +144,6 @@ const groupedAssets = computed(() => {
           label="Biens personnels"
           :value="formatCurrency(asset.summary?.total_estimated_value)"
           :sub-value="asset.summary?.asset_count ? `${asset.summary.asset_count} bien(s)` : undefined"
-        />
-        <BaseStatCard
-          label="Épargne mensuelle"
-          :value="formatCurrency(dashboard.cashflowBalance?.monthly_balance)"
         />
       </div>
 
@@ -213,11 +233,11 @@ const groupedAssets = computed(() => {
               >
                 <div class="min-w-0 flex-1">
                   <p class="font-medium text-text-main dark:text-text-dark-main truncate">{{ a.name }}</p>
-                  <div class="flex items-center gap-3 mt-0.5">
+                  <div class="hidden sm:flex items-center gap-3 mt-0.5">
                     <p v-if="a.acquisition_date" class="text-xs text-text-muted dark:text-text-dark-muted">
                       Acquis le {{ formatDate(a.acquisition_date) }}
                     </p>
-                    <p v-if="a.purchase_price !== null" class="text-xs text-text-muted dark:text-text-dark-muted">
+                    <p v-if="a.purchase_price !== null && a.purchase_price > 0" class="text-xs text-text-muted dark:text-text-dark-muted">
                       Acheté {{ formatCurrency(a.purchase_price) }}
                     </p>
                   </div>
@@ -225,11 +245,12 @@ const groupedAssets = computed(() => {
                 <div class="flex items-center gap-4 ml-4">
                   <div class="text-right">
                     <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(a.estimated_value) }}</p>
-                    <p
-                      v-if="a.profit_loss !== null"
-                      :class="['text-xs font-medium', profitLossClass(a.profit_loss)]"
-                    >
-                      {{ formatPercent(a.profit_loss_percentage) }}
+                    <p class="text-xs text-text-muted dark:text-text-dark-muted inline-flex items-center gap-1 justify-end">
+                      <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span class="hidden sm:inline">{{ formatDate(a.updated_at) }}</span>
+                      <span class="sm:hidden">{{ formatDateShort(a.updated_at) }}</span>
                     </p>
                   </div>
                   <!-- Actions -->
@@ -253,21 +274,13 @@ const groupedAssets = computed(() => {
                       </svg>
                     </button>
                     <button
-                      v-if="deleteConfirmId !== a.id"
-                      @click="deleteConfirmId = a.id"
+                      @click="openSellModal(a)"
                       class="p-1.5 rounded-secondary text-text-muted dark:text-text-dark-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                      title="Supprimer"
+                      title="Vendu / Supprimer"
                     >
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                    </button>
-                    <button
-                      v-else
-                      @click="confirmDeleteAsset(a.id)"
-                      class="px-2 py-1 rounded-secondary text-xs font-medium bg-danger text-danger-content hover:bg-danger/90 transition-colors"
-                    >
-                      Confirmer
                     </button>
                   </div>
                 </div>
@@ -290,5 +303,57 @@ const groupedAssets = computed(() => {
       :asset="historyAsset"
       @close="showHistoryModal = false"
     />
+
+    <!-- Sell / Remove modal -->
+    <BaseModal :open="showSellModal" title="Retirer un bien" size="md" @close="showSellModal = false">
+      <div v-if="sellingAsset" class="space-y-4">
+        <p class="text-text-body dark:text-text-dark-muted">
+          Que souhaitez-vous faire avec <span class="font-semibold text-text-main dark:text-text-dark-main">{{ sellingAsset.name }}</span> ?
+        </p>
+
+        <div class="p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark space-y-3">
+          <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Vendu / Donné</p>
+          <p class="text-xs text-text-muted dark:text-text-dark-muted">Le bien sera archivé. Laissez le prix à 0 si c'est un don.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <BaseInput
+              v-model="sellPrice"
+              label="Prix de vente"
+              type="number"
+              placeholder="0 si donné"
+            />
+            <BaseInput
+              v-model="sellDate"
+              label="Date"
+              type="date"
+            />
+          </div>
+          <BaseButton class="w-full" @click="confirmSell">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Marquer comme vendu / donné
+          </BaseButton>
+        </div>
+
+        <div class="relative">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-surface-border dark:border-surface-dark-border"></div></div>
+          <div class="relative flex justify-center text-xs"><span class="px-2 bg-background dark:bg-background-dark text-text-muted dark:text-text-dark-muted">ou</span></div>
+        </div>
+
+        <div class="p-4 rounded-secondary border border-danger/20 bg-danger/5 space-y-3">
+          <p class="text-sm font-medium text-danger">Supprimer définitivement</p>
+          <p class="text-xs text-text-muted dark:text-text-dark-muted">Le bien et tout son historique seront supprimés. Cette action est irréversible.</p>
+          <BaseButton variant="danger" class="w-full" @click="confirmHardDelete">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Supprimer définitivement
+          </BaseButton>
+        </div>
+      </div>
+      <template #footer>
+        <BaseButton variant="ghost" @click="showSellModal = false">Annuler</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>

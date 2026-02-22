@@ -6,6 +6,7 @@ import type {
   AssetSummaryResponse,
   AssetCreate,
   AssetUpdate,
+  AssetSell,
   AssetValuationCreate,
   AssetValuationResponse,
 } from '@/types'
@@ -86,6 +87,21 @@ export const useAssetStore = defineStore('asset', () => {
     }
   }
 
+  async function sellAsset(id: string, data: AssetSell): Promise<AssetResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const asset = await apiClient.post<AssetResponse>(`/assets/${id}/sell`, data)
+      await fetchAssets()
+      return asset
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de la vente'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // ─── Valuations ────────────────────────────────────────
 
   async function fetchValuations(assetId: string): Promise<void> {
@@ -136,6 +152,7 @@ export const useAssetStore = defineStore('asset', () => {
     createAsset,
     updateAsset,
     deleteAsset,
+    sellAsset,
     fetchValuations,
     addValuation,
     deleteValuation,
