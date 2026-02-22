@@ -27,7 +27,7 @@ const historyAsset = ref<AssetResponse | null>(null)
 const showSellModal = ref(false)
 const sellingAsset = ref<AssetResponse | null>(null)
 const sellPrice = ref<number | string>('')
-const sellDate = ref(new Date().toISOString().split('T')[0])
+const sellDate = ref<string>(new Date().toISOString().substring(0, 10))
 
 onMounted(async () => {
   await Promise.all([
@@ -66,7 +66,7 @@ function openHistory(a: AssetResponse): void {
 function openSellModal(a: AssetResponse): void {
   sellingAsset.value = a
   sellPrice.value = a.estimated_value
-  sellDate.value = new Date().toISOString().split('T')[0]
+  sellDate.value = new Date().toISOString().substring(0, 10)
   showSellModal.value = true
 }
 
@@ -74,7 +74,7 @@ async function confirmSell(): Promise<void> {
   if (!sellingAsset.value) return
   await asset.sellAsset(sellingAsset.value.id, {
     sold_price: Number(sellPrice.value) || 0,
-    sold_at: sellDate.value,
+    sold_at: sellDate.value || new Date().toISOString().substring(0, 10),
   })
   showSellModal.value = false
   sellingAsset.value = null
