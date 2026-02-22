@@ -507,3 +507,29 @@ export interface AssetSummaryResponse {
   categories: AssetCategorySummary[]
   assets: AssetResponse[]
 }
+
+// ─── Dashboard Statistics ────────────────────────────────────
+
+export interface InvestmentDistribution {
+  stock_invested: number
+  stock_current_value: number | null
+  stock_percentage: number | null
+  crypto_invested: number
+  crypto_current_value: number | null
+  crypto_percentage: number | null
+}
+
+export interface WealthBreakdown {
+  cash: number
+  cash_percentage: number | null
+  investments: number
+  investments_percentage: number | null
+  assets: number
+  assets_percentage: number | null
+  total_wealth: number
+}
+
+export interface DashboardStatisticsResponse {
+  distribution: InvestmentDistribution
+  wealth: WealthBreakdown
+}

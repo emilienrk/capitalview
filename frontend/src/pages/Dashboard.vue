@@ -105,68 +105,172 @@ onMounted(() => {
         </template>
       </div>
 
-      <!-- ── Cashflow Summary ───────────────────────────── -->
-      <BaseCard title="Flux de trésorerie" subtitle="Revenus et dépenses mensuels">
-        <!-- Skeleton -->
-        <div v-if="dashboard.isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div v-for="i in 3" :key="i" class="text-center p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border">
-            <BaseSkeleton variant="rect" width="50%" height="0.75rem" class="mx-auto" />
-            <BaseSkeleton variant="rect" width="70%" height="1.25rem" class="mx-auto mt-3" />
-          </div>
-        </div>
-        <!-- Data -->
-        <div v-else-if="dashboard.cashflowBalance" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="text-center p-4 rounded-secondary bg-success/5 border border-success/10">
-            <p class="text-sm text-text-muted dark:text-text-dark-muted">Revenus mensuels</p>
-            <p class="text-xl font-bold text-success mt-1">{{ formatCurrency(dashboard.cashflowBalance.monthly_inflows) }}</p>
-          </div>
-          <div class="text-center p-4 rounded-secondary bg-danger/5 border border-danger/10">
-            <p class="text-sm text-text-muted dark:text-text-dark-muted">Dépenses mensuelles</p>
-            <p class="text-xl font-bold text-danger mt-1">{{ formatCurrency(dashboard.cashflowBalance.monthly_outflows) }}</p>
-          </div>
-          <div class="text-center p-4 rounded-secondary bg-primary/5 border border-primary/10">
-            <p class="text-sm text-text-muted dark:text-text-dark-muted">Balance nette</p>
-            <p class="text-xl font-bold mt-1 text-text-main dark:text-text-dark-main">
-              {{ formatCurrency(dashboard.cashflowBalance.monthly_balance) }}
-            </p>
-          </div>
-        </div>
-        <BaseEmptyState v-else title="Aucune donnée" description="Ajoutez vos flux de trésorerie pour commencer le suivi" />
-      </BaseCard>
-
-      <!-- ── Bank Accounts ──────────────────────────────── -->
-      <BaseCard title="Comptes bancaires">
-        <!-- Skeleton -->
-        <div v-if="dashboard.isLoading" class="space-y-4">
-          <div v-for="i in 3" :key="i" class="flex items-center justify-between">
-            <div class="space-y-2 flex-1">
-              <BaseSkeleton variant="rect" width="40%" height="0.875rem" />
-              <BaseSkeleton variant="rect" width="25%" height="0.625rem" />
+      <!-- ── Statistics: Distribution & Wealth ───────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Investment Distribution (Stock / Crypto) -->
+        <BaseCard title="Répartition des investissements" subtitle="Bourse vs Crypto">
+          <!-- Skeleton -->
+          <div v-if="dashboard.isLoading" class="space-y-4">
+            <div v-for="i in 2" :key="i" class="flex items-center justify-between p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border">
+              <div class="space-y-2 flex-1">
+                <BaseSkeleton variant="rect" width="40%" height="0.75rem" />
+                <BaseSkeleton variant="rect" width="60%" height="1.25rem" />
+              </div>
+              <BaseSkeleton variant="rect" width="3rem" height="1.5rem" />
             </div>
-            <BaseSkeleton variant="rect" width="5rem" height="0.875rem" />
           </div>
-        </div>
-        <!-- Data -->
-        <div v-else-if="dashboard.bankAccounts?.accounts?.length" class="divide-y divide-surface-border dark:divide-surface-dark-border">
-          <div
-            v-for="account in dashboard.bankAccounts.accounts"
-            :key="account.id"
-            class="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-          >
-            <div>
-              <p class="font-medium text-text-main dark:text-text-dark-main">{{ account.name }}</p>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                {{ formatAccountType(account.account_type) }}
-                <span v-if="account.institution_name"> · {{ account.institution_name }}</span>
+          <!-- Data -->
+          <div v-else-if="dashboard.statistics" class="space-y-4">
+            <!-- Progress bar -->
+            <div class="w-full h-3 rounded-full overflow-hidden bg-background-subtle dark:bg-background-dark-subtle">
+              <div class="h-full flex">
+                <div
+                  class="bg-primary transition-all duration-500"
+                  :style="{ width: `${dashboard.statistics.distribution.stock_percentage ?? 0}%` }"
+                />
+                <div
+                  class="bg-warning transition-all duration-500"
+                  :style="{ width: `${dashboard.statistics.distribution.crypto_percentage ?? 0}%` }"
+                />
+              </div>
+            </div>
+
+            <!-- Stock detail -->
+            <div class="flex items-center justify-between p-4 rounded-secondary bg-primary/5 border border-primary/10">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-primary" />
+                <div>
+                  <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Bourse</p>
+                  <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                    Investi : {{ formatCurrency(dashboard.statistics.distribution.stock_invested) }}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-text-main dark:text-text-dark-main">
+                  {{ formatCurrency(dashboard.statistics.distribution.stock_current_value) }}
+                </p>
+                <p class="text-sm font-medium text-primary">
+                  {{ dashboard.statistics.distribution.stock_percentage != null ? `${dashboard.statistics.distribution.stock_percentage.toFixed(2)} %` : '—' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Crypto detail -->
+            <div class="flex items-center justify-between p-4 rounded-secondary bg-warning/5 border border-warning/10">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-warning" />
+                <div>
+                  <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Crypto</p>
+                  <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                    Investi : {{ formatCurrency(dashboard.statistics.distribution.crypto_invested) }}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-text-main dark:text-text-dark-main">
+                  {{ formatCurrency(dashboard.statistics.distribution.crypto_current_value) }}
+                </p>
+                <p class="text-sm font-medium text-warning">
+                  {{ dashboard.statistics.distribution.crypto_percentage != null ? `${dashboard.statistics.distribution.crypto_percentage.toFixed(2)} %` : '—' }}
+                </p>
+              </div>
+            </div>
+          </div>
+          <BaseEmptyState v-else title="Aucune donnée" description="Ajoutez des investissements pour voir la répartition" />
+        </BaseCard>
+
+        <!-- Wealth Breakdown (Cash / Investments / Assets) -->
+        <BaseCard title="Composition du patrimoine" subtitle="Cash, investissements et biens">
+          <!-- Skeleton -->
+          <div v-if="dashboard.isLoading" class="space-y-4">
+            <div v-for="i in 3" :key="i" class="flex items-center justify-between p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border">
+              <div class="space-y-2 flex-1">
+                <BaseSkeleton variant="rect" width="40%" height="0.75rem" />
+                <BaseSkeleton variant="rect" width="60%" height="1.25rem" />
+              </div>
+              <BaseSkeleton variant="rect" width="3rem" height="1.5rem" />
+            </div>
+          </div>
+          <!-- Data -->
+          <div v-else-if="dashboard.statistics" class="space-y-4">
+            <!-- Progress bar -->
+            <div class="w-full h-3 rounded-full overflow-hidden bg-background-subtle dark:bg-background-dark-subtle">
+              <div class="h-full flex">
+                <div
+                  class="bg-info transition-all duration-500"
+                  :style="{ width: `${dashboard.statistics.wealth.cash_percentage ?? 0}%` }"
+                />
+                <div
+                  class="bg-success transition-all duration-500"
+                  :style="{ width: `${dashboard.statistics.wealth.investments_percentage ?? 0}%` }"
+                />
+                <div
+                  class="bg-secondary transition-all duration-500"
+                  :style="{ width: `${dashboard.statistics.wealth.assets_percentage ?? 0}%` }"
+                />
+              </div>
+            </div>
+
+            <!-- Cash -->
+            <div class="flex items-center justify-between p-4 rounded-secondary bg-info/5 border border-info/10">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-info" />
+                <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Cash</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-text-main dark:text-text-dark-main">
+                  {{ formatCurrency(dashboard.statistics.wealth.cash) }}
+                </p>
+                <p class="text-sm font-medium text-info">
+                  {{ formatPercent(dashboard.statistics.wealth.cash_percentage) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Investments -->
+            <div class="flex items-center justify-between p-4 rounded-secondary bg-success/5 border border-success/10">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-success" />
+                <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Investissements</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-text-main dark:text-text-dark-main">
+                  {{ formatCurrency(dashboard.statistics.wealth.investments) }}
+                </p>
+                <p class="text-sm font-medium text-success">
+                  {{ formatPercent(dashboard.statistics.wealth.investments_percentage) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Assets -->
+            <div class="flex items-center justify-between p-4 rounded-secondary bg-secondary/5 border border-secondary/10">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-secondary" />
+                <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Patrimoine matériel</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-text-main dark:text-text-dark-main">
+                  {{ formatCurrency(dashboard.statistics.wealth.assets) }}
+                </p>
+                <p class="text-sm font-medium text-secondary">
+                  {{ formatPercent(dashboard.statistics.wealth.assets_percentage) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Total Wealth -->
+            <div class="pt-3 border-t border-surface-border dark:border-surface-dark-border flex items-center justify-between">
+              <p class="text-sm font-semibold text-text-main dark:text-text-dark-main">Patrimoine total</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">
+                {{ formatCurrency(dashboard.statistics.wealth.total_wealth) }}
               </p>
             </div>
-            <p class="font-semibold text-text-main dark:text-text-dark-main">
-              {{ formatCurrency(account.balance) }}
-            </p>
           </div>
-        </div>
-        <BaseEmptyState v-else title="Aucun compte" description="Ajoutez un compte bancaire depuis la page Compte Courant" />
-      </BaseCard>
+          <BaseEmptyState v-else title="Aucune donnée" description="Ajoutez des comptes pour voir la composition de votre patrimoine" />
+        </BaseCard>
+      </div>
 
       <!-- ── Investment Portfolio ────────────────────────── -->
       <BaseCard title="Portfolio d'investissement" subtitle="Actions et crypto-monnaies">
