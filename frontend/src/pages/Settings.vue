@@ -213,7 +213,7 @@ async function saveObjectives(): Promise<void> {
             <textarea
               v-model="objectives"
               rows="4"
-              placeholder="Ex: Atteindre 100 000 € d'investissements d'ici 2030..."
+              placeholder="Vos objectifs d'épargne et d'investissement..."
               class="w-full rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main placeholder:text-text-muted/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-y"
             />
             <div class="flex justify-end">

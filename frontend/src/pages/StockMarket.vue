@@ -683,10 +683,10 @@ onMounted(() => {
         <BaseInput
           v-model="accountForm.name"
           label="Nom du compte"
-          :placeholder="accountForm.account_type === 'PEA' ? 'Ex: PEA Boursorama' : 'Ex: CTO Degiro'"
+          placeholder="Nom du compte"
           required
         />
-        <BaseInput v-model="accountForm.institution_name!" label="Courtier / Banque" placeholder="Ex: Boursorama, Degiro..." />
+        <BaseInput v-model="accountForm.institution_name!" label="Courtier / Banque" placeholder="Nom du courtier" />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">
@@ -712,7 +712,7 @@ onMounted(() => {
           @update:model-value="handleSearchInput"
           @select="handleSelectAsset"
           label="Action / symbol"
-          placeholder="Ex: AAPL, Microsoft, CW8.PA"
+          placeholder="Rechercher une action..."
           :options="searchResults"
           :display-value="formatAssetDisplay"
           :loading="isSearching"
@@ -723,8 +723,8 @@ onMounted(() => {
           💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
         </p>
         <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.isin!" label="ISIN" placeholder="Ex: US0378331005" @blur="handleIsinBlur" :error="isinError || undefined" required />
-          <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Ex: XPAR, NASDAQ" />
+          <BaseInput v-model="txForm.isin!" label="ISIN" placeholder="Code ISIN" @blur="handleIsinBlur" :error="isinError || undefined" required />
+          <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Place de marché" />
         </div>
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">

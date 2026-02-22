@@ -313,13 +313,13 @@ const groupedAssets = computed(() => {
 
         <div class="p-4 rounded-secondary border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark space-y-3">
           <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Vendu / Donné</p>
-          <p class="text-xs text-text-muted dark:text-text-dark-muted">Le bien sera archivé. Laissez le prix à 0 si c'est un don.</p>
+          <p class="text-xs text-text-muted dark:text-text-dark-muted">Le bien sera archivé.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <BaseInput
               v-model="sellPrice"
               label="Prix de vente"
               type="number"
-              placeholder="0 si donné"
+              placeholder="0"
             />
             <BaseInput
               v-model="sellDate"

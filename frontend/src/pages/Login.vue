@@ -58,7 +58,7 @@ async function handleLogin() {
               v-model="username"
               type="email"
               required
-              placeholder="votre_email@exemple.com"
+              placeholder="email@exemple.com"
               class="w-full pl-11 pr-4 py-3.5 bg-background/50 dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border rounded-input focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-text-main dark:text-text-dark-main placeholder:text-text-muted/50"
             />
           </div>

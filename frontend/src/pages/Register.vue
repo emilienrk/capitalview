@@ -112,7 +112,7 @@ async function handleRegister() {
               required
               minlength="3"
               maxlength="50"
-              placeholder="votre_pseudo"
+              placeholder="Pseudo"
               autocomplete="username"
               class="w-full pl-11 pr-4 py-3.5 bg-background/50 dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border rounded-input focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-text-main dark:text-text-dark-main placeholder:text-text-muted/50"
             />
@@ -133,7 +133,7 @@ async function handleRegister() {
               v-model="email"
               type="email"
               required
-              placeholder="votre_email@exemple.com"
+              placeholder="email@exemple.com"
               autocomplete="email"
               class="w-full pl-11 pr-4 py-3.5 bg-background/50 dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border rounded-input focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-text-main dark:text-text-dark-main placeholder:text-text-muted/50"
             />

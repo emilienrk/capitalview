@@ -137,7 +137,7 @@ onMounted(() => {
 
             <!-- Stock detail -->
             <div class="flex items-center justify-between p-4 rounded-secondary bg-primary/5 border border-primary/10">
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 min-w-0">
                 <div class="w-3 h-3 rounded-full bg-primary" />
                 <div>
                   <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Bourse</p>
@@ -151,14 +151,14 @@ onMounted(() => {
                   {{ formatCurrency(dashboard.statistics.distribution.stock_current_value) }}
                 </p>
                 <p class="text-sm font-medium text-primary">
-                  {{ dashboard.statistics.distribution.stock_percentage != null ? `${dashboard.statistics.distribution.stock_percentage.toFixed(2)} %` : '—' }}
+                  {{ dashboard.statistics.distribution.stock_percentage != null ? `${Number(dashboard.statistics.distribution.stock_percentage).toFixed(2)} %` : '—' }}
                 </p>
               </div>
             </div>
 
             <!-- Crypto detail -->
             <div class="flex items-center justify-between p-4 rounded-secondary bg-warning/5 border border-warning/10">
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 min-w-0">
                 <div class="w-3 h-3 rounded-full bg-warning" />
                 <div>
                   <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Crypto</p>
@@ -172,7 +172,7 @@ onMounted(() => {
                   {{ formatCurrency(dashboard.statistics.distribution.crypto_current_value) }}
                 </p>
                 <p class="text-sm font-medium text-warning">
-                  {{ dashboard.statistics.distribution.crypto_percentage != null ? `${dashboard.statistics.distribution.crypto_percentage.toFixed(2)} %` : '—' }}
+                  {{ dashboard.statistics.distribution.crypto_percentage != null ? `${Number(dashboard.statistics.distribution.crypto_percentage).toFixed(2)} %` : '—' }}
                 </p>
               </div>
             </div>
@@ -223,7 +223,7 @@ onMounted(() => {
                   {{ formatCurrency(dashboard.statistics.wealth.cash) }}
                 </p>
                 <p class="text-sm font-medium text-info">
-                  {{ formatPercent(dashboard.statistics.wealth.cash_percentage) }}
+                  {{ dashboard.statistics.wealth.cash_percentage != null ? `${Number(dashboard.statistics.wealth.cash_percentage).toFixed(2)} %` : '—' }}
                 </p>
               </div>
             </div>
@@ -239,7 +239,7 @@ onMounted(() => {
                   {{ formatCurrency(dashboard.statistics.wealth.investments) }}
                 </p>
                 <p class="text-sm font-medium text-success">
-                  {{ formatPercent(dashboard.statistics.wealth.investments_percentage) }}
+                  {{ dashboard.statistics.wealth.investments_percentage != null ? `${Number(dashboard.statistics.wealth.investments_percentage).toFixed(2)} %` : '—' }}
                 </p>
               </div>
             </div>
@@ -255,7 +255,7 @@ onMounted(() => {
                   {{ formatCurrency(dashboard.statistics.wealth.assets) }}
                 </p>
                 <p class="text-sm font-medium text-secondary">
-                  {{ formatPercent(dashboard.statistics.wealth.assets_percentage) }}
+                  {{ dashboard.statistics.wealth.assets_percentage != null ? `${Number(dashboard.statistics.wealth.assets_percentage).toFixed(2)} %` : '—' }}
                 </p>
               </div>
             </div>

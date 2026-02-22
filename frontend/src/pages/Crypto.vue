@@ -462,9 +462,9 @@ onMounted(() => {
     <!-- Create/Edit Account Modal -->
     <BaseModal :open="showAccountModal" :title="editingAccountId ? 'Modifier le portefeuille' : 'Nouveau portefeuille crypto'" @close="showAccountModal = false">
       <form @submit.prevent="handleSubmitAccount" class="space-y-4">
-        <BaseInput v-model="accountForm.name" label="Nom" placeholder="Ex: Binance" required />
-        <BaseInput v-model="accountForm.platform!" label="Nom du wallet" placeholder="Ex: Cold Storage" />
-        <BaseInput v-model="accountForm.public_address!" label="Adresse publique" placeholder="Ex: bc1q..." />
+        <BaseInput v-model="accountForm.name" label="Nom" placeholder="Nom du portefeuille" required />
+        <BaseInput v-model="accountForm.platform!" label="Nom du wallet" placeholder="Nom du wallet" />
+        <BaseInput v-model="accountForm.public_address!" label="Adresse publique" placeholder="Adresse publique" />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">
@@ -490,7 +490,7 @@ onMounted(() => {
           @update:model-value="handleSearchInput"
           @select="handleSelectAsset"
           label="Nom de la crypto"
-          placeholder="Rechercher (ex: Bitcoin)"
+          placeholder="Rechercher une crypto..."
           :options="searchResults"
           :display-value="formatAssetDisplay"
           :loading="isSearching"

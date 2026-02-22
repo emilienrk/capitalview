@@ -37,7 +37,7 @@ const name = ref('')
 const description = ref('')
 const category = ref('')
 const customCategory = ref('')
-const purchasePrice = ref<number | string>('')
+const purchasePrice = ref<number | string>('0')
 const estimatedValue = ref<number | string>('')
 const currency = ref('EUR')
 const acquisitionDate = ref('')
@@ -47,7 +47,7 @@ function resetForm(): void {
   description.value = ''
   category.value = ''
   customCategory.value = ''
-  purchasePrice.value = ''
+  purchasePrice.value = '0'
   estimatedValue.value = ''
   currency.value = 'EUR'
   acquisitionDate.value = ''
@@ -123,7 +123,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
       <BaseInput
         v-model="name"
         label="Nom"
-        placeholder="ex: AWP Dragon Lore, Renault Clio..."
+        placeholder="Nom du bien"
         required
       />
 
@@ -138,7 +138,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
           v-if="category === '_custom'"
           v-model="customCategory"
           label="Catégorie personnalisée"
-          placeholder="ex: Vêtements, Instruments..."
+          placeholder="Nom de la catégorie"
           required
         />
         <BaseInput
@@ -153,7 +153,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
           v-model="purchasePrice"
           label="Prix d'achat"
           type="number"
-          placeholder="Optionnel si valeur estimée renseignée"
+          placeholder=""
         />
         <BaseInput
           v-model="estimatedValue"
@@ -170,7 +170,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
         <textarea
           v-model="description"
           rows="2"
-          placeholder="État, détails, numéro de série..."
+          placeholder="Description (optionnel)"
           class="w-full px-4 py-2.5 rounded-input border bg-surface dark:bg-surface-dark transition-all duration-150 resize-y text-text-main dark:text-text-dark-main placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary border-surface-border dark:border-surface-dark-border"
         />
       </div>

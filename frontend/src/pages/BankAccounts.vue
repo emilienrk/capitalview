@@ -148,9 +148,9 @@ onMounted(() => {
     <!-- Create/Edit Modal -->
     <BaseModal :open="showCreateModal" :title="editingId ? 'Modifier le compte' : 'Nouveau compte'" @close="showCreateModal = false">
       <form @submit.prevent="handleSubmit" class="space-y-4">
-        <BaseInput v-model="form.name" label="Nom du compte" placeholder="Ex: Compte courant" required />
+        <BaseInput v-model="form.name" label="Nom du compte" placeholder="Nom du compte" required />
         <BaseSelect v-model="form.account_type" label="Type de compte" :options="accountTypeOptions" required />
-        <BaseInput v-model="form.institution_name!" label="Banque" placeholder="Ex: BNP Paribas" />
+        <BaseInput v-model="form.institution_name!" label="Banque" placeholder="Nom de la banque" />
         <BaseInput v-model="form.balance!" label="Solde" type="number" placeholder="0.00" />
       </form>
       <template #footer>

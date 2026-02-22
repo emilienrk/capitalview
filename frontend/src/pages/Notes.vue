@@ -179,11 +179,11 @@ onMounted(() => {
       @close="showModal = false"
     >
       <form @submit.prevent="handleSubmit" class="space-y-4">
-        <BaseInput v-model="form.name" label="Titre" placeholder="Ex: Stratégie DCA ETF" required />
+        <BaseInput v-model="form.name" label="Titre" placeholder="Titre de la note" required />
         <BaseTextarea
           v-model="form.description!"
           label="Contenu"
-          placeholder="Décrivez votre stratégie, vos objectifs, vos réflexions..."
+          placeholder="Contenu de la note..."
           :rows="8"
         />
       </form>
