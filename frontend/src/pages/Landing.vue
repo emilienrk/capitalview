@@ -106,33 +106,33 @@ const highlights = [
     >
       <div class="max-w-6xl mx-auto w-full flex justify-between items-center">
         <div
-          class="flex items-center gap-2 font-bold text-xl tracking-tight text-primary transition-opacity duration-300"
+          class="hidden sm:flex items-center gap-2 font-bold text-xl tracking-tight text-primary transition-opacity duration-300"
           :class="showNavLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'"
         >
           <img src="/capitalview.svg" alt="CapitalView Logo" class="w-6 h-6" />
           CapitalView
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <button
             @click="toggleDarkMode"
-            class="p-2 rounded-full hover:bg-surface/50 dark:hover:bg-surface-dark/50 transition-colors text-text-muted dark:text-text-dark-muted"
+            class="p-1.5 rounded-full hover:bg-surface/50 dark:hover:bg-surface-dark/50 transition-colors text-text-muted dark:text-text-dark-muted shrink-0"
           >
-            <svg v-if="isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="isDark" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-else class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </button>
           <router-link
             to="/login"
-            class="px-4 py-2 rounded-button bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border hover:bg-surface-hover dark:hover:bg-surface-dark-hover text-text-main dark:text-text-dark-main text-sm font-semibold transition-all"
+            class="whitespace-nowrap px-3 py-1.5 sm:px-4 sm:py-2 rounded-button bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border hover:bg-surface-hover dark:hover:bg-surface-dark-hover text-text-main dark:text-text-dark-main text-xs sm:text-sm font-semibold transition-all"
           >
             Connexion
           </router-link>
           <router-link
             to="/register"
-            class="px-4 py-2 rounded-button bg-primary hover:bg-primary-hover text-white text-sm font-semibold shadow-sm shadow-primary/20 transition-all"
+            class="whitespace-nowrap px-3 py-1.5 sm:px-4 sm:py-2 rounded-button bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-semibold shadow-sm shadow-primary/20 transition-all"
           >
             Créer un compte
           </router-link>
@@ -150,7 +150,7 @@ const highlights = [
       <div class="max-w-4xl mx-auto px-6 relative z-10 text-center">
         <h1
           ref="heroTitleRef"
-          class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-text-main via-primary to-text-muted dark:from-white dark:via-primary dark:to-text-dark-muted bg-clip-text text-transparent pb-2 animate-slide-up"
+          class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-linear-to-r from-text-main via-primary to-text-muted dark:from-white dark:via-primary dark:to-text-dark-muted bg-clip-text text-transparent pb-2 animate-slide-up"
         >
           CapitalView
         </h1>
