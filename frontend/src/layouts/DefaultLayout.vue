@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { useSwipe } from '@/composables/useSwipe'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -11,6 +12,14 @@ const route = useRoute()
 const { isDark, toggleDarkMode } = useDarkMode()
 
 const sidebarOpen = ref(false)
+
+// Swipe gestures – mobile only (touch devices)
+// Swipe right from left edge → open sidebar
+// Swipe left anywhere → close sidebar
+useSwipe({
+  onSwipeRight: () => { sidebarOpen.value = true },
+  onSwipeLeft: () => { sidebarOpen.value = false },
+})
 
 // Prevent body scroll when sidebar is open on mobile
 watch(sidebarOpen, (isOpen) => {
