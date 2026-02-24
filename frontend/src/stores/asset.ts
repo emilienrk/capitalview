@@ -102,7 +102,6 @@ export const useAssetStore = defineStore('asset', () => {
     }
   }
 
-  // ─── Valuations ────────────────────────────────────────
 
   async function fetchValuations(assetId: string): Promise<void> {
     try {

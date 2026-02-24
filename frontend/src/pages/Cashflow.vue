@@ -12,7 +12,6 @@ import type { CashflowCreate, CashflowResponse, FlowType, Frequency } from '@/ty
 const cashflow = useCashflowStore()
 const { formatCurrency, formatDate, profitLossClass } = useFormatters()
 
-// ── State ────────────────────────────────────────────────────
 const showFormModal = ref(false)
 const editingId = ref<string | null>(null)
 const activeTab = ref<'all' | 'inflows' | 'outflows'>('all')
@@ -41,10 +40,8 @@ const errors = reactive({
   amount: '',
 })
 
-// Separate string ref for amount input to support decimal typing
 const amountInput = ref('0')
 
-// Day/month refs for date input
 const selectedDay = ref(new Date().getDate())
 const selectedMonth = ref(new Date().getMonth() + 1)
 
@@ -73,7 +70,6 @@ const dayOptions = computed(() =>
   Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: i + 1 }))
 )
 
-// ── Options ──────────────────────────────────────────────────
 const flowTypeOptions = [
   { label: 'Revenu', value: 'INFLOW' },
   { label: 'Dépense', value: 'OUTFLOW' },
@@ -95,24 +91,20 @@ const frequencyLabels: Record<string, string> = {
   YEARLY: 'Annuel',
 }
 
-// ── Helpers ──────────────────────────────────────────────────
 function capitalize(str: string): string {
   if (!str) return ''
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-// ── Computed ─────────────────────────────────────────────────
 const filteredCashflows = computed<CashflowResponse[]>(() => {
   let items = [...cashflow.cashflows]
 
-  // Filter by tab
   if (activeTab.value === 'inflows') {
     items = items.filter((c) => c.flow_type === 'INFLOW')
   } else if (activeTab.value === 'outflows') {
     items = items.filter((c) => c.flow_type === 'OUTFLOW')
   }
 
-  // Filter by search
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
     items = items.filter(
@@ -122,10 +114,8 @@ const filteredCashflows = computed<CashflowResponse[]>(() => {
     )
   }
 
-  // Sort by date descending
   items.sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
 
-  // Format categories for display
   return items.map(item => ({
     ...item,
     category: capitalize(item.category)
@@ -167,7 +157,6 @@ const categorySummary = computed(() => {
   return Array.from(map.values()).sort((a, b) => b.total - a.total)
 })
 
-// ── Actions ──────────────────────────────────────────────────
 function resetForm(): void {
   form.name = ''
   form.flow_type = 'INFLOW'
@@ -222,7 +211,6 @@ function openEdit(item: CashflowResponse): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  // Clear previous errors
   errors.name = ''
   errors.category = ''
   errors.amount = ''
@@ -276,7 +264,6 @@ async function handleDelete(id: string): Promise<void> {
   await cashflow.fetchBalance()
 }
 
-// ── Lifecycle ────────────────────────────────────────────────
 onMounted(async () => {
   await Promise.all([cashflow.fetchAll(), cashflow.fetchBalance()])
 })

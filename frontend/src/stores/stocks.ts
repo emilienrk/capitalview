@@ -23,7 +23,6 @@ export const useStocksStore = defineStore('stocks', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // ── Market Data ────────────────────────────────────────────
 
   async function searchAssets(query: string): Promise<AssetSearchResult[]> {
     if (!query) return []
@@ -45,7 +44,6 @@ export const useStocksStore = defineStore('stocks', () => {
     }
   }
 
-  // ── Accounts ───────────────────────────────────────────────
 
   async function fetchAccounts(): Promise<void> {
     isLoading.value = true
@@ -116,7 +114,6 @@ export const useStocksStore = defineStore('stocks', () => {
     }
   }
 
-  // ── Transactions ───────────────────────────────────────────
 
   async function fetchTransactions(): Promise<void> {
     try {

@@ -77,7 +77,6 @@ function onFileSelect(event: Event): void {
 }
 
 function parseCSV(text: string): void {
-  // Detect delimiter: semicolon (European CSV), comma, or tab
   const firstLine = text.split('\n')[0]
   let delimiter = ','
   if (firstLine?.includes(';')) {
@@ -88,18 +87,15 @@ function parseCSV(text: string): void {
   
   console.log('Detected delimiter:', delimiter === ';' ? 'SEMICOLON' : delimiter === '\t' ? 'TAB' : 'COMMA')
   
-  // Normalize French decimal format (comma) to international (dot)
-  // But only for numbers, not for CSV separators
+  // Normalize French decimal commas to dots
   let normalizedText = text
   if (delimiter !== ',') {
-    // For semicolon or tab delimiters, we can safely replace all commas in numbers
     normalizedText = text.replace(/(\d),(\d)/g, '$1.$2')
   } else {
-    // For comma delimiter, only replace decimal commas (tricky)
     normalizedText = text.replace(/(\d),(\d)/g, '$1.$2')
   }
   
-  // Also normalize dates from DD/MM/YYYY to YYYY-MM-DD
+  // Normalize DD/MM/YYYY dates to ISO
   const lines = normalizedText.trim().split('\n').map((line, index) => {
     if (index === 0) return line // Skip header
     return line.replace(/(\d{2})\/(\d{2})\/(\d{4})/g, '$3-$2-$1T00:00:00')
@@ -121,7 +117,7 @@ function parseCSV(text: string): void {
     const values = line.split(delimiter).map((v) => v.trim())
     console.log(`Ligne ${i + 1} raw values:`, values)
 
-    // Allow missing values for optional trailing columns (pad with empty strings)
+    // Pad missing optional trailing columns
     while (values.length < headers.length) {
       values.push('')
     }
@@ -137,7 +133,6 @@ function parseCSV(text: string): void {
     headers.forEach((header, index) => {
       const value = values[index]
 
-      // Type conversion
       if (['amount', 'price_per_unit', 'fees'].includes(header)) {
         const numValue = value ? parseFloat(value) : 0
         if (value && isNaN(numValue)) {
@@ -153,7 +148,6 @@ function parseCSV(text: string): void {
     // Debug log
     console.log(`Ligne ${i + 1} parsed:`, { transaction, requiredFields: ['symbol', 'type', 'amount', 'price_per_unit', 'executed_at'] })
 
-    // Validation
     try {
       validateTransaction(transaction)
       transactions.push(transaction)
@@ -168,7 +162,6 @@ function parseCSV(text: string): void {
 }
 
 function validateTransaction(transaction: any): void {
-  // Trim string fields
   if (transaction.symbol) transaction.symbol = String(transaction.symbol).trim()
   if (transaction.isin) transaction.isin = String(transaction.isin).trim()
   if (transaction.type) transaction.type = String(transaction.type).trim()
@@ -183,28 +176,24 @@ function validateTransaction(transaction: any): void {
     }
   }
 
-  // Stock-specific validation
   if (props.assetType === 'stocks') {
     if (transaction.isin.length !== 12) {
       throw new Error('Format ISIN invalide (doit faire 12 caractères)')
     }
   } else {
-    // Crypto: Symbol always required
     if (!transaction.symbol || transaction.symbol === '') {
       throw new Error('Champ "symbol" manquant ou vide')
     }
   }
 
-  // Validate type
   const validTypes = props.assetType === 'stocks'
     ? ['BUY', 'SELL', 'DEPOSIT', 'DIVIDEND']
-    : ['BUY', 'SELL', 'SWAP', 'STAKING']
+    : ['BUY', 'SPEND', 'STAKING', 'DEPOSIT', 'WITHDRAW', 'FEE']
 
   if (!validTypes.includes(transaction.type)) {
     throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
   }
 
-  // Validate numbers
   if (isNaN(transaction.amount) || transaction.amount <= 0) {
     throw new Error('Quantité invalide (doit être > 0)')
   }
@@ -217,26 +206,22 @@ function validateTransaction(transaction: any): void {
     throw new Error('Frais invalides')
   }
 
-  // Validate date
   if (!isValidDate(transaction.executed_at)) {
     throw new Error('Date invalide (format accepté: YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss ou DD/MM/YYYY)')
   }
 }
 
 function isValidDate(dateString: string): boolean {
-  // Try to parse DD/MM/YYYY format
   const ddmmyyyyPattern = /^(\d{2})\/(\d{2})\/(\d{4})$/
   const match = dateString.match(ddmmyyyyPattern)
   
   if (match) {
     const [, day, month, year] = match
-    // Convert to ISO format: YYYY-MM-DDTHH:mm:ss
     const isoDate = `${year}-${month}-${day}T00:00:00`
     const date = new Date(isoDate)
     return date instanceof Date && !isNaN(date.getTime())
   }
   
-  // Try standard ISO format
   const date = new Date(dateString)
   return date instanceof Date && !isNaN(date.getTime())
 }

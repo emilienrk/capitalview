@@ -246,7 +246,15 @@ export interface StockBulkImportResponse {
 
 // ─── Crypto ──────────────────────────────────────────────────
 
-export type CryptoTransactionType = 'BUY' | 'SELL' | 'SWAP' | 'STAKING'
+export type CryptoTransactionType =
+  | 'BUY'
+  | 'SPEND'
+  | 'FEE'
+  | 'REWARD'
+  | 'FIAT_DEPOSIT'
+  | 'FIAT_ANCHOR'
+  | 'TRANSFER'
+  | 'EXIT'
 
 export interface CryptoAccountCreate {
   name: string
@@ -276,8 +284,6 @@ export interface CryptoTransactionCreate {
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
-  fees?: number
-  fees_symbol?: string
   executed_at: string
   notes?: string
   tx_hash?: string
@@ -286,12 +292,11 @@ export interface CryptoTransactionCreate {
 export interface CryptoTransactionBasicResponse {
   id: string
   account_id: string
+  group_uuid: string | null
   symbol: string
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
-  fees: number
-  fees_symbol: string | null
   executed_at: string
   notes: string | null
   tx_hash: string | null
@@ -303,8 +308,6 @@ export interface CryptoTransactionUpdate {
   type?: CryptoTransactionType
   amount?: number
   price_per_unit?: number
-  fees?: number
-  fees_symbol?: string
   executed_at?: string
   notes?: string
   tx_hash?: string
@@ -315,11 +318,31 @@ export interface CryptoTransactionBulkCreate {
   type: CryptoTransactionType
   amount: number
   price_per_unit: number
-  fees?: number
-  fees_symbol?: string
   executed_at: string
   notes?: string
   tx_hash?: string
+}
+
+export interface CryptoCompositeTransactionCreate {
+  account_id: string
+  /** Action type — maps to 1-3 atomic rows in the backend. */
+  type: 'BUY' | 'REWARD' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'CRYPTO_DEPOSIT' | 'TRANSFER' | 'EXIT' | 'GAS_FEE' | 'NON_TAXABLE_EXIT'
+  symbol: string
+  name?: string
+  amount: number
+  price_per_unit?: number
+  quote_symbol?: string
+  quote_amount?: number
+  quote_price_per_unit?: number
+  eur_amount?: number
+  fee_included: boolean
+  fee_percentage?: number
+  fee_eur?: number
+  fee_symbol?: string
+  fee_amount?: number
+  executed_at: string
+  tx_hash?: string
+  notes?: string
 }
 
 export interface CryptoBulkImportRequest {

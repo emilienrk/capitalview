@@ -17,13 +17,11 @@ const bank = useBankStore()
 const asset = useAssetStore()
 const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate, formatDateShort } = useFormatters()
 
-// Asset modal state
 const showAssetModal = ref(false)
 const editingAsset = ref<AssetResponse | null>(null)
 const showHistoryModal = ref(false)
 const historyAsset = ref<AssetResponse | null>(null)
 
-// Sell modal state
 const showSellModal = ref(false)
 const sellingAsset = ref<AssetResponse | null>(null)
 const sellPrice = ref<number | string>('')
@@ -47,7 +45,6 @@ function totalNetWorth(): number | null {
   return bankTotal + portfolioValue + assetsTotal
 }
 
-// ─── Asset actions ───────────────────────────────────────
 function openAddAsset(): void {
   editingAsset.value = null
   showAssetModal.value = true
@@ -96,7 +93,6 @@ async function onSaveAsset(data: AssetCreate | AssetUpdate): Promise<void> {
   showAssetModal.value = false
 }
 
-// ─── Computed helpers ────────────────────────────────────
 const groupedAssets = computed(() => {
   if (!asset.summary) return []
   const map = new Map<string, AssetResponse[]>()

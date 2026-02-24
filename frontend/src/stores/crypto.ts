@@ -5,6 +5,7 @@ import type {
   CryptoAccountBasicResponse,
   CryptoAccountCreate,
   CryptoAccountUpdate,
+  CryptoCompositeTransactionCreate,
   CryptoTransactionCreate,
   CryptoTransactionUpdate,
   CryptoTransactionBasicResponse,
@@ -23,7 +24,6 @@ export const useCryptoStore = defineStore('crypto', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // ── Market Data ────────────────────────────────────────────
 
   async function searchAssets(query: string): Promise<AssetSearchResult[]> {
     if (!query) return []
@@ -45,7 +45,6 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  // ── Accounts ───────────────────────────────────────────────
 
   async function fetchAccounts(): Promise<void> {
     isLoading.value = true
@@ -116,7 +115,6 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  // ── Transactions ───────────────────────────────────────────
 
   async function fetchTransactions(): Promise<void> {
     try {
@@ -141,6 +139,24 @@ export const useCryptoStore = defineStore('crypto', () => {
     try {
       const tx = await apiClient.post<CryptoTransactionBasicResponse>('/crypto/transactions', data)
       return tx
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de la création de la transaction'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function createCompositeTransaction(
+    data: CryptoCompositeTransactionCreate,
+  ): Promise<CryptoTransactionBasicResponse[] | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await apiClient.post<CryptoTransactionBasicResponse[]>(
+        '/crypto/transactions/composite',
+        data,
+      )
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors de la création de la transaction'
       return null
@@ -218,6 +234,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     fetchTransactions,
     fetchAccountTransactions,
     createTransaction,
+    createCompositeTransaction,
     updateTransaction,
     deleteTransaction,
     bulkImportTransactions,
