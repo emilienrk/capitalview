@@ -22,17 +22,12 @@ const crypto = useCryptoStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate } = useCurrencyToggle()
 
-/** Toutes les valeurs crypto sont en EUR côté backend — pas de conversion USD→EUR. */
 function formatEur(value: number | string | null | undefined): string {
   return formatCurrency(value, 'EUR')
 }
 
-/**
- * Extension interne du DTO composite.
- * BUY_FIAT / BUY_SPOT sont normalisés vers 'BUY' avant envoi API.
- */
 type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
-  type: CryptoCompositeTransactionCreate['type'] | 'BUY_FIAT' | 'BUY_SPOT'
+  type: CryptoCompositeTransactionCreate['type'] | 'BUY_FIAT' | 'BUY_SPOT' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW'
 }
 
 const showAccountModal = ref(false)
@@ -112,7 +107,7 @@ watch(() => txForm.type, (newType) => {
     txForm.symbol = 'EUR'
     searchQuery.value = ''
     searchResults.value = []
-  } else if (txForm.symbol === 'EUR' && newType !== 'FIAT_DEPOSIT' && newType !== 'FIAT_WITHDRAW') {
+  } else if (txForm.symbol === 'EUR') {
     txForm.symbol = ''
   }
 })
@@ -746,7 +741,7 @@ onMounted(() => {
         <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" min="0" required />
+          <BaseInput v-model="txForm.price_per_unit!" label="Prix unitaire (€)" type="number" step="any" min="0" required />
         </div>
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
