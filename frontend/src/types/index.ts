@@ -405,6 +405,7 @@ export interface TransactionResponse {
   currency: string
   total_cost: number
   fees_percentage: number
+  group_uuid: string | null
   current_price: number | null
   current_value: number | null
   profit_loss: number | null

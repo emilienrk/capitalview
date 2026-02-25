@@ -182,7 +182,7 @@ function onFeeEurInput(val: string | number): void {
   }
 }
 
-// ── Unified fee input helpers (UI only — no business logic touched) ──
+// Fee input helpers — EUR↔% live conversion (UI only)
 const feeActiveValue = computed((): string => {
   if (feeInputMode.value === 'eur') {
     return txForm.fee_eur != null ? String(txForm.fee_eur) : ''
@@ -221,7 +221,6 @@ const previewPru = computed((): number | null => {
   } else if (txForm.type === 'BUY_SPOT') {
     baseEur = (Number(txForm.price_per_unit) || 0) * qty
   } else {
-    // CRYPTO_DEPOSIT
     baseEur = Number(txForm.eur_amount || 0)
   }
 
@@ -442,6 +441,80 @@ const currentVisibleStep = computed(() => {
 
 function isNegativeType(type: string): boolean {
   return ['SPEND', 'FEE', 'TRANSFER', 'EXIT'].includes(type)
+}
+
+// -- Grouped & sorted transaction list for history view --
+
+/** Sort by date then group_uuid so rows from the same composite operation are contiguous. */
+const sortedTransactions = computed(() => {
+  return [...accountTransactions.value].sort((a, b) => {
+    const dateA = new Date(a.executed_at).getTime()
+    const dateB = new Date(b.executed_at).getTime()
+    if (dateA !== dateB) return dateA - dateB
+    if (a.group_uuid && b.group_uuid && a.group_uuid === b.group_uuid) return 0
+    return (a.group_uuid ?? '').localeCompare(b.group_uuid ?? '')
+  })
+})
+
+/** Set of group_uuids that contain more than one row (real composite operations). */
+const multiRowGroups = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const tx of accountTransactions.value) {
+    if (tx.group_uuid) {
+      counts[tx.group_uuid] = (counts[tx.group_uuid] || 0) + 1
+    }
+  }
+  return new Set(Object.entries(counts).filter(([, c]) => c > 1).map(([g]) => g))
+})
+
+/** Returns true if this row is the first in its visual group (for the top-border marker). */
+function isGroupStart(tx: TransactionResponse, idx: number): boolean {
+  if (!tx.group_uuid || !multiRowGroups.value.has(tx.group_uuid)) return false
+  if (idx === 0) return true
+  return sortedTransactions.value[idx - 1]?.group_uuid !== tx.group_uuid
+}
+
+/** Returns true if this row is the last in its visual group (for the bottom-border marker). */
+function isGroupEnd(tx: TransactionResponse, idx: number): boolean {
+  if (!tx.group_uuid || !multiRowGroups.value.has(tx.group_uuid)) return false
+  if (idx === sortedTransactions.value.length - 1) return true
+  return sortedTransactions.value[idx + 1]?.group_uuid !== tx.group_uuid
+}
+
+/** Returns true if this row belongs to a multi-row group. */
+function isInGroup(tx: TransactionResponse): boolean {
+  return !!tx.group_uuid && multiRowGroups.value.has(tx.group_uuid)
+}
+
+/** Alternating group color index (0 or 1) for visual distinction. */
+const groupColorIndex = computed(() => {
+  const map: Record<string, number> = {}
+  let colorIdx = 0
+  for (const tx of sortedTransactions.value) {
+    if (tx.group_uuid && multiRowGroups.value.has(tx.group_uuid) && !(tx.group_uuid in map)) {
+      map[tx.group_uuid] = colorIdx % 2
+      colorIdx++
+    }
+  }
+  return map
+})
+
+/** True if the total_cost is zero-valued (BUY, FEE with price=0). */
+function isZeroCostRow(tx: TransactionResponse): boolean {
+  return tx.total_cost === 0 && ['BUY', 'FEE', 'REWARD', 'TRANSFER'].includes(tx.type)
+}
+
+/** True if this row is an EUR anchor / spend line (the real money movement). */
+function isAnchorRow(tx: TransactionResponse): boolean {
+  return ['FIAT_ANCHOR', 'SPEND'].includes(tx.type) && tx.symbol === 'EUR'
+}
+
+/** Human-readable tooltip for technical row types. */
+function rowTooltip(tx: TransactionResponse): string | null {
+  if (tx.type === 'FIAT_ANCHOR') return 'Ancre de valorisation : fige le prix de revient de l\'opération'
+  if (tx.type === 'FEE') return 'Frais réseau / exchange — déduit du solde token'
+  if (tx.type === 'BUY' && tx.price_per_unit === 0) return 'Ligne d\'achat — le coût EUR est porté par l\'ancre du même groupe'
+  return null
 }
 
 function formatAssetDisplay(asset: AssetSearchResult): string {
@@ -728,41 +801,96 @@ onMounted(async () => {
             <table class="w-full text-sm">
               <thead>
                 <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                  <th class="w-1 px-0 py-2"></th>
                   <th class="px-4 py-2">Date</th>
                   <th class="px-4 py-2">Type</th>
                   <th class="px-4 py-2">Token</th>
                   <th class="px-4 py-2 text-right">Quantité</th>
-                  <th class="px-4 py-2 text-right">Prix</th>
-                  <th class="px-4 py-2 text-right">Total</th>
+                  <!-- <th class="px-4 py-2 text-right">Prix</th> -->
+                  <!-- <th class="px-4 py-2 text-right">Total</th> -->
                   <th class="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                <tr v-for="tx in accountTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+              <tbody>
+                <tr
+                  v-for="(tx, idx) in sortedTransactions" :key="tx.id"
+                  :class="[
+                    'transition-colors',
+                    isInGroup(tx)
+                      ? (groupColorIndex[tx.group_uuid!] === 0
+                          ? 'bg-primary/3 dark:bg-primary/6'
+                          : 'bg-secondary/3 dark:bg-secondary/6')
+                      : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                    isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
+                    !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
+                  ]"
+                >
+                  <!-- Group indicator bar -->
+                  <td class="w-1 px-0 py-0 relative">
+                    <div
+                      v-if="isInGroup(tx)"
+                      :class="[
+                        'absolute left-0 w-0.75',
+                        groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
+                        isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
+                        isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
+                      ]"
+                      style="top: 0; bottom: 0;"
+                    />
+                  </td>
                   <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
                   <td class="px-4 py-2.5">
-                    <BaseBadge :variant="
-                      tx.type === 'BUY' ? 'success' :
-                      tx.type === 'SPEND' ? 'danger' :
-                      tx.type === 'FEE' ? 'warning' :
-                      tx.type === 'REWARD' ? 'info' :
-                      tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
-                      tx.type === 'TRANSFER' ? 'secondary' :
-                      tx.type === 'EXIT' ? 'danger' :
-                      'secondary'
-                    ">
-                      {{ tx.type }}
-                    </BaseBadge>
+                    <span class="inline-flex items-center gap-1.5">
+                      <BaseBadge :variant="
+                        tx.type === 'BUY' ? 'success' :
+                        tx.type === 'SPEND' ? 'danger' :
+                        tx.type === 'FEE' ? 'warning' :
+                        tx.type === 'REWARD' ? 'info' :
+                        tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                        tx.type === 'TRANSFER' ? 'secondary' :
+                        tx.type === 'EXIT' ? 'danger' :
+                        'secondary'
+                      ">
+                        {{ tx.type }}
+                      </BaseBadge>
+                      <!-- Tooltip for technical rows -->
+                      <span
+                        v-if="rowTooltip(tx)"
+                        class="relative group/tip cursor-help"
+                      >
+                        <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" stroke-width="2" />
+                          <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                        </svg>
+                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
+                          {{ rowTooltip(tx) }}
+                        </span>
+                      </span>
+                    </span>
                   </td>
                   <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                   <td
                     class="px-4 py-2.5 text-right font-mono"
-                    :class="isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                    :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                   >
-                    {{ isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                    {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                   </td>
-                  <td class="px-4 py-2.5 text-right">{{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}</td>
-                  <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(tx.total_cost) }}</td>
+                  <!-- Prix column (temporarily hidden)
+                  <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
+                    {{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}
+                  </td>
+                  -->
+                  <!-- Total column (temporarily hidden)
+                  <td
+                    class="px-4 py-2.5 text-right"
+                    :class="[
+                      isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40 font-normal' : '',
+                      isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
+                    ]"
+                  >
+                    {{ formatEur(tx.total_cost) }}
+                  </td>
+                  -->
                   <td class="px-4 py-2.5 text-right">
                     <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -915,41 +1043,96 @@ onMounted(async () => {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                    <th class="w-1 px-0 py-2"></th>
                     <th class="px-4 py-2">Date</th>
                     <th class="px-4 py-2">Type</th>
                     <th class="px-4 py-2">Token</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
-                    <th class="px-4 py-2 text-right">Prix</th>
-                    <th class="px-4 py-2 text-right">Total</th>
+                    <!-- <th class="px-4 py-2 text-right">Prix</th> -->
+                    <!-- <th class="px-4 py-2 text-right">Total</th> -->
                     <th class="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                  <tr v-for="tx in accountTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                <tbody>
+                  <tr
+                    v-for="(tx, idx) in sortedTransactions" :key="tx.id"
+                    :class="[
+                      'transition-colors',
+                      isInGroup(tx)
+                        ? (groupColorIndex[tx.group_uuid!] === 0
+                            ? 'bg-primary/3 dark:bg-primary/6'
+                            : 'bg-secondary/3 dark:bg-secondary/6')
+                        : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                      isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
+                      !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
+                    ]"
+                  >
+                    <!-- Group indicator bar -->
+                    <td class="w-1 px-0 py-0 relative">
+                      <div
+                        v-if="isInGroup(tx)"
+                        :class="[
+                          'absolute left-0 w-0.75',
+                          groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
+                          isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
+                          isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
+                        ]"
+                        style="top: 0; bottom: 0;"
+                      />
+                    </td>
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
                     <td class="px-4 py-2.5">
-                      <BaseBadge :variant="
-                        tx.type === 'BUY' ? 'success' :
-                        tx.type === 'SPEND' ? 'danger' :
-                        tx.type === 'FEE' ? 'warning' :
-                        tx.type === 'REWARD' ? 'info' :
-                        tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
-                        tx.type === 'TRANSFER' ? 'secondary' :
-                        tx.type === 'EXIT' ? 'danger' :
-                        'secondary'
-                      ">
-                        {{ tx.type }}
-                      </BaseBadge>
+                      <span class="inline-flex items-center gap-1.5">
+                        <BaseBadge :variant="
+                          tx.type === 'BUY' ? 'success' :
+                          tx.type === 'SPEND' ? 'danger' :
+                          tx.type === 'FEE' ? 'warning' :
+                          tx.type === 'REWARD' ? 'info' :
+                          tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                          tx.type === 'TRANSFER' ? 'secondary' :
+                          tx.type === 'EXIT' ? 'danger' :
+                          'secondary'
+                        ">
+                          {{ tx.type }}
+                        </BaseBadge>
+                        <!-- Tooltip for technical rows -->
+                        <span
+                          v-if="rowTooltip(tx)"
+                          class="relative group/tip cursor-help"
+                        >
+                          <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke-width="2" />
+                            <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                          </svg>
+                          <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
+                            {{ rowTooltip(tx) }}
+                          </span>
+                        </span>
+                      </span>
                     </td>
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                     <td
                       class="px-4 py-2.5 text-right font-mono"
-                      :class="isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                      :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                     >
-                      {{ isNegativeType(tx.type) ? '−' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                      {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                     </td>
-                    <td class="px-4 py-2.5 text-right">{{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '—' }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(tx.total_cost) }}</td>
+                    <!-- Prix column (temporarily hidden)
+                    <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
+                      {{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}
+                    </td>
+                    -->
+                    <!-- Total column (temporarily hidden)
+                    <td
+                      class="px-4 py-2.5 text-right"
+                      :class="[
+                        isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40 font-normal' : '',
+                        isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
+                      ]"
+                    >
+                      {{ formatEur(tx.total_cost) }}
+                    </td>
+                    -->
                     <td class="px-4 py-2.5 text-right">
                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -965,7 +1148,7 @@ onMounted(async () => {
           </div>
         </div>
       </BaseCard>
-      </div><!-- end accounts wrapper -->
+      </div>
 
     <BaseEmptyState
       v-else-if="!crypto.isLoading"
@@ -974,7 +1157,7 @@ onMounted(async () => {
       action-label="Ajouter un portefeuille"
       @action="openCreateAccount"
     />
-    </template><!-- end MULTI MODE -->
+    </template>
 
     <!-- Create/Edit Account Modal -->
     <BaseModal :open="showAccountModal" :title="editingAccountId ? 'Modifier le portefeuille' : 'Nouveau portefeuille crypto'" @close="showAccountModal = false">
@@ -988,7 +1171,7 @@ onMounted(async () => {
           <BaseButton v-if="editingAccountId" variant="danger" @click="handleDeleteAccount(editingAccountId)">
             Supprimer
           </BaseButton>
-          <div v-else></div> <!-- Spacer -->
+          <div v-else></div>
           <div class="flex gap-2">
             <BaseButton variant="ghost" @click="showAccountModal = false">Annuler</BaseButton>
             <BaseButton :loading="crypto.isLoading" @click="handleSubmitAccount">
@@ -1017,7 +1200,7 @@ onMounted(async () => {
           </Transition>
         </div>
       </template>
-      <!-- ── EDIT MODE — formulaire simple ─────────────────────────── -->
+      <!-- Edit mode — simple form -->
       <form v-if="editingTxId" @submit.prevent="handleSubmitTransaction" class="space-y-4">
         <BaseAutocomplete
           :model-value="searchQuery"
@@ -1040,9 +1223,8 @@ onMounted(async () => {
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
 
-      <!-- ── CREATE MODE — wizard 3 étapes ─────────────────────────── -->
+      <!-- Create mode — multi-step wizard -->
       <div v-else>
-        <!-- Indicateur d'étapes — minimaliste -->
         <div class="flex items-center justify-center mb-6 gap-0">
           <template v-for="s in wizardVisibleSteps" :key="s">
             <div
@@ -1066,20 +1248,17 @@ onMounted(async () => {
         </div>
 
         <!-- ╔══════════════════════╗ -->
-        <!-- ║  ÉTAPE 1              ║ -->
+        <!-- ║  STEP 1              ║ -->
         <!-- ╚══════════════════════╝ -->
         <div v-if="wizardStep === 1" class="space-y-5">
 
-          <!-- Titre de l'étape -->
           <div>
             <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Opération</p>
             <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Sélectionnez le type et renseignez les informations principales.</p>
           </div>
 
-          <!-- Sélecteur de type de transaction -->
           <div class="space-y-2">
             <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
-            <!-- Description contextuelle du type -->
             <Transition
               enter-active-class="transition-all duration-200"
               enter-from-class="opacity-0 -translate-y-1"
@@ -1098,7 +1277,6 @@ onMounted(async () => {
             </Transition>
           </div>
 
-          <!-- Dépôt / retrait fiat : symbole = EUR, pas de recherche crypto -->
           <template v-if="txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW'">
             <BaseInput
               v-model="txForm.symbol"
@@ -1108,7 +1286,6 @@ onMounted(async () => {
             />
           </template>
 
-          <!-- Tous les autres types : recherche crypto normale -->
           <template v-else>
             <BaseAutocomplete
               :model-value="searchQuery"
@@ -1145,7 +1322,6 @@ onMounted(async () => {
             required
           />
 
-          <!-- Note contextuelle EXIT -->
           <div v-if="txForm.type === 'EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
             <svg class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke-width="2"/>
@@ -1154,7 +1330,6 @@ onMounted(async () => {
             <span class="text-xs text-info leading-relaxed">Sortie imposable — la contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.</span>
           </div>
 
-          <!-- Note contextuelle NON_TAXABLE_EXIT -->
           <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-warning/5 dark:bg-warning/10 border border-warning/20">
             <svg class="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke-width="2"/>
@@ -1163,7 +1338,6 @@ onMounted(async () => {
             <span class="text-xs text-warning leading-relaxed">Sortie non-imposable — aucun euro crédité, valeur de cession nulle. En cas de réception d’euros, utiliser <strong>Sortie imposable</strong>.</span>
           </div>
 
-          <!-- Valeur EUR originale pour un dépôt crypto -->
           <BaseInput
             v-if="txForm.type === 'CRYPTO_DEPOSIT'"
             v-model="txForm.eur_amount!"
@@ -1174,7 +1348,6 @@ onMounted(async () => {
             required
           />
 
-          <!-- Valeur EUR reçue lors d'une vente -->
           <BaseInput
             v-if="txForm.type === 'EXIT'"
             v-model="txForm.eur_amount!"
@@ -1185,7 +1358,6 @@ onMounted(async () => {
             required
           />
 
-          <!-- Prix unitaire EUR — Achat Spot uniquement -->
           <BaseInput
             v-if="txForm.type === 'BUY_SPOT'"
             v-model="txForm.price_per_unit!"
@@ -1196,7 +1368,6 @@ onMounted(async () => {
             required
           />
 
-          <!-- Prix manuel pour les types sans étape de cotation (REWARD, etc.) -->
           <BaseInput
             v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'EXIT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'GAS_FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT', 'TRANSFER_TO_ACCOUNT'].includes(txForm.type)"
             v-model="txForm.price_per_unit!"
@@ -1206,7 +1377,6 @@ onMounted(async () => {
             min="0"
           />
 
-          <!-- Compte de destination (transfert inter-comptes) -->
           <BaseSelect
             v-if="txForm.type === 'TRANSFER_TO_ACCOUNT'"
             v-model="transferToAccountId"
@@ -1215,7 +1385,6 @@ onMounted(async () => {
             required
           />
 
-          <!-- Note PRU transfert -->
           <div
             v-if="txForm.type === 'TRANSFER_TO_ACCOUNT'"
             class="flex items-start gap-2 px-3 py-2.5 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20"
@@ -1233,17 +1402,15 @@ onMounted(async () => {
         </div>
 
         <!-- ╔══════════════════════╗ -->
-        <!-- ║  ÉTAPE 2 — Contrepartie        ║ -->
+        <!-- ║  STEP 2              ║ -->
         <!-- ╚══════════════════════╝ -->
         <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-5">
 
-          <!-- Titre de l'étape -->
           <div>
             <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Contrepartie</p>
             <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Indiquez le montant échangé en retour de votre opération.</p>
           </div>
 
-          <!-- Résumé contextuel -->
           <div class="flex items-center gap-3 px-4 py-3 rounded-card bg-primary/5 dark:bg-primary/10 border border-primary/15">
             <div class="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
               <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1256,7 +1423,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Achat Fiat : montant EUR dépensé -->
           <template v-if="txForm.type === 'BUY_FIAT'">
             <BaseInput
               v-model="txForm.quote_amount!"
@@ -1268,7 +1434,6 @@ onMounted(async () => {
             />
           </template>
 
-          <!-- Achat Spot : crypto dépensée — l'ancrage EUR vient du prix unitaire renseigné en étape 1 -->
           <template v-else-if="txForm.type === 'BUY_SPOT'">
             <BaseAutocomplete
               :model-value="searchQueryQuote"
@@ -1296,7 +1461,6 @@ onMounted(async () => {
             />
           </template>
 
-          <!-- Prix unitaire calculé automatiquement (Achat Fiat uniquement) -->
           <Transition
             enter-active-class="transition-all duration-300"
             enter-from-class="opacity-0 scale-95"
@@ -1304,7 +1468,7 @@ onMounted(async () => {
           >
             <div
               v-if="calculatedPricePerUnit"
-              class="rounded-card bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
+              class="rounded-card bg-linear-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
             >
               <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70 mb-1.5">Prix unitaire calculé</p>
               <p class="text-2xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
@@ -1315,19 +1479,16 @@ onMounted(async () => {
         </div>
 
         <!-- ╔═══════════════╗ -->
-        <!-- ║  ÉTAPE 3 — Frais  ║ -->
+        <!-- ║  STEP 3       ║ -->
         <!-- ╚═══════════════╝ -->
         <div v-else-if="wizardStep === 3 && showFeeStep" class="space-y-5">
 
-          <!-- Titre de l'étape -->
           <div>
             <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Frais</p>
             <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Configurez les frais éventuels liés à cette transaction.</p>
           </div>
 
-          <!-- ── Achat Fiat & CRYPTO_DEPOSIT : frais EUR possibles ── -->
           <template v-if="txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT' && txForm.type !== 'TRANSFER_TO_ACCOUNT'">
-            <!-- Toggle 3 options -->
             <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border">
               <button
                 type="button"
@@ -1361,7 +1522,6 @@ onMounted(async () => {
               >Frais séparés</button>
             </div>
 
-            <!-- Pas de frais -->
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="2"/>
@@ -1370,7 +1530,6 @@ onMounted(async () => {
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU est calculé sur le montant brut.</span>
             </div>
 
-            <!-- Inclus dans le prix -->
             <template v-else-if="feeMode === 'included'">
               <div class="flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1381,15 +1540,12 @@ onMounted(async () => {
               </div>
             </template>
 
-            <!-- Frais séparés — champ unifié €/% -->
             <template v-else>
               <div class="space-y-3">
-                <!-- Label -->
                 <label class="block text-sm font-medium text-text-main dark:text-text-dark-main">
                   Montant des frais <span class="text-danger ml-0.5">*</span>
                 </label>
 
-                <!-- Input + unit toggle -->
                 <div class="relative">
                   <input
                     :value="feeActiveValue"
@@ -1450,11 +1606,10 @@ onMounted(async () => {
                 </Transition>
               </div>
 
-              <!-- Coût total -->
               <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
                 <div
                   v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
-                  class="rounded-card bg-gradient-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-3.5"
+                  class="rounded-card bg-linear-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-3.5"
                 >
                   <p class="text-[10px] font-semibold uppercase tracking-wider text-warning/70 mb-1">Coût total</p>
                   <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
@@ -1464,11 +1619,10 @@ onMounted(async () => {
               </Transition>
             </template>
 
-            <!-- PRU prévisionnel -->
             <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
               <div
                 v-if="previewPru"
-                class="rounded-card bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
+                class="rounded-card bg-linear-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
               >
                 <div class="flex items-center justify-between mb-1.5">
                   <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">PRU prévisionnel</p>
@@ -1480,7 +1634,6 @@ onMounted(async () => {
               </div>
             </Transition>
 
-            <!-- Frais en token (si mode !== 'none') -->
             <div v-if="feeMode !== 'none'" class="border-t border-surface-border dark:border-surface-dark-border pt-4 space-y-3">
               <div>
                 <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
@@ -1517,7 +1670,6 @@ onMounted(async () => {
             </div>
           </template>
 
-          <!-- ── Transfert inter-comptes : frais on-chain (token uniquement) ── -->
           <template v-else-if="txForm.type === 'TRANSFER_TO_ACCOUNT'">
             <!-- Toggle 2 options -->
             <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border">
@@ -1543,7 +1695,6 @@ onMounted(async () => {
               >Frais on-chain</button>
             </div>
 
-            <!-- Pas de frais -->
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="2"/>
@@ -1552,7 +1703,6 @@ onMounted(async () => {
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais de réseau. Le solde est débité uniquement du montant transféré.</span>
             </div>
 
-            <!-- Frais on-chain : symbole + quantité -->
             <template v-else-if="feeMode === 'token'">
               <div class="space-y-3">
                 <p class="text-xs text-text-muted dark:text-text-dark-muted">Frais de réseau prélevés dans un token (ex : ETH pour le gaz, BNB, SOL…)</p>
@@ -1588,7 +1738,6 @@ onMounted(async () => {
             </template>
           </template>
 
-          <!-- ── Swap & Sortie non-imposable : frais en token, 3 options ── -->
           <template v-else>
             <!-- Toggle 3 options -->
             <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border">
@@ -1624,7 +1773,6 @@ onMounted(async () => {
               >Frais séparés</button>
             </div>
 
-            <!-- Pas de frais -->
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="2"/>
@@ -1633,7 +1781,6 @@ onMounted(async () => {
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU reste calculé sur la cotation précédente.</span>
             </div>
 
-            <!-- Inclus dans le taux : token seul, PRU inchangé -->
             <template v-else-if="feeMode === 'included'">
               <div class="flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1740,7 +1887,6 @@ onMounted(async () => {
                 </Transition>
               </div>
 
-              <!-- Token de frais -->
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
@@ -1758,11 +1904,10 @@ onMounted(async () => {
                 />
               </div>
 
-              <!-- Coût total + PRU -->
               <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
                 <div
                   v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
-                  class="rounded-card bg-gradient-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-4 space-y-3"
+                  class="rounded-card bg-linear-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-4 space-y-3"
                 >
                   <div>
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-warning/70 mb-1">Coût total</p>
@@ -1788,7 +1933,7 @@ onMounted(async () => {
 
       <template #footer>
         <div class="flex justify-between w-full">
-          <!-- Pied Edition -->
+          <!-- Edit footer -->
           <template v-if="editingTxId">
             <BaseButton variant="danger" @click="deleteTransaction(editingTxId)">Supprimer</BaseButton>
             <div class="flex gap-2">
@@ -1797,7 +1942,7 @@ onMounted(async () => {
             </div>
           </template>
 
-          <!-- Pied Wizard -->
+          <!-- Wizard footer -->
           <template v-else>
             <div>
               <BaseButton v-if="wizardStep > 1" variant="ghost" @click="prevWizardStep">
@@ -1811,7 +1956,6 @@ onMounted(async () => {
             </div>
             <div class="flex gap-2">
               <BaseButton variant="ghost" @click="showTxModal = false">Annuler</BaseButton>
-              <!-- Dernière étape visible -->
               <template v-if="isLastStep">
                 <BaseButton :loading="crypto.isLoading" @click="handleSubmitTransaction">
                   <span class="flex items-center gap-1.5">
@@ -1822,7 +1966,6 @@ onMounted(async () => {
                   </span>
                 </BaseButton>
               </template>
-              <!-- Étapes intermédiaires -->
               <BaseButton v-else @click="nextWizardStep">
                 <span class="flex items-center gap-1">
                   Continuer
