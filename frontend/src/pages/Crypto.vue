@@ -78,15 +78,16 @@ const FIAT_SYMBOLS = new Set(['EUR'])
 const quoteMode = ref<'EUR' | 'crypto'>('EUR')
 
 const feeMode = ref<'none' | 'included' | 'separate' | 'token'>('none')
+const feeInputMode = ref<'eur' | 'percent'>('eur')
 
 const showQuoteStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT')
-const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT')
+const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT')
 
 const wizardStep = ref(1)
 const WIZARD_STEPS = 3
 const wizardVisibleSteps = computed(() => {
   if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') return 3  // step1 + quote + fee
-  if (txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT') return 2 // step1 + fee (skip quote)
+  if (txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT') return 2 // step1 + fee (skip quote)
   return 1                                        // single-step types
 })
 const isLastStep = computed(() =>
@@ -96,6 +97,7 @@ const isLastStep = computed(() =>
 watch(() => txForm.type, (newType) => {
   wizardStep.value = 1
   feeMode.value = 'none'
+  feeInputMode.value = 'eur'
   if (newType === 'BUY_FIAT') {
     quoteMode.value = 'EUR'
     txForm.quote_symbol = 'EUR'
@@ -132,6 +134,7 @@ const estimatedFeeEur = computed((): number | null => {
 // Always resolve fee base in EUR, not in crypto quote amount.
 function eurBaseAmount(): number {
   if (txForm.type === 'BUY_FIAT') return Number(txForm.quote_amount || 0)
+  if (txForm.type === 'BUY_SPOT') return (Number(txForm.price_per_unit) || 0) * (Number(txForm.amount) || 0)
   return Number(txForm.eur_amount || 0)
 }
 
@@ -143,6 +146,50 @@ function onFeePercentageInput(val: string | number): void {
     if (base > 0) {
       txForm.fee_eur = Number((base * num / 100).toFixed(8))
     }
+  } else {
+    txForm.fee_eur = undefined
+  }
+}
+
+function onFeeEurInput(val: string | number): void {
+  const num = val !== '' && val != null ? Number(val) : undefined
+  txForm.fee_eur = num != null && num >= 0 ? num : undefined
+  if (num && num > 0) {
+    const base = eurBaseAmount()
+    if (base > 0) {
+      txForm.fee_percentage = Number((num / base * 100).toFixed(4))
+    }
+  } else {
+    txForm.fee_percentage = undefined
+  }
+}
+
+// ── Unified fee input helpers (UI only — no business logic touched) ──
+const feeActiveValue = computed((): string => {
+  if (feeInputMode.value === 'eur') {
+    return txForm.fee_eur != null ? String(txForm.fee_eur) : ''
+  }
+  return txForm.fee_percentage != null ? String(txForm.fee_percentage) : ''
+})
+
+const feeConversionDisplay = computed((): string | null => {
+  if (feeInputMode.value === 'eur') {
+    if (txForm.fee_percentage != null && Number(txForm.fee_percentage) > 0) {
+      return `${Number(txForm.fee_percentage).toLocaleString('fr-FR', { maximumFractionDigits: 4 })}\u00a0%`
+    }
+  } else {
+    if (txForm.fee_eur != null && Number(txForm.fee_eur) > 0) {
+      return `${Number(txForm.fee_eur).toLocaleString('fr-FR', { maximumFractionDigits: 2 })}\u00a0€`
+    }
+  }
+  return null
+})
+
+function onUnifiedFeeInput(val: string): void {
+  if (feeInputMode.value === 'eur') {
+    onFeeEurInput(val)
+  } else {
+    onFeePercentageInput(val)
   }
 }
 
@@ -187,18 +234,19 @@ function clearFeeLeg(): void {
   txForm.fee_included = true
   txForm.fee_symbol = undefined
   txForm.fee_amount = undefined
+  feeInputMode.value = 'eur'
 }
 
 const txTypeOptions = [
-  { label: 'Achat Fiat (EUR → Crypto)', value: 'BUY_FIAT' },
-  { label: 'Swap (Crypto ↔ Crypto)', value: 'BUY_SPOT' },
-  { label: 'Récompense / Staking', value: 'REWARD' },
-  { label: 'Dépôt EUR', value: 'FIAT_DEPOSIT' },
-  { label: 'Retrait EUR (vers compte bancaire)', value: 'FIAT_WITHDRAW' },
-  { label: 'Dépôt Crypto (avec PRU)', value: 'CRYPTO_DEPOSIT' },
-  { label: 'Frais on-chain (gaz isolé)', value: 'GAS_FEE' },
-  { label: 'Sortie imposable — vente contre EUR', value: 'EXIT' },
-  { label: 'Sortie non-imposable — don / envoi hors périmètre (0 €)', value: 'NON_TAXABLE_EXIT' },
+  { label: 'Achat · EUR → Crypto', value: 'BUY_FIAT' },
+  { label: 'Swap · Crypto ↔ Crypto', value: 'BUY_SPOT' },
+  { label: 'Récompense · Staking / Intérêts', value: 'REWARD' },
+  { label: 'Dépôt · EUR → Exchange', value: 'FIAT_DEPOSIT' },
+  { label: 'Retrait · Exchange → Banque', value: 'FIAT_WITHDRAW' },
+  { label: 'Dépôt · Crypto avec PRU', value: 'CRYPTO_DEPOSIT' },
+  { label: 'Frais · Gaz on-chain', value: 'GAS_FEE' },
+  { label: 'Vente · Crypto → EUR', value: 'EXIT' },
+  { label: 'Sortie · Don / Envoi hors périmètre', value: 'NON_TAXABLE_EXIT' },
 ]
 
 const txTypeDescriptions: Record<string, string> = {
@@ -799,6 +847,12 @@ onMounted(() => {
         <!-- ╚══════════════════════╝ -->
         <div v-if="wizardStep === 1" class="space-y-5">
 
+          <!-- Titre de l'étape -->
+          <div>
+            <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Opération</p>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Sélectionnez le type et renseignez les informations principales.</p>
+          </div>
+
           <!-- Sélecteur de type de transaction -->
           <div class="space-y-2">
             <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
@@ -868,27 +922,21 @@ onMounted(() => {
           />
 
           <!-- Note contextuelle EXIT -->
-          <div v-if="txForm.type === 'EXIT'" class="inline-flex items-center gap-1.5 relative group/tip cursor-help">
-            <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div v-if="txForm.type === 'EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
+            <svg class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke-width="2"/>
               <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
             </svg>
-            <span class="text-[11px] text-info">Sortie imposable</span>
-            <div class="absolute bottom-full left-0 mb-2 w-64 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-              La contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.
-            </div>
+            <span class="text-xs text-info leading-relaxed">Sortie imposable — la contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.</span>
           </div>
 
           <!-- Note contextuelle NON_TAXABLE_EXIT -->
-          <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="inline-flex items-center gap-1.5 relative group/tip cursor-help">
-            <svg class="w-3.5 h-3.5 text-warning shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-warning/5 dark:bg-warning/10 border border-warning/20">
+            <svg class="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke-width="2"/>
               <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
             </svg>
-            <span class="text-[11px] text-warning">Sortie non-imposable</span>
-            <div class="absolute bottom-full left-0 mb-2 w-64 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-              Aucun euro crédité. Valeur de cession nulle. En cas de réception d’euros, utiliser <strong>Sortie imposable</strong>.
-            </div>
+            <span class="text-xs text-warning leading-relaxed">Sortie non-imposable — aucun euro crédité, valeur de cession nulle. En cas de réception d’euros, utiliser <strong>Sortie imposable</strong>.</span>
           </div>
 
           <!-- Valeur EUR originale pour un dépôt crypto -->
@@ -941,6 +989,12 @@ onMounted(() => {
         <!-- ║  ÉTAPE 2 — Contrepartie        ║ -->
         <!-- ╚══════════════════════╝ -->
         <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-5">
+
+          <!-- Titre de l'étape -->
+          <div>
+            <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Contrepartie</p>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Indiquez le montant échangé en retour de votre opération.</p>
+          </div>
 
           <!-- Résumé contextuel -->
           <div class="flex items-center gap-3 px-4 py-3 rounded-card bg-primary/5 dark:bg-primary/10 border border-primary/15">
@@ -1018,6 +1072,12 @@ onMounted(() => {
         <!-- ╚═══════════════╝ -->
         <div v-else-if="wizardStep === 3 && showFeeStep" class="space-y-5">
 
+          <!-- Titre de l'étape -->
+          <div>
+            <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Frais</p>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted mt-0.5">Configurez les frais éventuels liés à cette transaction.</p>
+          </div>
+
           <!-- ── Achat Fiat & CRYPTO_DEPOSIT : frais EUR possibles ── -->
           <template v-if="txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT'">
             <!-- Toggle 3 options -->
@@ -1055,57 +1115,95 @@ onMounted(() => {
             </div>
 
             <!-- Pas de frais -->
-            <div v-if="feeMode === 'none'" class="inline-flex relative group/tip cursor-help">
-              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="2"/>
                 <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
               </svg>
-              <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-                Aucun frais comptabilisé. Le PRU est calculé sur le montant brut de l'étape précédente.
-              </div>
+              <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU est calculé sur le montant brut.</span>
             </div>
 
             <!-- Inclus dans le prix -->
             <template v-else-if="feeMode === 'included'">
-              <div class="inline-flex relative group/tip cursor-help">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" stroke-width="2"/>
                   <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
                 </svg>
-                <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-                  Les frais sont inclus dans le montant. Le PRU intègre la totalité du montant renseigné.
-                </div>
+                <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Les frais sont inclus dans le montant. Le PRU intègre la totalité.</span>
               </div>
             </template>
 
-            <!-- Frais séparés -->
+            <!-- Frais séparés — champ unifié €/% -->
             <template v-else>
-              <div class="inline-flex relative group/tip cursor-help mb-1">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                </svg>
-                <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-                  Frais en euros ou en pourcentage du montant. La saisie du % calcule le montant en € automatiquement.
+              <div class="space-y-3">
+                <!-- Label -->
+                <label class="block text-sm font-medium text-text-main dark:text-text-dark-main">
+                  Montant des frais <span class="text-danger ml-0.5">*</span>
+                </label>
+
+                <!-- Input + unit toggle -->
+                <div class="relative">
+                  <input
+                    :value="feeActiveValue"
+                    @input="onUnifiedFeeInput(($event.target as HTMLInputElement).value)"
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    :placeholder="feeInputMode === 'eur' ? '0.00' : '0.00'"
+                    class="w-full pl-4 pr-26 py-3 rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-lg font-semibold tabular-nums text-text-main dark:text-text-dark-main placeholder:text-text-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-150"
+                  />
+                  <!-- Embedded unit toggle pill -->
+                  <div class="absolute inset-y-0 right-2 flex items-center">
+                    <div class="flex items-center bg-background-subtle dark:bg-background-dark rounded-button p-0.5 border border-surface-border/60 dark:border-surface-dark-border/60 shadow-sm">
+                      <button
+                        type="button"
+                        @click="feeInputMode = 'eur'"
+                        :class="[
+                          'relative z-10 px-3 py-1 text-xs font-bold rounded-secondary transition-all duration-200',
+                          feeInputMode === 'eur'
+                            ? 'bg-primary text-primary-content shadow-sm scale-105'
+                            : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                        ]"
+                      >EUR</button>
+                      <button
+                        type="button"
+                        @click="feeInputMode = 'percent'"
+                        :class="[
+                          'relative z-10 px-3 py-1 text-xs font-bold rounded-secondary transition-all duration-200',
+                          feeInputMode === 'percent'
+                            ? 'bg-primary text-primary-content shadow-sm scale-105'
+                            : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                        ]"
+                      >%</button>
+                    </div>
+                  </div>
                 </div>
+
+                <!-- Live conversion display -->
+                <Transition
+                  enter-active-class="transition-all duration-300 ease-out"
+                  enter-from-class="opacity-0 -translate-y-1"
+                  enter-to-class="opacity-100 translate-y-0"
+                  leave-active-class="transition-all duration-200 ease-in"
+                  leave-from-class="opacity-100 translate-y-0"
+                  leave-to-class="opacity-0 -translate-y-1"
+                >
+                  <div v-if="feeConversionDisplay" class="flex items-center gap-2 pl-0.5">
+                    <div class="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
+                      <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                    </div>
+                    <span class="text-xs text-text-muted dark:text-text-dark-muted">
+                      ≈ <span class="font-semibold text-primary">{{ feeConversionDisplay }}</span>
+                    </span>
+                  </div>
+                </Transition>
               </div>
-              <div class="grid grid-cols-2 gap-3">
-                <BaseInput
-                  v-model="txForm.fee_eur!"
-                  label="Frais (€)"
-                  type="number"
-                  step="any"
-                  min="0"
-                />
-                <BaseInput
-                  :model-value="txForm.fee_percentage != null ? String(txForm.fee_percentage) : ''"
-                  @update:model-value="onFeePercentageInput"
-                  label="Frais (%)"
-                  type="number"
-                  step="any"
-                  min="0"
-                />
-              </div>
+
+              <!-- Coût total -->
               <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
                 <div
                   v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
@@ -1137,21 +1235,12 @@ onMounted(() => {
 
             <!-- Frais en token (si mode !== 'none') -->
             <div v-if="feeMode !== 'none'" class="border-t border-surface-border dark:border-surface-dark-border pt-4 space-y-3">
-              <div class="flex items-start gap-2">
-                <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider flex-1">
+              <div>
+                <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
                   Frais en token
                   <span class="ml-1 text-[10px] font-normal normal-case tracking-normal">(optionnel)</span>
                 </p>
-                <!-- Tooltip info frais token -->
-                <div class="inline-flex relative group/tip cursor-help">
-                  <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                    <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                  </svg>
-                  <div class="absolute bottom-full right-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
-                    Si les frais ont été prélevés dans un autre token (ex : BNB, ETH), à renseigner pour débiter le solde correspondant.
-                  </div>
-                </div>
+                <p class="text-[11px] text-text-muted dark:text-text-dark-muted mt-0.5">Si les frais ont été prélevés dans un autre token (ex : BNB, ETH).</p>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
@@ -1218,32 +1307,29 @@ onMounted(() => {
             </div>
 
             <!-- Pas de frais -->
-            <div v-if="feeMode === 'none'" class="flex items-start gap-2 cursor-help group/tip">
-              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="2"/>
                 <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
               </svg>
-              <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
-                Aucun frais ne sera pris en compte. Le PRU est calculé uniquement sur la cotation de l'étape précédente.
-              </span>
+              <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU reste calculé sur la cotation précédente.</span>
             </div>
 
             <!-- Inclus dans le taux : token seul, PRU inchangé -->
             <template v-else-if="feeMode === 'included'">
-              <div class="flex items-start gap-2 cursor-help group/tip">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" stroke-width="2"/>
                   <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
                 </svg>
-                <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
-                  Les frais sont inclus dans le taux de change. Le PRU reste calculé sur le seul montant EUR de l'étape précédente. Une ligne FEE à prix 0 sera créée pour débiter le solde du token.
-                </span>
+                <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Frais inclus dans le taux de change. Une ligne FEE sera créée pour débiter le solde.</span>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
                   label="Symbole du token"
                   @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
+                  required
                 />
                 <BaseInput
                   v-model="txForm.fee_amount!"
@@ -1251,6 +1337,7 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
+                  required
                 />
               </div>
               <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
@@ -1268,28 +1355,80 @@ onMounted(() => {
 
             <!-- Frais séparés : fee_eur requis → augmente le PRU -->
             <template v-else-if="feeMode === 'separate'">
-              <div class="flex items-start gap-2 cursor-help group/tip mb-1">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                </svg>
-                <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
-                  Le montant EUR des frais s'ajoute au coût total du swap et augmente le PRU : PRU = (EUR étape 2 + frais €) / quantité.
-                </span>
+              <div class="space-y-3">
+                <!-- Label -->
+                <label class="block text-sm font-medium text-text-main dark:text-text-dark-main">
+                  Montant des frais <span class="text-danger ml-0.5">*</span>
+                </label>
+
+                <!-- Input + unit toggle -->
+                <div class="relative">
+                  <input
+                    :value="feeActiveValue"
+                    @input="onUnifiedFeeInput(($event.target as HTMLInputElement).value)"
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    :placeholder="feeInputMode === 'eur' ? '0.00' : '0.00'"
+                    class="w-full pl-4 pr-26 py-3 rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-lg font-semibold tabular-nums text-text-main dark:text-text-dark-main placeholder:text-text-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-150"
+                  />
+                  <!-- Embedded unit toggle pill -->
+                  <div class="absolute inset-y-0 right-2 flex items-center">
+                    <div class="flex items-center bg-background-subtle dark:bg-background-dark rounded-button p-0.5 border border-surface-border/60 dark:border-surface-dark-border/60 shadow-sm">
+                      <button
+                        type="button"
+                        @click="feeInputMode = 'eur'"
+                        :class="[
+                          'relative z-10 px-3 py-1 text-xs font-bold rounded-secondary transition-all duration-200',
+                          feeInputMode === 'eur'
+                            ? 'bg-primary text-primary-content shadow-sm scale-105'
+                            : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                        ]"
+                      >EUR</button>
+                      <button
+                        type="button"
+                        @click="feeInputMode = 'percent'"
+                        :class="[
+                          'relative z-10 px-3 py-1 text-xs font-bold rounded-secondary transition-all duration-200',
+                          feeInputMode === 'percent'
+                            ? 'bg-primary text-primary-content shadow-sm scale-105'
+                            : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                        ]"
+                      >%</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Live conversion display -->
+                <Transition
+                  enter-active-class="transition-all duration-300 ease-out"
+                  enter-from-class="opacity-0 -translate-y-1"
+                  enter-to-class="opacity-100 translate-y-0"
+                  leave-active-class="transition-all duration-200 ease-in"
+                  leave-from-class="opacity-100 translate-y-0"
+                  leave-to-class="opacity-0 -translate-y-1"
+                >
+                  <div v-if="feeConversionDisplay" class="flex items-center gap-2 pl-0.5">
+                    <div class="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
+                      <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                    </div>
+                    <span class="text-xs text-text-muted dark:text-text-dark-muted">
+                      ≈ <span class="font-semibold text-primary">{{ feeConversionDisplay }}</span>
+                    </span>
+                  </div>
+                </Transition>
               </div>
-              <BaseInput
-                v-model="txForm.fee_eur!"
-                label="Montant des frais (€)"
-                type="number"
-                step="any"
-                min="0"
-                required
-              />
+
+              <!-- Token de frais -->
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
                   label="Symbole du token"
                   @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
+                  required
                 />
                 <BaseInput
                   v-model="txForm.fee_amount!"
@@ -1297,8 +1436,11 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
+                  required
                 />
               </div>
+
+              <!-- Coût total + PRU -->
               <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
                 <div
                   v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
