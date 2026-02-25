@@ -201,6 +201,18 @@ const txTypeOptions = [
   { label: 'Sortie non-imposable — don / envoi hors périmètre (0 €)', value: 'NON_TAXABLE_EXIT' },
 ]
 
+const txTypeDescriptions: Record<string, string> = {
+  BUY_FIAT: 'Achat de crypto avec des euros depuis un exchange.',
+  BUY_SPOT: 'Échange d\'une crypto contre une autre (swap).',
+  REWARD: 'Crypto reçue via staking, intérêts ou récompense.',
+  FIAT_DEPOSIT: 'Dépôt d\'euros sur un compte exchange.',
+  FIAT_WITHDRAW: 'Retrait d\'euros vers un compte bancaire.',
+  CRYPTO_DEPOSIT: 'Réception de crypto avec son coût de revient d\'origine.',
+  GAS_FEE: 'Frais de réseau payés on-chain (ex : gaz Ethereum).',
+  EXIT: 'Vente de crypto contre des euros — événement fiscalement imposable.',
+  NON_TAXABLE_EXIT: 'Don, envoi ou perte — aucune contrepartie EUR, valeur de cession nulle.',
+}
+
 function openCreateAccount(): void {
   editingAccountId.value = null
   accountForm.name = ''
@@ -719,10 +731,21 @@ onMounted(() => {
     <!-- Create/Edit Transaction Modal -->
     <BaseModal
       :open="showTxModal"
-      :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction'"
       size="lg"
       @close="showTxModal = false"
     >
+      <template #header>
+        <div class="flex flex-col gap-0.5 min-w-0">
+          <h2 class="text-lg font-semibold text-text-main dark:text-text-dark-main">
+            {{ editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction' }}
+          </h2>
+          <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100">
+            <p v-if="!editingTxId && txForm.type" class="text-xs text-text-muted dark:text-text-dark-muted truncate">
+              {{ txTypeOptions.find(o => o.value === txForm.type)?.label }}
+            </p>
+          </Transition>
+        </div>
+      </template>
       <!-- ── EDIT MODE — formulaire simple ─────────────────────────── -->
       <form v-if="editingTxId" @submit.prevent="handleSubmitTransaction" class="space-y-4">
         <BaseAutocomplete
@@ -748,34 +771,55 @@ onMounted(() => {
 
       <!-- ── CREATE MODE — wizard 3 étapes ─────────────────────────── -->
       <div v-else>
-        <!-- Indicateur d'étapes -->
-        <div class="flex items-center justify-center gap-1.5 mb-6">
+        <!-- Indicateur d'étapes — minimaliste -->
+        <div class="flex items-center justify-center mb-6 gap-0">
           <template v-for="s in wizardVisibleSteps" :key="s">
             <div
               :class="[
-                'rounded-full transition-all duration-200',
-                s === currentVisibleStep
-                  ? 'h-2 w-6 bg-primary'
-                  : s < currentVisibleStep
-                    ? 'h-2 w-2 bg-primary/40'
-                    : 'h-2 w-2 bg-surface-border dark:bg-surface-dark-border',
+                'rounded-full transition-all duration-300',
+                s < currentVisibleStep
+                  ? 'w-2 h-2 bg-primary/60'
+                  : s === currentVisibleStep
+                    ? 'w-2.5 h-2.5 bg-primary shadow-sm'
+                    : 'w-2 h-2 bg-surface-border dark:bg-surface-dark-border',
+              ]"
+            />
+            <div
+              v-if="s < wizardVisibleSteps"
+              :class="[
+                'h-px w-8 mx-2 rounded-full transition-colors duration-300',
+                s < currentVisibleStep ? 'bg-primary/50' : 'bg-surface-border dark:bg-surface-dark-border',
               ]"
             />
           </template>
-          <span class="ml-2 text-xs text-text-muted dark:text-text-dark-muted">
-            Étape {{ currentVisibleStep }}/{{ wizardVisibleSteps }}
-          </span>
         </div>
 
         <!-- ╔══════════════════════╗ -->
-        <!-- ║  ÉTAPE 1 — Ce que tu reçois  ║ -->
+        <!-- ║  ÉTAPE 1              ║ -->
         <!-- ╚══════════════════════╝ -->
-        <div v-if="wizardStep === 1" class="space-y-4">
-          <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-            Ce que tu reçois
-          </p>
+        <div v-if="wizardStep === 1" class="space-y-5">
 
-          <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
+          <!-- Sélecteur de type de transaction -->
+          <div class="space-y-2">
+            <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
+            <!-- Description contextuelle du type -->
+            <Transition
+              enter-active-class="transition-all duration-200"
+              enter-from-class="opacity-0 -translate-y-1"
+              enter-to-class="opacity-100 translate-y-0"
+            >
+              <div
+                v-if="txTypeDescriptions[txForm.type]"
+                class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border"
+              >
+                <svg class="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+                <span class="text-xs text-text-muted dark:text-text-dark-muted leading-relaxed">{{ txTypeDescriptions[txForm.type] }}</span>
+              </div>
+            </Transition>
+          </div>
 
           <!-- Dépôt / retrait fiat : symbole = EUR, pas de recherche crypto -->
           <template v-if="txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW'">
@@ -823,39 +867,53 @@ onMounted(() => {
             required
           />
 
-          <!-- Note contextuelle EXIT vs NON_TAXABLE_EXIT -->
-          <p v-if="txForm.type === 'EXIT'" class="text-xs text-info">
-            ⓘ La contrepartie en EUR sera automatiquement créditée dans ton solde EUR.
-            Utilise <strong>Sortie non-imposable</strong> si tu ne reçois aucun euro (don, perte, envoi).
-          </p>
-          <p v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="text-xs text-warning">
-            ⓘ Aucun euro ne sera crédité. La valeur de céession est considérée nulle.
-            Si tu reçois des euros en échange, utilise <strong>Sortie imposable</strong>.
-          </p>
+          <!-- Note contextuelle EXIT -->
+          <div v-if="txForm.type === 'EXIT'" class="inline-flex items-center gap-1.5 relative group/tip cursor-help">
+            <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2"/>
+              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+            </svg>
+            <span class="text-[11px] text-info">Sortie imposable</span>
+            <div class="absolute bottom-full left-0 mb-2 w-64 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+              La contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.
+            </div>
+          </div>
 
-          <!-- Valeur EUR originale pour un dépôt crypto ou une vente -->
+          <!-- Note contextuelle NON_TAXABLE_EXIT -->
+          <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="inline-flex items-center gap-1.5 relative group/tip cursor-help">
+            <svg class="w-3.5 h-3.5 text-warning shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2"/>
+              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+            </svg>
+            <span class="text-[11px] text-warning">Sortie non-imposable</span>
+            <div class="absolute bottom-full left-0 mb-2 w-64 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+              Aucun euro crédité. Valeur de cession nulle. En cas de réception d’euros, utiliser <strong>Sortie imposable</strong>.
+            </div>
+          </div>
+
+          <!-- Valeur EUR originale pour un dépôt crypto -->
           <BaseInput
             v-if="txForm.type === 'CRYPTO_DEPOSIT'"
             v-model="txForm.eur_amount!"
-            label="Valeur EUR de ce dépôt (coût de revient origine)"
+            label="Coût de revient (EUR)"
             type="number"
             step="any"
             min="0"
-            placeholder="ex : 15 000"
-            required
-          />
-          <BaseInput
-            v-if="txForm.type === 'EXIT'"
-            v-model="txForm.eur_amount!"
-            label="EUR reçus (prix de vente total)"
-            type="number"
-            step="any"
-            min="0"
-            placeholder="ex : 5 000"
             required
           />
 
-          <!-- Prix unitaire EUR — Achat Spot uniquement (ancrage PRU en étape 1) -->
+          <!-- Valeur EUR reçue lors d'une vente -->
+          <BaseInput
+            v-if="txForm.type === 'EXIT'"
+            v-model="txForm.eur_amount!"
+            label="Montant reçu (EUR)"
+            type="number"
+            step="any"
+            min="0"
+            required
+          />
+
+          <!-- Prix unitaire EUR — Achat Spot uniquement -->
           <BaseInput
             v-if="txForm.type === 'BUY_SPOT'"
             v-model="txForm.price_per_unit!"
@@ -863,11 +921,10 @@ onMounted(() => {
             type="number"
             step="any"
             min="0"
-            placeholder="ex : 92 000"
             required
           />
 
-          <!-- Prix manuel pour les types sans étape de cotation (REWARD, TRANSFER) -->
+          <!-- Prix manuel pour les types sans étape de cotation (REWARD, etc.) -->
           <BaseInput
             v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'EXIT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'GAS_FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT'].includes(txForm.type)"
             v-model="txForm.price_per_unit!"
@@ -881,26 +938,31 @@ onMounted(() => {
         </div>
 
         <!-- ╔══════════════════════╗ -->
-        <!-- ║  ÉTAPE 2 — Ce que tu dépenses  ║ -->
+        <!-- ║  ÉTAPE 2 — Contrepartie        ║ -->
         <!-- ╚══════════════════════╝ -->
-        <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-4">
-          <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-            Ce que tu as dépensé
-          </p>
-          <p class="text-sm text-text-muted dark:text-text-dark-muted">
-            Tu as reçu <strong class="text-text-main dark:text-text-dark-main">{{ txForm.amount }} {{ txForm.symbol }}</strong>.
-            Avec quoi as-tu payé ?
-          </p>
+        <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-5">
 
-          <!-- Achat Fiat : montant EUR dépensé — prix unitaire calculé automatiquement -->
+          <!-- Résumé contextuel -->
+          <div class="flex items-center gap-3 px-4 py-3 rounded-card bg-primary/5 dark:bg-primary/10 border border-primary/15">
+            <div class="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">Reçu</p>
+              <p class="text-sm font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ txForm.amount }} {{ txForm.symbol }}</p>
+            </div>
+          </div>
+
+          <!-- Achat Fiat : montant EUR dépensé -->
           <template v-if="txForm.type === 'BUY_FIAT'">
             <BaseInput
               v-model="txForm.quote_amount!"
-              label="Montant en EUR dépensé"
+              label="Montant EUR dépensé"
               type="number"
               step="any"
               min="0"
-              placeholder="ex : 42 000"
               required
             />
           </template>
@@ -921,7 +983,6 @@ onMounted(() => {
             <BaseInput
               v-model="txForm.quote_symbol!"
               label="Symbole"
-              placeholder="USDC, ETH..."
               required
             />
             <BaseInput
@@ -934,26 +995,28 @@ onMounted(() => {
             />
           </template>
 
-          <!-- Prix calculé automatiquement (Achat Fiat uniquement) -->
-          <div
-            v-if="calculatedPricePerUnit"
-            class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border px-4 py-3"
+          <!-- Prix unitaire calculé automatiquement (Achat Fiat uniquement) -->
+          <Transition
+            enter-active-class="transition-all duration-300"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
           >
-            <p class="text-xs text-text-muted dark:text-text-dark-muted mb-0.5">Prix calculé</p>
-            <p class="text-lg font-bold text-text-main dark:text-text-dark-main">
-              1 {{ txForm.symbol }} ≈
-              {{ calculatedPricePerUnit.toLocaleString('fr-FR', { maximumFractionDigits: 4 }) }} €
-            </p>
-          </div>
+            <div
+              v-if="calculatedPricePerUnit"
+              class="rounded-card bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
+            >
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70 mb-1.5">Prix unitaire calculé</p>
+              <p class="text-2xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
+                1 {{ txForm.symbol }} ≈ {{ calculatedPricePerUnit.toLocaleString('fr-FR', { maximumFractionDigits: 4 }) }} €
+              </p>
+            </div>
+          </Transition>
         </div>
 
         <!-- ╔═══════════════╗ -->
         <!-- ║  ÉTAPE 3 — Frais  ║ -->
         <!-- ╚═══════════════╝ -->
-        <div v-else-if="wizardStep === 3 && showFeeStep" class="space-y-4">
-          <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-            Frais (optionnel)
-          </p>
+        <div v-else-if="wizardStep === 3 && showFeeStep" class="space-y-5">
 
           <!-- ── Achat Fiat & CRYPTO_DEPOSIT : frais EUR possibles ── -->
           <template v-if="txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT'">
@@ -992,23 +1055,40 @@ onMounted(() => {
             </div>
 
             <!-- Pas de frais -->
-            <p v-if="feeMode === 'none'" class="text-sm text-text-muted dark:text-text-dark-muted">
-              Aucun frais ne sera pris en compte pour cette transaction.
-            </p>
+            <div v-if="feeMode === 'none'" class="inline-flex relative group/tip cursor-help">
+              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+              <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+                Aucun frais comptabilisé. Le PRU est calculé sur le montant brut de l'étape précédente.
+              </div>
+            </div>
 
             <!-- Inclus dans le prix -->
             <template v-else-if="feeMode === 'included'">
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                Les frais sont déjà compris dans le montant payé. Le PRU intègre la totalité du montant renseigné.
-              </p>
+              <div class="inline-flex relative group/tip cursor-help">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+                <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+                  Les frais sont inclus dans le montant. Le PRU intègre la totalité du montant renseigné.
+                </div>
+              </div>
             </template>
 
             <!-- Frais séparés -->
             <template v-else>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                Renseigne les frais <strong class="text-text-main dark:text-text-dark-main">en euros ou en pourcentage</strong> — au moins l'un des deux est requis.
-                Saisir le % calcule le montant en € automatiquement.
-              </p>
+              <div class="inline-flex relative group/tip cursor-help mb-1">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+                <div class="absolute bottom-full left-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+                  Frais en euros ou en pourcentage du montant. La saisie du % calcule le montant en € automatiquement.
+                </div>
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_eur!"
@@ -1016,7 +1096,6 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="ex : 5.00"
                 />
                 <BaseInput
                   :model-value="txForm.fee_percentage != null ? String(txForm.fee_percentage) : ''"
@@ -1025,50 +1104,59 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="ex : 0.25"
                 />
               </div>
-              <div
-                v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
-                class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border px-4 py-3"
-              >
-                <p class="text-xs text-text-muted dark:text-text-dark-muted mb-0.5">Coût total (asset + frais)</p>
-                <p class="text-base font-semibold text-text-main dark:text-text-dark-main">
-                  {{ (Number(txForm.quote_amount || txForm.eur_amount || 0) + Number(txForm.fee_eur)).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) }} €
-                </p>
-              </div>
+              <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+                <div
+                  v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
+                  class="rounded-card bg-gradient-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-3.5"
+                >
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-warning/70 mb-1">Coût total</p>
+                  <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
+                    {{ (Number(txForm.quote_amount || txForm.eur_amount || 0) + Number(txForm.fee_eur)).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) }}&nbsp;€
+                  </p>
+                </div>
+              </Transition>
             </template>
 
             <!-- PRU prévisionnel -->
-            <div
-              v-if="previewPru"
-              class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border px-4 py-3"
-            >
-              <p class="text-xs text-text-muted dark:text-text-dark-muted mb-0.5">
-                PRU prévisionnel
-                <span v-if="feeMode === 'separate'" class="ml-1 text-warning">(frais inclus)</span>
-              </p>
-              <p class="text-base font-semibold text-text-main dark:text-text-dark-main">
-                1 {{ txForm.symbol }} = {{ previewPru.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }} €
-              </p>
-            </div>
+            <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+              <div
+                v-if="previewPru"
+                class="rounded-card bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border border-primary/20 px-5 py-4"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">PRU prévisionnel</p>
+                  <span v-if="feeMode === 'separate'" class="text-[10px] font-medium text-warning bg-warning/10 px-1.5 py-0.5 rounded-badge">frais inclus</span>
+                </div>
+                <p class="text-2xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
+                  1&nbsp;{{ txForm.symbol }}&nbsp;=&nbsp;{{ previewPru.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }}&nbsp;€
+                </p>
+              </div>
+            </Transition>
 
             <!-- Frais en token (si mode !== 'none') -->
             <div v-if="feeMode !== 'none'" class="border-t border-surface-border dark:border-surface-dark-border pt-4 space-y-3">
-              <div>
-                <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-                  Frais en token (optionnel)
+              <div class="flex items-start gap-2">
+                <p class="text-xs font-semibold text-text-muted dark:text-text-dark-muted uppercase tracking-wider flex-1">
+                  Frais en token
+                  <span class="ml-1 text-[10px] font-normal normal-case tracking-normal">(optionnel)</span>
                 </p>
-                <p class="text-xs text-text-muted dark:text-text-dark-muted mt-1">
-                  Si les frais ont été prélevés dans un autre token (ex : BNB, ETH), renseigne-le pour débiter ton solde.
-                  Le prix EUR est déduit automatiquement du coût total.
-                </p>
+                <!-- Tooltip info frais token -->
+                <div class="inline-flex relative group/tip cursor-help">
+                  <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                    <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                  </svg>
+                  <div class="absolute bottom-full right-0 mb-2 w-60 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-secondary px-3 py-2 text-[11px] text-text-body dark:text-text-dark-body shadow-md opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-20 leading-relaxed">
+                    Si les frais ont été prélevés dans un autre token (ex : BNB, ETH), à renseigner pour débiter le solde correspondant.
+                  </div>
+                </div>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
                   label="Symbole du token"
-                  placeholder="ex : BNB"
                   @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
                 />
                 <BaseInput
@@ -1077,17 +1165,19 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="ex : 0.005"
                 />
               </div>
-              <div
-                v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
-                class="rounded-secondary bg-info/10 border border-info/30 px-3 py-2"
-              >
-                <p class="text-xs text-info">
-                  ✓ {{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits de ton solde.
-                </p>
-              </div>
+              <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+                <div
+                  v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
+                  class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
+                >
+                  <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits du solde.</p>
+                </div>
+              </Transition>
             </div>
           </template>
 
@@ -1128,23 +1218,31 @@ onMounted(() => {
             </div>
 
             <!-- Pas de frais -->
-            <p v-if="feeMode === 'none'" class="text-sm text-text-muted dark:text-text-dark-muted">
-              Aucun frais ne sera pris en compte pour ce swap.
-            </p>
+            <div v-if="feeMode === 'none'" class="flex items-start gap-2 cursor-help group/tip">
+              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+              <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
+                Aucun frais ne sera pris en compte. Le PRU est calculé uniquement sur la cotation de l'étape précédente.
+              </span>
+            </div>
 
             <!-- Inclus dans le taux : token seul, PRU inchangé -->
             <template v-else-if="feeMode === 'included'">
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                Les frais sont inclus dans le taux de change du swap.
-                Cette option sert <strong class="text-text-main dark:text-text-dark-main">uniquement à maintenir la précision des soldes</strong> —
-                le PRU reste calculé sur le seul montant EUR de l'étape 2.
-                Une ligne <code>FEE price=0</code> sera créée pour débiter le token.
-              </p>
+              <div class="flex items-start gap-2 cursor-help group/tip">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+                <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
+                  Les frais sont inclus dans le taux de change. Le PRU reste calculé sur le seul montant EUR de l'étape précédente. Une ligne FEE à prix 0 sera créée pour débiter le solde du token.
+                </span>
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
                   label="Symbole du token"
-                  placeholder="ex : BNB"
                   @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
                 />
                 <BaseInput
@@ -1153,40 +1251,44 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="ex : 0.005"
                 />
               </div>
-              <div
-                v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
-                class="rounded-secondary bg-info/10 border border-info/30 px-3 py-2"
-              >
-                <p class="text-xs text-info">
-                  ✓ {{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits de ton solde. PRU inchangé.
-                </p>
-              </div>
+              <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+                <div
+                  v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
+                  class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
+                >
+                  <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits de ton solde. PRU inchangé.</p>
+                </div>
+              </Transition>
             </template>
 
-            <!-- Frais séparés : fee_eur requis → s'ajoute à FIAT_ANCHOR → augmente le PRU -->
+            <!-- Frais séparés : fee_eur requis → augmente le PRU -->
             <template v-else-if="feeMode === 'separate'">
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                Le montant EUR des frais s'ajoute au coût total du swap et
-                <strong class="text-text-main dark:text-text-dark-main">augmente le PRU</strong>
-                de l'actif reçu : <code>PRU = (EUR étape 2 + frais €) / quantité</code>.
-              </p>
+              <div class="flex items-start gap-2 cursor-help group/tip mb-1">
+                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0 mt-0.5 group-hover/tip:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+                <span class="text-[11px] text-transparent group-hover/tip:text-text-muted dark:group-hover/tip:text-text-dark-muted transition-colors select-none leading-relaxed">
+                  Le montant EUR des frais s'ajoute au coût total du swap et augmente le PRU : PRU = (EUR étape 2 + frais €) / quantité.
+                </span>
+              </div>
               <BaseInput
                 v-model="txForm.fee_eur!"
                 label="Montant des frais (€)"
                 type="number"
                 step="any"
                 min="0"
-                placeholder="ex : 3.50"
                 required
               />
               <div class="grid grid-cols-2 gap-3">
                 <BaseInput
                   v-model="txForm.fee_symbol!"
-                  label="Symbole du token prélevé"
-                  placeholder="ex : BNB"
+                  label="Symbole du token"
                   @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
                 />
                 <BaseInput
@@ -1195,26 +1297,30 @@ onMounted(() => {
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="ex : 0.005"
                 />
               </div>
-              <div
-                v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
-                class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border px-4 py-3 space-y-1"
-              >
-                <div>
-                  <p class="text-xs text-text-muted dark:text-text-dark-muted mb-0.5">Coût total pris en compte</p>
-                  <p class="text-base font-semibold text-text-main dark:text-text-dark-main">
-                    {{ (Number(txForm.eur_amount || 0) + Number(txForm.fee_eur)).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) }} €
-                  </p>
+              <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+                <div
+                  v-if="txForm.fee_eur && Number(txForm.fee_eur) > 0"
+                  class="rounded-card bg-gradient-to-br from-warning/5 to-warning/10 dark:from-warning/10 dark:to-warning/20 border border-warning/20 px-5 py-4 space-y-3"
+                >
+                  <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-warning/70 mb-1">Coût total</p>
+                    <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
+                      {{ (Number(txForm.eur_amount || 0) + Number(txForm.fee_eur)).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) }}&nbsp;€
+                    </p>
+                  </div>
+                  <div v-if="previewPru" class="border-t border-warning/20 pt-3">
+                    <div class="flex items-center justify-between mb-1">
+                      <p class="text-[10px] font-semibold uppercase tracking-wider text-primary/70">PRU prévisionnel</p>
+                      <span class="text-[10px] font-medium text-warning bg-warning/10 px-1.5 py-0.5 rounded-badge">frais inclus</span>
+                    </div>
+                    <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">
+                      1&nbsp;{{ txForm.symbol }}&nbsp;=&nbsp;{{ previewPru.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }}&nbsp;€
+                    </p>
+                  </div>
                 </div>
-                <div v-if="previewPru">
-                  <p class="text-xs text-text-muted dark:text-text-dark-muted mb-0.5">PRU prévisionnel <span class="text-warning">(frais inclus)</span></p>
-                  <p class="text-base font-semibold text-text-main dark:text-text-dark-main">
-                    1 {{ txForm.symbol }} = {{ previewPru.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }} €
-                  </p>
-                </div>
-              </div>
+              </Transition>
             </template>
           </template>
         </div>
@@ -1235,7 +1341,12 @@ onMounted(() => {
           <template v-else>
             <div>
               <BaseButton v-if="wizardStep > 1" variant="ghost" @click="prevWizardStep">
-                ← Retour
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Retour
+                </span>
               </BaseButton>
             </div>
             <div class="flex gap-2">
@@ -1243,11 +1354,23 @@ onMounted(() => {
               <!-- Dernière étape visible -->
               <template v-if="isLastStep">
                 <BaseButton :loading="crypto.isLoading" @click="handleSubmitTransaction">
-                  Confirmer
+                  <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Confirmer
+                  </span>
                 </BaseButton>
               </template>
               <!-- Étapes intermédiaires -->
-              <BaseButton v-else @click="nextWizardStep">Suivant →</BaseButton>
+              <BaseButton v-else @click="nextWizardStep">
+                <span class="flex items-center gap-1">
+                  Continuer
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </BaseButton>
             </div>
           </template>
         </div>

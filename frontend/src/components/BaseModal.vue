@@ -57,7 +57,7 @@ function onBackdropClick(): void {
         <!-- Modal Panel -->
         <div
           :class="[
-            'relative w-full bg-surface dark:bg-surface-dark rounded-card shadow-modal border border-surface-border dark:border-surface-dark-border animate-slide-up',
+            'relative w-full bg-surface dark:bg-surface-dark rounded-card shadow-modal border border-surface-border dark:border-surface-dark-border animate-slide-up flex flex-col max-h-[90vh]',
             sizeClasses[props.size],
           ]"
         >
@@ -82,7 +82,7 @@ function onBackdropClick(): void {
           </div>
 
           <!-- Body -->
-          <div class="p-6">
+          <div class="p-6 overflow-y-auto flex-1">
             <slot />
           </div>
 
