@@ -345,6 +345,19 @@ export interface CryptoCompositeTransactionCreate {
   notes?: string
 }
 
+export interface CrossAccountTransferCreate {
+  from_account_id: string
+  to_account_id: string
+  symbol: string
+  name?: string | null
+  amount: number
+  fee_symbol?: string | null
+  fee_amount?: number | null
+  executed_at: string
+  tx_hash?: string | null
+  notes?: string | null
+}
+
 export interface CryptoBulkImportRequest {
   account_id: string
   transactions: CryptoTransactionBulkCreate[]
@@ -445,6 +458,8 @@ export interface UserSettingsUpdate {
   tax_pea_rate?: number
   yield_expectation?: number
   inflation_rate?: number
+  crypto_module_enabled?: boolean
+  crypto_mode?: 'SINGLE' | 'MULTI'
 }
 
 export interface UserSettingsResponse {
@@ -454,6 +469,8 @@ export interface UserSettingsResponse {
   tax_pea_rate: number
   yield_expectation: number
   inflation_rate: number
+  crypto_module_enabled: boolean
+  crypto_mode: 'SINGLE' | 'MULTI'
   created_at: string
   updated_at: string
 }

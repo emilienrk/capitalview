@@ -15,6 +15,7 @@ import type {
   TransactionResponse,
   AssetSearchResult,
   AssetInfoResponse,
+  CrossAccountTransferCreate,
 } from '@/types'
 
 export const useCryptoStore = defineStore('crypto', () => {
@@ -65,6 +66,29 @@ export const useCryptoStore = defineStore('crypto', () => {
       currentAccount.value = await apiClient.get<AccountSummaryResponse>(`/crypto/accounts/${id}`)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement du compte'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function fetchDefaultAccount(): Promise<void> {
+    isLoading.value = true
+    error.value = null
+    try {
+      currentAccount.value = await apiClient.get<AccountSummaryResponse>('/crypto/accounts/default')
+      // Expose the account in the accounts list so other parts of the UI can reference it
+      if (currentAccount.value) {
+        accounts.value = [{
+          id: currentAccount.value.account_id,
+          name: currentAccount.value.account_name,
+          platform: null,
+          public_address: null,
+          created_at: '',
+          updated_at: '',
+        }]
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du chargement du portefeuille'
     } finally {
       isLoading.value = false
     }
@@ -165,6 +189,24 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
+  async function createCrossAccountTransfer(
+    data: CrossAccountTransferCreate,
+  ): Promise<CryptoTransactionBasicResponse[] | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await apiClient.post<CryptoTransactionBasicResponse[]>(
+        '/crypto/transactions/cross-account-transfer',
+        data,
+      )
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du transfert inter-comptes'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function updateTransaction(id: string, data: CryptoTransactionUpdate): Promise<CryptoTransactionBasicResponse | null> {
     isLoading.value = true
     error.value = null
@@ -228,6 +270,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     getAssetsInfo,
     fetchAccounts,
     fetchAccount,
+    fetchDefaultAccount,
     createAccount,
     updateAccount,
     deleteAccount,
@@ -235,6 +278,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     fetchAccountTransactions,
     createTransaction,
     createCompositeTransaction,
+    createCrossAccountTransfer,
     updateTransaction,
     deleteTransaction,
     bulkImportTransactions,

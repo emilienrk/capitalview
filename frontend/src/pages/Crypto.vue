@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
+import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import PageHeader from '@/components/PageHeader.vue'
@@ -12,6 +13,7 @@ import CsvImportModal from '@/components/CsvImportModal.vue'
 import type {
   CryptoAccountCreate,
   CryptoCompositeTransactionCreate,
+  CrossAccountTransferCreate,
   CryptoTransactionUpdate,
   TransactionResponse,
   AssetSearchResult,
@@ -19,15 +21,23 @@ import type {
 } from '@/types'
 
 const crypto = useCryptoStore()
+const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate } = useCurrencyToggle()
+
+/** True when the user is in Patrimoine Global (single-account) mode. */
+const isSingleMode = computed(
+  () =>
+    settingsStore.settings?.crypto_module_enabled === true &&
+    settingsStore.settings?.crypto_mode === 'SINGLE',
+)
 
 function formatEur(value: number | string | null | undefined): string {
   return formatCurrency(value, 'EUR')
 }
 
 type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
-  type: CryptoCompositeTransactionCreate['type'] | 'BUY_FIAT' | 'BUY_SPOT' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW'
+  type: CryptoCompositeTransactionCreate['type'] | 'BUY_FIAT' | 'BUY_SPOT' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'TRANSFER_TO_ACCOUNT'
 }
 
 const showAccountModal = ref(false)
@@ -35,6 +45,7 @@ const showTxModal = ref(false)
 const showCsvImportModal = ref(false)
 const csvImportAccountId = ref<string | null>(null)
 const selectedAccountId = ref<string | null>(null)
+const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
 const editingTxId = ref<string | null>(null)
@@ -81,13 +92,13 @@ const feeMode = ref<'none' | 'included' | 'separate' | 'token'>('none')
 const feeInputMode = ref<'eur' | 'percent'>('eur')
 
 const showQuoteStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT')
-const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT')
+const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT')
 
 const wizardStep = ref(1)
 const WIZARD_STEPS = 3
 const wizardVisibleSteps = computed(() => {
   if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') return 3  // step1 + quote + fee
-  if (txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT') return 2 // step1 + fee (skip quote)
+  if (txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT') return 2 // step1 + fee (skip quote)
   return 1                                        // single-step types
 })
 const isLastStep = computed(() =>
@@ -135,6 +146,13 @@ const estimatedFeeEur = computed((): number | null => {
 function eurBaseAmount(): number {
   if (txForm.type === 'BUY_FIAT') return Number(txForm.quote_amount || 0)
   if (txForm.type === 'BUY_SPOT') return (Number(txForm.price_per_unit) || 0) * (Number(txForm.amount) || 0)
+  if (txForm.type === 'TRANSFER_TO_ACCOUNT') {
+    // Base = quantity × PRU of the symbol in the source account
+    const sym = (txForm.symbol || '').toUpperCase()
+    const pos = crypto.currentAccount?.positions?.find(p => p.symbol === sym)
+    const pru = pos?.average_buy_price ?? 0
+    return (Number(txForm.amount) || 0) * pru
+  }
   return Number(txForm.eur_amount || 0)
 }
 
@@ -237,17 +255,23 @@ function clearFeeLeg(): void {
   feeInputMode.value = 'eur'
 }
 
-const txTypeOptions = [
-  { label: 'Achat · EUR → Crypto', value: 'BUY_FIAT' },
-  { label: 'Swap · Crypto ↔ Crypto', value: 'BUY_SPOT' },
-  { label: 'Récompense · Staking / Intérêts', value: 'REWARD' },
-  { label: 'Dépôt · EUR → Exchange', value: 'FIAT_DEPOSIT' },
-  { label: 'Retrait · Exchange → Banque', value: 'FIAT_WITHDRAW' },
-  { label: 'Dépôt · Crypto avec PRU', value: 'CRYPTO_DEPOSIT' },
-  { label: 'Frais · Gaz on-chain', value: 'GAS_FEE' },
-  { label: 'Vente · Crypto → EUR', value: 'EXIT' },
-  { label: 'Sortie · Don / Envoi hors périmètre', value: 'NON_TAXABLE_EXIT' },
-]
+const txTypeOptions = computed(() => {
+  const base = [
+    { label: 'Achat · EUR → Crypto', value: 'BUY_FIAT' },
+    { label: 'Swap · Crypto ↔ Crypto', value: 'BUY_SPOT' },
+    { label: 'Récompense · Staking / Intérêts', value: 'REWARD' },
+    { label: 'Dépôt · EUR → Exchange', value: 'FIAT_DEPOSIT' },
+    { label: 'Retrait · Exchange → Banque', value: 'FIAT_WITHDRAW' },
+    { label: 'Dépôt · Crypto avec PRU', value: 'CRYPTO_DEPOSIT' },
+    { label: 'Frais · Gaz on-chain', value: 'GAS_FEE' },
+    { label: 'Vente · Crypto → EUR', value: 'EXIT' },
+    { label: 'Sortie · Don / Envoi hors périmètre', value: 'NON_TAXABLE_EXIT' },
+  ]
+  if (!isSingleMode.value) {
+    base.push({ label: 'Transfert · Vers un autre portefeuille', value: 'TRANSFER_TO_ACCOUNT' })
+  }
+  return base
+})
 
 const txTypeDescriptions: Record<string, string> = {
   BUY_FIAT: 'Achat de crypto avec des euros depuis un exchange.',
@@ -259,6 +283,7 @@ const txTypeDescriptions: Record<string, string> = {
   GAS_FEE: 'Frais de réseau payés on-chain (ex : gaz Ethereum).',
   EXIT: 'Vente de crypto contre des euros — événement fiscalement imposable.',
   NON_TAXABLE_EXIT: 'Don, envoi ou perte — aucune contrepartie EUR, valeur de cession nulle.',
+  TRANSFER_TO_ACCOUNT: 'Déplacement de crypto vers un autre de vos portefeuilles — neutre fiscalement.',
 }
 
 function openCreateAccount(): void {
@@ -316,6 +341,7 @@ function openAddTransaction(accountId: string): void {
   searchResultsQuote.value = []
   quoteMode.value = 'EUR'
   wizardStep.value = 1
+  transferToAccountId.value = ''
   showTxModal.value = true
 }
 
@@ -435,7 +461,7 @@ async function handleSubmitTransaction(): Promise<void> {
     return
   }
 
-  if (feeMode.value === 'separate' && txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT') {
+  if (feeMode.value === 'separate' && txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT' && txForm.type !== 'TRANSFER_TO_ACCOUNT') {
     if (!txForm.fee_eur && !txForm.fee_percentage) {
       alert('Frais séparés : veuillez renseigner le montant en euros ou le pourcentage.')
       return
@@ -473,6 +499,35 @@ async function handleSubmitTransaction(): Promise<void> {
 
   if (txForm.price_per_unit !== undefined && txForm.price_per_unit < 0) {
     alert('Le prix doit être positif ou nul.')
+    return
+  }
+
+  if (txForm.type === 'TRANSFER_TO_ACCOUNT') {
+    if (!transferToAccountId.value) {
+      alert('Veuillez sélectionner un compte de destination.')
+      return
+    }
+    const transferPayload: CrossAccountTransferCreate = {
+      from_account_id: txForm.account_id,
+      to_account_id: transferToAccountId.value,
+      symbol: txForm.symbol || searchQuery.value.toUpperCase(),
+      name: txForm.name || undefined,
+      amount: txForm.amount,
+      fee_symbol: feeMode.value !== 'none' ? (txForm.fee_symbol || undefined) : undefined,
+      fee_amount: feeMode.value !== 'none' ? (txForm.fee_amount || undefined) : undefined,
+      executed_at: txForm.executed_at,
+      tx_hash: txForm.tx_hash || undefined,
+      notes: txForm.notes || undefined,
+    }
+    const result = await crypto.createCrossAccountTransfer(transferPayload)
+    if (result) {
+      showTxModal.value = false
+      await Promise.all([
+        crypto.fetchAccount(txForm.account_id),
+        crypto.fetchAccount(transferToAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value!),
+      ])
+    }
     return
   }
 
@@ -544,31 +599,198 @@ async function handleDeleteAccount(id: string): Promise<void> {
   }
 }
 
-onMounted(() => {
-  crypto.fetchAccounts()
+onMounted(async () => {
+  // Ensure settings are loaded before deciding behaviour
+  if (!settingsStore.settings) {
+    await settingsStore.fetchSettings()
+  }
+
+  if (isSingleMode.value) {
+    // Transparently load (or create) the unique default account
+    await crypto.fetchDefaultAccount()
+    const defaultId = crypto.accounts[0]?.id
+    if (defaultId) {
+      selectedAccountId.value = defaultId
+      await fetchAccountTransactions(defaultId)
+    }
+  } else {
+    crypto.fetchAccounts()
+  }
   fetchRate()
 })
 </script>
 
 <template>
   <div>
-    <PageHeader title="Crypto" description="Portefeuilles et transactions crypto-monnaies">
+    <PageHeader title="Crypto" :description="isSingleMode ? 'Patrimoine global crypto-monnaies' : 'Portefeuilles et transactions crypto-monnaies'">
       <template #actions>
-        <BaseButton @click="openCreateAccount">+ Nouveau portefeuille</BaseButton>
+        <!-- SINGLE mode: actions directly in header (no account management) -->
+        <template v-if="isSingleMode && selectedAccountId">
+          <BaseButton variant="outline" size="sm" @click="openCsvImport(selectedAccountId!)" title="Importer CSV">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span class="hidden sm:inline">Importer</span>
+          </BaseButton>
+          <BaseButton @click="openAddTransaction(selectedAccountId!)">+ Transaction</BaseButton>
+        </template>
+        <!-- MULTI mode: account creation -->
+        <BaseButton v-else-if="!isSingleMode" @click="openCreateAccount">+ Nouveau portefeuille</BaseButton>
       </template>
     </PageHeader>
 
-    <div v-if="crypto.isLoading && !crypto.accounts.length" class="flex justify-center py-20">
-      <BaseSpinner size="lg" label="Chargement..." />
-    </div>
+    <!-- ── SINGLE MODE view ─────────────────────────────────── -->
+    <template v-if="isSingleMode">
+      <div v-if="crypto.isLoading && !crypto.currentAccount" class="flex justify-center py-20">
+        <BaseSpinner size="lg" label="Chargement..." />
+      </div>
 
-    <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
-      {{ crypto.error }}
-    </BaseAlert>
+      <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
+        {{ crypto.error }}
+      </BaseAlert>
 
-    <!-- Account list -->
-    <div v-if="crypto.accounts.length" class="space-y-4">
-      <BaseCard
+      <BaseCard v-else-if="crypto.currentAccount">
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
+            <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatEur(crypto.currentAccount.total_invested) }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
+            <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
+              {{ formatEur(crypto.currentAccount.profit_loss) }}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-text-muted dark:text-text-dark-muted">Performance</p>
+            <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss_percentage)]">
+              {{ formatPercent(crypto.currentAccount.profit_loss_percentage) }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Tabs (Segmented Control) -->
+        <div class="mb-6">
+          <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
+            <button
+              v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
+              :key="tab.key"
+              @click="activeDetailTab = tab.key as any"
+              :class="[
+                'px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                activeDetailTab === tab.key
+                  ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                  : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Positions Tab -->
+        <div v-if="activeDetailTab === 'positions'">
+          <div v-if="crypto.currentAccount.positions?.length" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                  <th class="px-4 py-2">Nom</th>
+                  <th class="px-4 py-2 text-right">Quantité</th>
+                  <th class="px-4 py-2 text-right">PRU</th>
+                  <th class="px-4 py-2 text-right">Investi</th>
+                  <th class="px-4 py-2 text-right">Cours</th>
+                  <th class="px-4 py-2 text-right">Valeur</th>
+                  <th class="px-4 py-2 text-right">P/L</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                  <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
+                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.average_buy_price) }}</td>
+                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.total_invested) }}</td>
+                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.current_price) }}</td>
+                  <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(pos.current_value) }}</td>
+                  <td class="px-4 py-2.5 text-right">
+                    <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <BaseEmptyState v-else title="Aucune position" description="Ajoutez des transactions pour voir vos positions crypto" />
+        </div>
+
+        <!-- History Tab -->
+        <div v-else>
+          <div v-if="accountTransactions.length" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                  <th class="px-4 py-2">Date</th>
+                  <th class="px-4 py-2">Type</th>
+                  <th class="px-4 py-2">Token</th>
+                  <th class="px-4 py-2 text-right">Quantité</th>
+                  <th class="px-4 py-2 text-right">Prix</th>
+                  <th class="px-4 py-2 text-right">Total</th>
+                  <th class="px-4 py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                <tr v-for="tx in accountTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                  <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
+                  <td class="px-4 py-2.5">
+                    <BaseBadge :variant="
+                      tx.type === 'BUY' ? 'success' :
+                      tx.type === 'SPEND' ? 'danger' :
+                      tx.type === 'FEE' ? 'warning' :
+                      tx.type === 'REWARD' ? 'info' :
+                      tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                      tx.type === 'TRANSFER' ? 'secondary' :
+                      tx.type === 'EXIT' ? 'danger' :
+                      'secondary'
+                    ">
+                      {{ tx.type }}
+                    </BaseBadge>
+                  </td>
+                  <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
+                  <td
+                    class="px-4 py-2.5 text-right font-mono"
+                    :class="isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                  >
+                    {{ isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                  </td>
+                  <td class="px-4 py-2.5 text-right">{{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}</td>
+                  <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(tx.total_cost) }}</td>
+                  <td class="px-4 py-2.5 text-right">
+                    <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </BaseButton>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
+        </div>
+      </BaseCard>
+    </template>
+
+    <!-- ── MULTI MODE view ────────────────────────────────── -->
+    <template v-else>
+      <div v-if="crypto.isLoading && !crypto.accounts.length" class="flex justify-center py-20">
+        <BaseSpinner size="lg" label="Chargement..." />
+      </div>
+
+      <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
+        {{ crypto.error }}
+      </BaseAlert>
+
+      <div v-if="crypto.accounts.length" class="space-y-4">
+        <BaseCard
         v-for="account in crypto.accounts"
         :key="account.id"
         :class="[
@@ -743,7 +965,7 @@ onMounted(() => {
           </div>
         </div>
       </BaseCard>
-    </div>
+      </div><!-- end accounts wrapper -->
 
     <BaseEmptyState
       v-else-if="!crypto.isLoading"
@@ -752,6 +974,7 @@ onMounted(() => {
       action-label="Ajouter un portefeuille"
       @action="openCreateAccount"
     />
+    </template><!-- end MULTI MODE -->
 
     <!-- Create/Edit Account Modal -->
     <BaseModal :open="showAccountModal" :title="editingAccountId ? 'Modifier le portefeuille' : 'Nouveau portefeuille crypto'" @close="showAccountModal = false">
@@ -913,6 +1136,7 @@ onMounted(() => {
               : txForm.type === 'GAS_FEE' ? 'Quantité de gaz brûlée'
               : txForm.type === 'EXIT' ? 'Quantité vendue / dépensée'
               : txForm.type === 'NON_TAXABLE_EXIT' ? 'Quantité envoyée / donnée'
+              : txForm.type === 'TRANSFER_TO_ACCOUNT' ? 'Quantité à transférer'
               : 'Quantité reçue'
             "
             type="number"
@@ -974,13 +1198,36 @@ onMounted(() => {
 
           <!-- Prix manuel pour les types sans étape de cotation (REWARD, etc.) -->
           <BaseInput
-            v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'EXIT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'GAS_FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT'].includes(txForm.type)"
+            v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'EXIT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'GAS_FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT', 'TRANSFER_TO_ACCOUNT'].includes(txForm.type)"
             v-model="txForm.price_per_unit!"
             label="Prix unitaire (€)"
             type="number"
             step="any"
             min="0"
           />
+
+          <!-- Compte de destination (transfert inter-comptes) -->
+          <BaseSelect
+            v-if="txForm.type === 'TRANSFER_TO_ACCOUNT'"
+            v-model="transferToAccountId"
+            label="Compte de destination"
+            :options="crypto.accounts.filter(a => a.id !== txForm.account_id).map(a => ({ label: a.name, value: a.id }))"
+            required
+          />
+
+          <!-- Note PRU transfert -->
+          <div
+            v-if="txForm.type === 'TRANSFER_TO_ACCOUNT'"
+            class="flex items-start gap-2 px-3 py-2.5 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20"
+          >
+            <svg class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2"/>
+              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+            </svg>
+            <span class="text-xs text-info leading-relaxed">
+              L'ancre EUR du compte crédité sera calculée automatiquement : <strong>Quantité × PRU actuel du compte débité</strong>. Le coût de revient se transfère à l'identique, sans événement fiscal.
+            </span>
+          </div>
 
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
         </div>
@@ -1079,7 +1326,7 @@ onMounted(() => {
           </div>
 
           <!-- ── Achat Fiat & CRYPTO_DEPOSIT : frais EUR possibles ── -->
-          <template v-if="txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT'">
+          <template v-if="txForm.type !== 'BUY_SPOT' && txForm.type !== 'NON_TAXABLE_EXIT' && txForm.type !== 'TRANSFER_TO_ACCOUNT'">
             <!-- Toggle 3 options -->
             <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border">
               <button
@@ -1268,6 +1515,77 @@ onMounted(() => {
                 </div>
               </Transition>
             </div>
+          </template>
+
+          <!-- ── Transfert inter-comptes : frais on-chain (token uniquement) ── -->
+          <template v-else-if="txForm.type === 'TRANSFER_TO_ACCOUNT'">
+            <!-- Toggle 2 options -->
+            <div class="inline-flex items-center gap-0.5 bg-surface dark:bg-surface-dark p-1 rounded-button border border-surface-border dark:border-surface-dark-border">
+              <button
+                type="button"
+                @click="feeMode = 'none'; clearFeeLeg()"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-secondary transition-all',
+                  feeMode === 'none'
+                    ? 'bg-primary text-primary-content shadow-sm'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >Pas de frais</button>
+              <button
+                type="button"
+                @click="feeMode = 'token'; txForm.fee_included = false; txForm.fee_eur = undefined; txForm.fee_percentage = undefined"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-secondary transition-all',
+                  feeMode === 'token'
+                    ? 'bg-primary text-primary-content shadow-sm'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >Frais on-chain</button>
+            </div>
+
+            <!-- Pas de frais -->
+            <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+              <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais de réseau. Le solde est débité uniquement du montant transféré.</span>
+            </div>
+
+            <!-- Frais on-chain : symbole + quantité -->
+            <template v-else-if="feeMode === 'token'">
+              <div class="space-y-3">
+                <p class="text-xs text-text-muted dark:text-text-dark-muted">Frais de réseau prélevés dans un token (ex : ETH pour le gaz, BNB, SOL…)</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <BaseInput
+                    v-model="txForm.fee_symbol!"
+                    label="Token de frais"
+                    placeholder="ETH, BNB…"
+                    @input="(e: Event) => { txForm.fee_symbol = (e.target as HTMLInputElement).value.toUpperCase() }"
+                    required
+                  />
+                  <BaseInput
+                    v-model="txForm.fee_amount!"
+                    label="Quantité prélevée"
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                  />
+                </div>
+                <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+                  <div
+                    v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
+                    class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
+                  >
+                    <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits du solde du compte source.</p>
+                  </div>
+                </Transition>
+              </div>
+            </template>
           </template>
 
           <!-- ── Swap & Sortie non-imposable : frais en token, 3 options ── -->
