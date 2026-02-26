@@ -370,7 +370,7 @@ async function saveCryptoSettings(): Promise<void> {
               <div class="flex items-center gap-3">
                 <BaseInput
                   :model-value="usdEurRate !== null ? String(usdEurRate) : ''"
-                  @update:model-value="(v: string) => { usdEurRate = v !== '' ? parseFloat(v) : null }"
+                  @update:model-value="(v: string | number) => { usdEurRate = v !== '' ? parseFloat(String(v)) : null }"
                   placeholder="ex : 0.92 (auto si vide)"
                   type="number"
                   step="0.0001"
