@@ -23,7 +23,7 @@ import type {
 const crypto = useCryptoStore()
 const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
-const { fetchRate } = useCurrencyToggle()
+const { fetchRate, displayCurrency, usdToEurRate, toggleCurrency } = useCurrencyToggle()
 
 /** True when the user is in Patrimoine Global (single-account) mode. */
 const isSingleMode = computed(
@@ -34,6 +34,16 @@ const isSingleMode = computed(
 
 function formatEur(value: number | string | null | undefined): string {
   return formatCurrency(value, 'EUR')
+}
+
+function formatAmount(value: number | string | null | undefined): string {
+  if (displayCurrency.value === 'USD') {
+    if (value === null || value === undefined) return formatCurrency(null, 'USD')
+    const n = typeof value === 'string' ? Number(value) : value
+    if (isNaN(n)) return formatCurrency(null, 'USD')
+    return formatCurrency(n / usdToEurRate.value, 'USD')
+  }
+  return formatEur(value)
 }
 
 type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
@@ -711,6 +721,15 @@ onMounted(async () => {
   <div>
     <PageHeader title="Crypto" :description="isSingleMode ? 'Patrimoine global crypto-monnaies' : 'Portefeuilles et transactions crypto-monnaies'">
       <template #actions>
+        <!-- Currency toggle -->
+        <BaseButton
+          variant="outline"
+          size="sm"
+          @click="toggleCurrency"
+          :title="displayCurrency === 'USD' ? 'Afficher en euros' : 'Afficher en dollars'"
+        >
+          {{ displayCurrency === 'USD' ? '$ USD' : '€ EUR' }}
+        </BaseButton>
         <!-- SINGLE mode: actions directly in header (no account management) -->
         <template v-if="isSingleMode && selectedAccountId">
           <BaseButton variant="outline" size="sm" @click="openCsvImport(selectedAccountId!)" title="Importer CSV">
@@ -741,12 +760,12 @@ onMounted(async () => {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div>
             <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-            <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatEur(crypto.currentAccount.total_invested) }}</p>
+            <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
           </div>
           <div>
             <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
             <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
-              {{ formatEur(crypto.currentAccount.profit_loss) }}
+              {{ formatAmount(crypto.currentAccount.profit_loss) }}
             </p>
           </div>
           <div>
@@ -795,10 +814,10 @@ onMounted(async () => {
                 <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                   <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                   <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.average_buy_price) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.total_invested) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.current_price) }}</td>
-                  <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(pos.current_value) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                  <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
                   <td class="px-4 py-2.5 text-right">
                     <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
                   </td>
@@ -891,7 +910,7 @@ onMounted(async () => {
                   </td>
                   <!-- Prix column (temporarily hidden)
                   <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
-                    {{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}
+                    {{ tx.price_per_unit > 0 ? formatAmount(tx.price_per_unit) : '\u2014' }}
                   </td>
                   -->
                   <!-- Total column (temporarily hidden)
@@ -902,7 +921,7 @@ onMounted(async () => {
                       isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
                     ]"
                   >
-                    {{ formatEur(tx.total_cost) }}
+                    {{ formatAmount(tx.total_cost) }}
                   </td>
                   -->
                   <td class="px-4 py-2.5 text-right">
@@ -983,12 +1002,12 @@ onMounted(async () => {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatEur(crypto.currentAccount.total_invested) }}</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
               <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
-                {{ formatEur(crypto.currentAccount.profit_loss) }}
+                {{ formatAmount(crypto.currentAccount.profit_loss) }}
               </p>
             </div>
             <div>
@@ -1037,10 +1056,10 @@ onMounted(async () => {
                   <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.average_buy_price) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.current_price) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(pos.current_value) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
                     </td>
@@ -1133,7 +1152,7 @@ onMounted(async () => {
                     </td>
                     <!-- Prix column (temporarily hidden)
                     <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
-                      {{ tx.price_per_unit > 0 ? formatEur(tx.price_per_unit) : '\u2014' }}
+                      {{ tx.price_per_unit > 0 ? formatAmount(tx.price_per_unit) : '\u2014' }}
                     </td>
                     -->
                     <!-- Total column (temporarily hidden)
@@ -1144,7 +1163,7 @@ onMounted(async () => {
                         isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
                       ]"
                     >
-                      {{ formatEur(tx.total_cost) }}
+                      {{ formatAmount(tx.total_cost) }}
                     </td>
                     -->
                     <td class="px-4 py-2.5 text-right">
