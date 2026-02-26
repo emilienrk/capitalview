@@ -10,6 +10,7 @@ import {
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseAutocomplete,
 } from '@/components'
 import CsvImportModal from '@/components/CsvImportModal.vue'
+import BinanceImportModal from '@/components/imports/BinanceImportModal.vue'
 import type {
   CryptoAccountCreate,
   CryptoCompositeTransactionCreate,
@@ -53,7 +54,9 @@ type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
 const showCsvImportModal = ref(false)
+const showBinanceImportModal = ref(false)
 const csvImportAccountId = ref<string | null>(null)
+const binanceImportAccountId = ref<string | null>(null)
 const selectedAccountId = ref<string | null>(null)
 const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
@@ -358,6 +361,18 @@ function openAddTransaction(accountId: string): void {
 function openCsvImport(accountId: string): void {
   csvImportAccountId.value = accountId
   showCsvImportModal.value = true
+}
+
+function openBinanceImport(accountId: string): void {
+  binanceImportAccountId.value = accountId
+  showBinanceImportModal.value = true
+}
+
+async function handleBinanceImported(): Promise<void> {
+  showBinanceImportModal.value = false
+  if (binanceImportAccountId.value) {
+    await selectAccount(binanceImportAccountId.value)
+  }
 }
 
 async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Promise<boolean> {
@@ -738,6 +753,12 @@ onMounted(async () => {
             </svg>
             <span class="hidden sm:inline">Importer</span>
           </BaseButton>
+          <BaseButton variant="outline" size="sm" @click="openBinanceImport(selectedAccountId!)" title="Import Binance CSV">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span class="hidden sm:inline">Binance</span>
+          </BaseButton>
           <BaseButton @click="openAddTransaction(selectedAccountId!)">+ Transaction</BaseButton>
         </template>
         <!-- MULTI mode: account creation -->
@@ -984,6 +1005,12 @@ onMounted(async () => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               <span class="hidden sm:inline">Importer</span>
+            </BaseButton>
+            <BaseButton size="sm" variant="outline" @click.stop="openBinanceImport(account.id)" title="Import Binance CSV">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="hidden sm:inline">Binance</span>
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2017,6 +2044,14 @@ onMounted(async () => {
       asset-type="crypto"
       :on-import="handleCsvImport"
       @close="showCsvImportModal = false"
+    />
+
+    <!-- ── Binance Import Modal ────────────────────────── -->
+    <BinanceImportModal
+      :open="showBinanceImportModal"
+      :account-id="binanceImportAccountId || ''"
+      @close="showBinanceImportModal = false"
+      @imported="handleBinanceImported"
     />
   </div>
 </template>

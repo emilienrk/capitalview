@@ -368,6 +368,51 @@ export interface CryptoBulkImportResponse {
   transactions: CryptoTransactionBasicResponse[]
 }
 
+// ─── Binance Import ──────────────────────────────────────────
+
+export interface BinanceImportRowPreview {
+  operation: string
+  coin: string
+  change: number
+  mapped_type: string
+  mapped_symbol: string
+  mapped_amount: number
+  mapped_price: number
+}
+
+export interface BinanceImportGroupPreview {
+  group_index: number
+  timestamp: string
+  rows: BinanceImportRowPreview[]
+  summary: string
+  has_eur: boolean
+  auto_eur_amount: number | null
+  needs_eur_input: boolean
+  hint_usdc_amount: number | null
+  eur_amount: number | null
+}
+
+export interface BinanceImportPreviewRequest {
+  csv_content: string
+}
+
+export interface BinanceImportPreviewResponse {
+  total_groups: number
+  total_rows: number
+  groups_needing_eur: number
+  groups: BinanceImportGroupPreview[]
+}
+
+export interface BinanceImportConfirmRequest {
+  account_id: string
+  groups: BinanceImportGroupPreview[]
+}
+
+export interface BinanceImportConfirmResponse {
+  imported_count: number
+  groups_count: number
+}
+
 // ─── Notes ───────────────────────────────────────────────────
 
 export interface NoteCreate {

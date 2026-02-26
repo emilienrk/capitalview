@@ -16,6 +16,10 @@ import type {
   AssetSearchResult,
   AssetInfoResponse,
   CrossAccountTransferCreate,
+  BinanceImportPreviewResponse,
+  BinanceImportConfirmRequest,
+  BinanceImportConfirmResponse,
+  BinanceImportGroupPreview,
 } from '@/types'
 
 export const useCryptoStore = defineStore('crypto', () => {
@@ -253,6 +257,45 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
+  async function previewBinanceImport(csvContent: string): Promise<BinanceImportPreviewResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await apiClient.post<BinanceImportPreviewResponse>(
+        '/crypto/import/binance/preview',
+        { csv_content: csvContent },
+      )
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de l\'analyse du fichier'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function confirmBinanceImport(
+    accountId: string,
+    groups: BinanceImportGroupPreview[],
+  ): Promise<BinanceImportConfirmResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const payload: BinanceImportConfirmRequest = {
+        account_id: accountId,
+        groups,
+      }
+      return await apiClient.post<BinanceImportConfirmResponse>(
+        '/crypto/import/binance/confirm',
+        payload,
+      )
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de l\'import Binance'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function reset(): void {
     accounts.value = []
     currentAccount.value = null
@@ -282,6 +325,8 @@ export const useCryptoStore = defineStore('crypto', () => {
     updateTransaction,
     deleteTransaction,
     bulkImportTransactions,
+    previewBinanceImport,
+    confirmBinanceImport,
     reset,
   }
 })
