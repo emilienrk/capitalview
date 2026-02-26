@@ -17,7 +17,7 @@ from dtos import (
     PositionResponse,
     AccountSummaryResponse,
 )
-from dtos.crypto import CryptoCompositeTransactionCreate, FIAT_SYMBOLS
+from dtos.crypto import CryptoCompositeTransactionCreate, CrossAccountTransferCreate, FIAT_SYMBOLS
 from services.encryption import encrypt_data, decrypt_data, hash_index
 from services.market import get_crypto_info, get_crypto_price
 from services.crypto_account import _map_account_to_response
@@ -336,6 +336,182 @@ def create_composite_crypto_transaction(
     return rows
 
 
+def _compute_symbol_pru(
+    session: Session,
+    account_uuid: str,
+    symbol: str,
+    master_key: str,
+) -> Decimal:
+    """
+    Compute the PRU (average cost basis per unit) for a single symbol in an
+    account by replaying all transactions chronologically.
+    Returns 0 if the position doesn't exist or has no cost basis.
+    """
+    symbol_up = symbol.upper()
+    account_bidx = hash_index(account_uuid, master_key)
+
+    raw_txs = session.exec(
+        select(CryptoTransaction).where(
+            CryptoTransaction.account_id_bidx == account_bidx
+        )
+    ).all()
+    transactions = [_decrypt_transaction(tx, master_key) for tx in raw_txs]
+    transactions.sort(key=lambda x: x.executed_at)
+
+    # Build group-level anchor costs (FIAT_ANCHOR + fiat SPEND) to attribute
+    # to BUY rows — same logic as get_crypto_account_summary.
+    anchor_by_group: dict[str, Decimal] = {}
+    fiat_spend_by_group: dict[str, Decimal] = {}
+    for tx in transactions:
+        if tx.group_uuid:
+            if tx.type == "FIAT_ANCHOR":
+                anchor_by_group.setdefault(tx.group_uuid, Decimal("0"))
+                anchor_by_group[tx.group_uuid] += tx.amount * tx.price_per_unit
+            elif tx.type == "SPEND" and tx.symbol in FIAT_SYMBOLS:
+                fiat_spend_by_group.setdefault(tx.group_uuid, Decimal("0"))
+                fiat_spend_by_group[tx.group_uuid] += tx.amount * tx.price_per_unit
+
+    buy_group_cost: dict[str, Decimal] = {}
+    for tx in transactions:
+        if tx.type == "BUY" and tx.group_uuid:
+            if tx.group_uuid in anchor_by_group:
+                buy_group_cost[tx.id] = anchor_by_group[tx.group_uuid]
+            elif tx.group_uuid in fiat_spend_by_group:
+                buy_group_cost[tx.id] = fiat_spend_by_group[tx.group_uuid]
+            else:
+                buy_group_cost[tx.id] = Decimal("0")
+
+    total_amount = Decimal("0")
+    cost_basis = Decimal("0")
+
+    for tx in transactions:
+        if tx.symbol != symbol_up:
+            continue
+        match tx.type:
+            case "BUY":
+                group_cost = buy_group_cost.get(tx.id, tx.amount * tx.price_per_unit)
+                prev = total_amount
+                total_amount += tx.amount
+                if prev < 0 and tx.amount > 0:
+                    surviving = max(total_amount, Decimal("0"))
+                    cost_basis += group_cost * (surviving / tx.amount)
+                else:
+                    cost_basis += group_cost
+            case "REWARD" | "FIAT_DEPOSIT":
+                total_amount += tx.amount
+            case "SPEND" | "TRANSFER":
+                if total_amount > 0:
+                    fraction = min(tx.amount / total_amount, Decimal("1"))
+                    cost_basis -= cost_basis * fraction
+                    if cost_basis < 0:
+                        cost_basis = Decimal("0")
+                # Always subtract quantity — allows negative balance when SPEND
+                # precedes BUY, so subsequent BUY correctly nets the position.
+                total_amount -= tx.amount
+            case "FEE":
+                total_amount -= tx.amount
+
+    if total_amount <= 0:
+        return Decimal("0")
+    return cost_basis / total_amount
+
+
+def create_cross_account_transfer(
+    session: Session,
+    data: "CrossAccountTransferCreate",
+    user_uuid: str,
+    master_key: str,
+) -> List[TransactionResponse]:
+    """
+    Create a cross-account crypto transfer.
+    Emits:
+      - TRANSFER row (outbound, neutral) in the source account.
+      - FIAT_ANCHOR + BUY rows in the destination account (= CRYPTO_DEPOSIT
+        pattern), anchored to the book value leaving the source account
+        (quantity × PRU of source), so cost basis carries over correctly.
+      - Optional FEE row in the source account for on-chain / gas fees.
+    All rows share the same group_uuid for traceability.
+    """
+    from services.crypto_account import get_crypto_account as _get_account
+
+    src = _get_account(session, data.from_account_id, user_uuid, master_key)
+    if not src:
+        raise ValueError("Compte source introuvable ou acces refuse")
+
+    dst = _get_account(session, data.to_account_id, user_uuid, master_key)
+    if not dst:
+        raise ValueError("Compte destination introuvable ou acces refuse")
+
+    if data.from_account_id == data.to_account_id:
+        raise ValueError("Les comptes source et destination doivent etre differents")
+
+    pru = _compute_symbol_pru(session, data.from_account_id, data.symbol, master_key)
+    book_value = (data.amount * pru).quantize(Decimal("0.01"))
+
+    group = str(uuid4())
+    rows: List[TransactionResponse] = []
+
+    # 1. Outbound TRANSFER in source account
+    tx_out = CryptoTransactionCreate(
+        account_id=data.from_account_id,
+        symbol=data.symbol,
+        name=data.name,
+        type=CryptoTransactionType.TRANSFER,
+        amount=data.amount,
+        price_per_unit=Decimal("0"),
+        executed_at=data.executed_at,
+        tx_hash=data.tx_hash,
+        notes=data.notes,
+    )
+    rows.append(create_crypto_transaction(session, tx_out, master_key, group_uuid=group))
+
+    # 2a. FIAT_ANCHOR in destination — establishes cost basis equal to the
+    #     book value that left the source account (quantity × PRU_source).
+    if book_value > 0:
+        anchor_in = CryptoTransactionCreate(
+            account_id=data.to_account_id,
+            symbol="EUR",
+            type=CryptoTransactionType.FIAT_ANCHOR,
+            amount=book_value,
+            price_per_unit=Decimal("1"),
+            executed_at=data.executed_at,
+            notes=data.notes,
+        )
+        rows.append(create_crypto_transaction(session, anchor_in, master_key, group_uuid=group))
+
+    # 2b. Inbound BUY (price=0) in destination — quantity row paired with anchor
+    tx_in = CryptoTransactionCreate(
+        account_id=data.to_account_id,
+        symbol=data.symbol,
+        name=data.name,
+        type=CryptoTransactionType.BUY,
+        amount=data.amount,
+        price_per_unit=Decimal("0"),
+        executed_at=data.executed_at,
+        tx_hash=data.tx_hash,
+        notes=data.notes,
+    )
+    rows.append(create_crypto_transaction(session, tx_in, master_key, group_uuid=group))
+
+    # 3. Optional on-chain fee row in source account
+    fee_sym = (data.fee_symbol or "").upper()
+    fee_qty = data.fee_amount or Decimal("0")
+    if fee_sym and fee_qty > 0:
+        fee_row = CryptoTransactionCreate(
+            account_id=data.from_account_id,
+            symbol=fee_sym,
+            type=CryptoTransactionType.FEE,
+            amount=fee_qty,
+            price_per_unit=Decimal("0"),
+            executed_at=data.executed_at,
+            tx_hash=data.tx_hash,
+            notes=data.notes,
+        )
+        rows.append(create_crypto_transaction(session, fee_row, master_key, group_uuid=group))
+
+    return rows
+
+
 def get_crypto_transaction(
     session: Session,
     transaction_uuid: str,
@@ -366,6 +542,18 @@ def update_crypto_transaction(
         transaction.price_per_unit_enc = encrypt_data(str(data.price_per_unit), master_key)
     if data.executed_at is not None:
         transaction.executed_at_enc = encrypt_data(data.executed_at.isoformat(), master_key)
+        # Propagate the new date to all sibling transactions in the same group
+        if transaction.group_uuid:
+            siblings = session.exec(
+                select(CryptoTransaction).where(
+                    CryptoTransaction.group_uuid == transaction.group_uuid,
+                    CryptoTransaction.uuid != transaction.uuid,
+                )
+            ).all()
+            new_date_enc = encrypt_data(data.executed_at.isoformat(), master_key)
+            for sibling in siblings:
+                sibling.executed_at_enc = new_date_enc
+                session.add(sibling)
     if data.notes is not None:
         transaction.notes_enc = encrypt_data(data.notes, master_key)
     if data.tx_hash is not None:
@@ -413,7 +601,7 @@ def get_account_transactions(
 
     for tx in decoded:
         info = market_map.get(tx.symbol)
-        if info:
+        if info and tx.type != "FIAT_ANCHOR":
             tx.name = info["name"]
             tx.current_price = info["current_price"]
             if tx.current_price and tx.amount:
@@ -438,6 +626,8 @@ def get_crypto_account_summary(
     buy_group_cost: dict[str, Decimal] = {}
     anchor_by_group: dict[str, Decimal] = {}
     fiat_spend_by_group: dict[str, Decimal] = {}
+    groups_with_crypto_spend: set[str] = set()
+    groups_with_crypto_buy: set[str] = set()
     for tx in transactions:
         if tx.group_uuid:
             if tx.type == "FIAT_ANCHOR":
@@ -446,6 +636,10 @@ def get_crypto_account_summary(
             elif tx.type == "SPEND" and tx.symbol in FIAT_SYMBOLS:
                 fiat_spend_by_group.setdefault(tx.group_uuid, Decimal("0"))
                 fiat_spend_by_group[tx.group_uuid] += tx.amount * tx.price_per_unit
+            elif tx.type == "SPEND" and tx.symbol not in FIAT_SYMBOLS:
+                groups_with_crypto_spend.add(tx.group_uuid)
+            elif tx.type == "BUY" and tx.symbol not in FIAT_SYMBOLS:
+                groups_with_crypto_buy.add(tx.group_uuid)
 
     for tx in transactions:
         if tx.type == "BUY" and tx.group_uuid:
@@ -472,27 +666,30 @@ def get_crypto_account_summary(
 
         match tx.type:
             case "BUY":
+                group_cost = buy_group_cost.get(tx.id, tx_cost)
+                prev_amount = pos["total_amount"]
                 pos["total_amount"] += tx.amount
-                pos["cost_basis"] += buy_group_cost.get(tx.id, tx_cost)
+                if prev_amount < 0 and tx.amount > 0:
+                    surviving = max(pos["total_amount"], Decimal("0"))
+                    pos["cost_basis"] += group_cost * (surviving / tx.amount)
+                else:
+                    pos["cost_basis"] += group_cost
             case "REWARD" | "FIAT_DEPOSIT":
                 pos["total_amount"] += tx.amount
             case "FIAT_ANCHOR":
                 pass
             case "SPEND" | "TRANSFER" | "EXIT":
                 if pos["total_amount"] > 0:
+                    # Normal case: reduce cost basis proportionally
                     fraction = tx.amount / pos["total_amount"]
                     if fraction > Decimal("1"):
                         fraction = Decimal("1")
                     pos["cost_basis"] -= pos["cost_basis"] * fraction
-                    pos["total_amount"] -= tx.amount
-                    if pos["total_amount"] < 0:
-                        pos["total_amount"] = Decimal("0")
                     if pos["cost_basis"] < 0:
                         pos["cost_basis"] = Decimal("0")
+                pos["total_amount"] -= tx.amount
             case "FEE":
                 pos["total_amount"] -= tx.amount
-                if pos["total_amount"] < 0:
-                    pos["total_amount"] = Decimal("0")
                 pos["fees_eur"] += tx_cost
             case _:
                 pass
@@ -539,7 +736,18 @@ def get_crypto_account_summary(
             )
         )
 
-    total_invested_acc = sum(p.total_invested for p in positions)
+    net_external_deposits = Decimal("0")
+    for tx in transactions:
+        if tx.type == "FIAT_DEPOSIT" and tx.symbol in FIAT_SYMBOLS:
+            # External wire IN — only if NOT part of a crypto-sale (EXIT) group
+            if not tx.group_uuid or tx.group_uuid not in groups_with_crypto_spend:
+                net_external_deposits += tx.amount * tx.price_per_unit
+        elif tx.type == "SPEND" and tx.symbol in FIAT_SYMBOLS:
+            # External withdrawal OUT — only if NOT part of a crypto-buy group
+            if not tx.group_uuid or tx.group_uuid not in groups_with_crypto_buy:
+                net_external_deposits -= tx.amount * tx.price_per_unit
+
+    total_invested_acc = net_external_deposits
     total_fees_acc = sum(p.total_fees for p in positions)
     current_value_acc_list = [p.current_value for p in positions if p.current_value is not None]
     current_value_acc = sum(current_value_acc_list) if current_value_acc_list else None

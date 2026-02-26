@@ -21,6 +21,14 @@ const objectives = ref('')
 const isSaving = ref(false)
 const saveSuccess = ref(false)
 
+// Crypto module settings
+const cryptoModuleEnabled = ref(false)
+const cryptoMode = ref<'SINGLE' | 'MULTI'>('SINGLE')
+// null = use auto-fetched live rate
+const usdEurRate = ref<number | null>(null)
+const isSavingCrypto = ref(false)
+const saveCryptoSuccess = ref(false)
+
 onMounted(async () => {
   await settingsStore.fetchSettings()
   if (settingsStore.settings) {
@@ -29,6 +37,9 @@ onMounted(async () => {
     yieldExpectation.value = +(settingsStore.settings.yield_expectation * 100).toFixed(2)
     inflationRate.value = +(settingsStore.settings.inflation_rate * 100).toFixed(2)
     objectives.value = settingsStore.settings.objectives ?? ''
+    cryptoModuleEnabled.value = settingsStore.settings.crypto_module_enabled
+    cryptoMode.value = settingsStore.settings.crypto_mode
+    usdEurRate.value = settingsStore.settings.usd_eur_rate ?? null
   }
 })
 
@@ -58,6 +69,21 @@ async function saveObjectives(): Promise<void> {
   if (success) {
     saveSuccess.value = true
     setTimeout(() => { saveSuccess.value = false }, 2000)
+  }
+}
+
+async function saveCryptoSettings(): Promise<void> {
+  isSavingCrypto.value = true
+  saveCryptoSuccess.value = false
+  const success = await settingsStore.updateSettings({
+    crypto_module_enabled: cryptoModuleEnabled.value,
+    crypto_mode: cryptoModuleEnabled.value ? cryptoMode.value : undefined,
+    usd_eur_rate: usdEurRate.value,
+  })
+  isSavingCrypto.value = false
+  if (success) {
+    saveCryptoSuccess.value = true
+    setTimeout(() => { saveCryptoSuccess.value = false }, 2000)
   }
 }
 </script>
@@ -222,6 +248,159 @@ async function saveObjectives(): Promise<void> {
               </BaseButton>
             </div>
           </form>
+        </template>
+      </BaseCard>
+
+      <!-- Crypto Module -->
+      <BaseCard title="Module Crypto">
+        <template v-if="settingsStore.isLoading && !settingsStore.settings">
+          <div class="space-y-4">
+            <BaseSkeleton variant="rect" height="2.5rem" />
+          </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-text-muted dark:text-text-dark-muted mb-4">
+            Activez et configurez le suivi de vos crypto-monnaies.
+          </p>
+          <div class="space-y-5">
+            <!-- Enable toggle -->
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-medium text-text-main dark:text-text-dark-main">Activer le module Crypto</p>
+                <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                  Affiche l'entrée Crypto dans la navigation
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="cryptoModuleEnabled = !cryptoModuleEnabled"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                  cryptoModuleEnabled ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                ]"
+                :aria-pressed="cryptoModuleEnabled"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    cryptoModuleEnabled ? 'translate-x-6' : 'translate-x-1',
+                  ]"
+                />
+              </button>
+            </div>
+
+            <!-- Mode selection (only shown when module is enabled) -->
+            <Transition
+              enter-active-class="transition-all duration-200 overflow-hidden"
+              enter-from-class="opacity-0 max-h-0"
+              enter-to-class="opacity-100 max-h-96"
+              leave-active-class="transition-all duration-200 overflow-hidden"
+              leave-from-class="opacity-100 max-h-96"
+              leave-to-class="opacity-0 max-h-0"
+            >
+              <div v-if="cryptoModuleEnabled" class="space-y-3 pt-3 border-t border-surface-border dark:border-surface-dark-border">
+                <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Mode de gestion</p>
+
+                <!-- Option SINGLE -->
+                <label
+                  :class="[
+                    'flex items-start gap-3 p-4 rounded-card border-2 cursor-pointer transition-colors',
+                    cryptoMode === 'SINGLE'
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                      : 'border-surface-border dark:border-surface-dark-border hover:border-primary/40',
+                  ]"
+                >
+                  <input
+                    type="radio"
+                    name="cryptoMode"
+                    value="SINGLE"
+                    v-model="cryptoMode"
+                    class="mt-0.5 accent-primary shrink-0"
+                  />
+                  <div>
+                    <p class="font-medium text-text-main dark:text-text-dark-main">
+                      Patrimoine Global
+                      <span class="ml-2 text-xs font-semibold uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded-secondary">
+                        Recommandé
+                      </span>
+                    </p>
+                    <p class="text-sm text-text-muted dark:text-text-dark-muted mt-0.5">
+                      Vue centralisée de toutes vos crypto-monnaies — adapté à la majorité des investisseurs.
+                    </p>
+                  </div>
+                </label>
+
+                <!-- Option MULTI -->
+                <label
+                  :class="[
+                    'flex items-start gap-3 p-4 rounded-card border-2 cursor-pointer transition-colors',
+                    cryptoMode === 'MULTI'
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                      : 'border-surface-border dark:border-surface-dark-border hover:border-primary/40',
+                  ]"
+                >
+                  <input
+                    type="radio"
+                    name="cryptoMode"
+                    value="MULTI"
+                    v-model="cryptoMode"
+                    class="mt-0.5 accent-primary shrink-0"
+                  />
+                  <div>
+                    <p class="font-medium text-text-main dark:text-text-dark-main">
+                      Gestion Multi-Comptes
+                      <span class="ml-2 text-xs font-medium uppercase tracking-wide bg-surface-border dark:bg-surface-dark-border text-text-muted dark:text-text-dark-muted px-1.5 py-0.5 rounded-secondary">
+                        Avancé
+                      </span>
+                    </p>
+                    <p class="text-sm text-text-muted dark:text-text-dark-muted mt-0.5">
+                      Séparez vos portefeuilles par exchange ou cold wallet (ex : Binance, Ledger).
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </Transition>
+
+            <!-- Exchange rate -->            <div class="pt-3 border-t border-surface-border dark:border-surface-dark-border space-y-2">
+              <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Taux de change USD → EUR</p>
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                Les prix des crypto-actifs sont exprimés en USD par les fournisseurs de données.
+                Si le champ est vide, le taux est récupéré automatiquement (Yahoo Finance).
+              </p>
+              <div class="flex items-center gap-3">
+                <BaseInput
+                  :model-value="usdEurRate !== null ? String(usdEurRate) : ''"
+                  @update:model-value="(v: string) => { usdEurRate = v !== '' ? parseFloat(v) : null }"
+                  placeholder="ex : 0.92 (auto si vide)"
+                  type="number"
+                  step="0.0001"
+                  min="0.01"
+                  max="10"
+                  class="flex-1"
+                />
+                <button
+                  v-if="usdEurRate !== null"
+                  type="button"
+                  @click="usdEurRate = null"
+                  class="text-xs text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors whitespace-nowrap"
+                  title="Réinitialiser — utiliser le taux automatique"
+                >
+                  Effacer
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <BaseAlert v-if="saveCryptoSuccess" variant="success" class="flex-1 mr-4 py-1.5!">
+                Préférences Crypto sauvegardées.
+              </BaseAlert>
+              <div class="ml-auto">
+                <BaseButton @click="saveCryptoSettings" :loading="isSavingCrypto" size="sm">
+                  Enregistrer
+                </BaseButton>
+              </div>
+            </div>
+          </div>
         </template>
       </BaseCard>
 

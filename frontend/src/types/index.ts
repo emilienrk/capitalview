@@ -345,6 +345,19 @@ export interface CryptoCompositeTransactionCreate {
   notes?: string
 }
 
+export interface CrossAccountTransferCreate {
+  from_account_id: string
+  to_account_id: string
+  symbol: string
+  name?: string | null
+  amount: number
+  fee_symbol?: string | null
+  fee_amount?: number | null
+  executed_at: string
+  tx_hash?: string | null
+  notes?: string | null
+}
+
 export interface CryptoBulkImportRequest {
   account_id: string
   transactions: CryptoTransactionBulkCreate[]
@@ -392,6 +405,7 @@ export interface TransactionResponse {
   currency: string
   total_cost: number
   fees_percentage: number
+  group_uuid: string | null
   current_price: number | null
   current_value: number | null
   profit_loss: number | null
@@ -445,6 +459,10 @@ export interface UserSettingsUpdate {
   tax_pea_rate?: number
   yield_expectation?: number
   inflation_rate?: number
+  crypto_module_enabled?: boolean
+  crypto_mode?: 'SINGLE' | 'MULTI'
+  /** USD→EUR rate override. null/undefined = use auto-fetched live rate. */
+  usd_eur_rate?: number | null
 }
 
 export interface UserSettingsResponse {
@@ -454,6 +472,10 @@ export interface UserSettingsResponse {
   tax_pea_rate: number
   yield_expectation: number
   inflation_rate: number
+  crypto_module_enabled: boolean
+  crypto_mode: 'SINGLE' | 'MULTI'
+  /** null = live rate is used automatically */
+  usd_eur_rate: number | null
   created_at: string
   updated_at: string
 }
