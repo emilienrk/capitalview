@@ -49,6 +49,7 @@ const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
 const editingTxId = ref<string | null>(null)
+const editingGroupUuid = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
 
 const searchResults = ref<AssetSearchResult[]>([])
@@ -364,9 +365,10 @@ async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Pro
 
 function openEditTransaction(tx: any): void {
   editingTxId.value = tx.id
+  editingGroupUuid.value = tx.group_uuid || null
   txForm.account_id = selectedAccountId.value!
   txForm.symbol = tx.symbol
-  txForm.name = tx.name || ''
+  txForm.name = tx.type === 'FIAT_ANCHOR' ? 'Euro' : (tx.name || '')
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
@@ -444,15 +446,27 @@ function isNegativeType(type: string): boolean {
 }
 
 // -- Grouped & sorted transaction list for history view --
+const TX_TYPE_ORDER: Record<string, number> = {
+  REWARD: 0,
+  BUY: 1,
+  TRANSFER: 2,
+  SPEND: 3,
+  EXIT: 4,
+  FEE: 5,
+  FIAT_ANCHOR: 6,
+}
 
-/** Sort by date then group_uuid so rows from the same composite operation are contiguous. */
 const sortedTransactions = computed(() => {
   return [...accountTransactions.value].sort((a, b) => {
     const dateA = new Date(a.executed_at).getTime()
     const dateB = new Date(b.executed_at).getTime()
     if (dateA !== dateB) return dateA - dateB
-    if (a.group_uuid && b.group_uuid && a.group_uuid === b.group_uuid) return 0
-    return (a.group_uuid ?? '').localeCompare(b.group_uuid ?? '')
+    // Group together by group_uuid
+    const gA = a.group_uuid ?? ''
+    const gB = b.group_uuid ?? ''
+    if (gA !== gB) return gA.localeCompare(gB)
+    // Within the same group, sort by type priority
+    return (TX_TYPE_ORDER[a.type] ?? 99) - (TX_TYPE_ORDER[b.type] ?? 99)
   })
 })
 
@@ -781,9 +795,9 @@ onMounted(async () => {
                 <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                   <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                   <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.average_buy_price) }}</td>
-                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.total_invested) }}</td>
-                  <td class="px-4 py-2.5 text-right">{{ formatEur(pos.current_price) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.average_buy_price) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.total_invested) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.current_price) }}</td>
                   <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(pos.current_value) }}</td>
                   <td class="px-4 py-2.5 text-right">
                     <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
@@ -818,8 +832,8 @@ onMounted(async () => {
                     'transition-colors',
                     isInGroup(tx)
                       ? (groupColorIndex[tx.group_uuid!] === 0
-                          ? 'bg-primary/3 dark:bg-primary/6'
-                          : 'bg-secondary/3 dark:bg-secondary/6')
+                          ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
+                          : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
                       : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
                     isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
                     !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
@@ -1023,9 +1037,9 @@ onMounted(async () => {
                   <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatEur(pos.average_buy_price) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatEur(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatEur(pos.current_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatEur(pos.current_price) }}</td>
                     <td class="px-4 py-2.5 text-right font-medium">{{ formatEur(pos.current_value) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
@@ -1060,8 +1074,8 @@ onMounted(async () => {
                       'transition-colors',
                       isInGroup(tx)
                         ? (groupColorIndex[tx.group_uuid!] === 0
-                            ? 'bg-primary/3 dark:bg-primary/6'
-                            : 'bg-secondary/3 dark:bg-secondary/6')
+                            ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
+                            : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
                         : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
                       isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
                       !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
@@ -1200,27 +1214,24 @@ onMounted(async () => {
           </Transition>
         </div>
       </template>
-      <!-- Edit mode — simple form -->
+      <!-- Edit mode -->
       <form v-if="editingTxId" @submit.prevent="handleSubmitTransaction" class="space-y-4">
-        <BaseAutocomplete
-          :model-value="searchQuery"
-          @update:model-value="handleSearchInput"
-          @select="handleSelectAsset"
-          label="Nom de la crypto"
-          placeholder="Rechercher une crypto..."
-          :options="searchResults"
-          :display-value="formatAssetDisplay"
-          :loading="isSearching"
-          remote
-          required
-        />
-        <BaseInput v-model="txForm.symbol" label="Symbole" placeholder="BTC" />
-        <BaseSelect v-model="txForm.type" label="Type" :options="txTypeOptions" required />
-        <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
-          <BaseInput v-model="txForm.price_per_unit!" label="Prix unitaire (€)" type="number" step="any" min="0" required />
+        <!-- Read-only symbol & name -->
+        <div class="flex items-center gap-3 px-3 py-2.5 rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border">
+          <span class="font-semibold text-text-main dark:text-text-dark-main">{{ txForm.symbol }}</span>
+          <span v-if="txForm.name" class="text-sm text-text-muted dark:text-text-dark-muted">{{ txForm.name }}</span>
         </div>
-        <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
+        <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
+        <div>
+          <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
+          <p v-if="editingGroupUuid" class="mt-1.5 text-xs text-info dark:text-info flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2" />
+              <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+            </svg>
+            Modifier la date mettra aussi à jour les transactions liées du même groupe.
+          </p>
+        </div>
       </form>
 
       <!-- Create mode — multi-step wizard -->

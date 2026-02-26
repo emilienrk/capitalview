@@ -461,6 +461,8 @@ export interface UserSettingsUpdate {
   inflation_rate?: number
   crypto_module_enabled?: boolean
   crypto_mode?: 'SINGLE' | 'MULTI'
+  /** USD→EUR rate override. null/undefined = use auto-fetched live rate. */
+  usd_eur_rate?: number | null
 }
 
 export interface UserSettingsResponse {
@@ -472,6 +474,8 @@ export interface UserSettingsResponse {
   inflation_rate: number
   crypto_module_enabled: boolean
   crypto_mode: 'SINGLE' | 'MULTI'
+  /** null = live rate is used automatically */
+  usd_eur_rate: number | null
   created_at: string
   updated_at: string
 }

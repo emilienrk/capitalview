@@ -24,6 +24,8 @@ const saveSuccess = ref(false)
 // Crypto module settings
 const cryptoModuleEnabled = ref(false)
 const cryptoMode = ref<'SINGLE' | 'MULTI'>('SINGLE')
+// null = use auto-fetched live rate
+const usdEurRate = ref<number | null>(null)
 const isSavingCrypto = ref(false)
 const saveCryptoSuccess = ref(false)
 
@@ -37,6 +39,7 @@ onMounted(async () => {
     objectives.value = settingsStore.settings.objectives ?? ''
     cryptoModuleEnabled.value = settingsStore.settings.crypto_module_enabled
     cryptoMode.value = settingsStore.settings.crypto_mode
+    usdEurRate.value = settingsStore.settings.usd_eur_rate ?? null
   }
 })
 
@@ -75,6 +78,7 @@ async function saveCryptoSettings(): Promise<void> {
   const success = await settingsStore.updateSettings({
     crypto_module_enabled: cryptoModuleEnabled.value,
     crypto_mode: cryptoModuleEnabled.value ? cryptoMode.value : undefined,
+    usd_eur_rate: usdEurRate.value,
   })
   isSavingCrypto.value = false
   if (success) {
@@ -356,6 +360,35 @@ async function saveCryptoSettings(): Promise<void> {
                 </label>
               </div>
             </Transition>
+
+            <!-- Exchange rate -->            <div class="pt-3 border-t border-surface-border dark:border-surface-dark-border space-y-2">
+              <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Taux de change USD → EUR</p>
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                Les prix des crypto-actifs sont exprimés en USD par les fournisseurs de données.
+                Si le champ est vide, le taux est récupéré automatiquement (Yahoo Finance).
+              </p>
+              <div class="flex items-center gap-3">
+                <BaseInput
+                  :model-value="usdEurRate !== null ? String(usdEurRate) : ''"
+                  @update:model-value="(v: string) => { usdEurRate = v !== '' ? parseFloat(v) : null }"
+                  placeholder="ex : 0.92 (auto si vide)"
+                  type="number"
+                  step="0.0001"
+                  min="0.01"
+                  max="10"
+                  class="flex-1"
+                />
+                <button
+                  v-if="usdEurRate !== null"
+                  type="button"
+                  @click="usdEurRate = null"
+                  class="text-xs text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors whitespace-nowrap"
+                  title="Réinitialiser — utiliser le taux automatique"
+                >
+                  Effacer
+                </button>
+              </div>
+            </div>
 
             <div class="flex items-center justify-between pt-2">
               <BaseAlert v-if="saveCryptoSuccess" variant="success" class="flex-1 mr-4 py-1.5!">
