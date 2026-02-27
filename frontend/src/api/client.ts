@@ -14,8 +14,15 @@ const getApiBaseUrl = (): string => {
 
 const API_BASE_URL = getApiBaseUrl()
 
+let onSessionExpired: (() => void) | null = null
+
+export function setSessionExpiredHandler(handler: () => void) {
+  onSessionExpired = handler
+}
+
 class ApiClient {
   private accessToken: string | null = null
+  private refreshPromise: Promise<string | null> | null = null
 
   setToken(token: string | null) {
     this.accessToken = token
@@ -23,6 +30,36 @@ class ApiClient {
 
   getToken(): string | null {
     return this.accessToken
+  }
+
+  private async tryRefresh(): Promise<string | null> {
+    if (this.refreshPromise) return this.refreshPromise
+
+    this.refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          this.setToken(data.access_token)
+          return data.access_token as string
+        }
+        this.setToken(null)
+        onSessionExpired?.()
+        return null
+      })
+      .catch(() => {
+        this.setToken(null)
+        onSessionExpired?.()
+        return null
+      })
+      .finally(() => {
+        this.refreshPromise = null
+      })
+
+    return this.refreshPromise
   }
 
   private async request<T>(
@@ -45,35 +82,17 @@ class ApiClient {
     })
 
     if (response.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
-      try {
-        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+      const newToken = await this.tryRefresh()
+
+      if (newToken) {
+        ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          ...options,
+          headers,
           credentials: 'include',
         })
-
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json()
-          const newAccessToken = data.access_token
-
-          this.setToken(newAccessToken)
-
-          ;(headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`
-
-          response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers,
-            credentials: 'include',
-          })
-        } else {
-          this.setToken(null)
-          window.location.href = '/login'
-          throw new Error('Session expired')
-        }
-      } catch (error) {
-        this.setToken(null)
-        window.location.href = '/login'
-        throw error
+      } else {
+        throw new Error('Session expired')
       }
     }
 
