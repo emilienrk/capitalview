@@ -57,6 +57,9 @@ const showCsvImportModal = ref(false)
 const showBinanceImportModal = ref(false)
 const csvImportAccountId = ref<string | null>(null)
 const binanceImportAccountId = ref<string | null>(null)
+// Import dropdown state: SINGLE mode (boolean) and MULTI mode (account id)
+const showImportDropdown = ref(false)
+const importDropdownAccountId = ref<string | null>(null)
 const selectedAccountId = ref<string | null>(null)
 const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
@@ -747,18 +750,41 @@ onMounted(async () => {
         </BaseButton>
         <!-- SINGLE mode: actions directly in header (no account management) -->
         <template v-if="isSingleMode && selectedAccountId">
-          <BaseButton variant="outline" size="sm" @click="openCsvImport(selectedAccountId!)" title="Importer CSV">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <span class="hidden sm:inline">Importer</span>
-          </BaseButton>
-          <BaseButton variant="outline" size="sm" @click="openBinanceImport(selectedAccountId!)" title="Import Binance CSV">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span class="hidden sm:inline">Binance</span>
-          </BaseButton>
+          <!-- Import dropdown -->
+          <div class="relative">
+            <BaseButton variant="outline" size="sm" @click.stop="showImportDropdown = !showImportDropdown">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              <span class="hidden sm:inline">Importer</span>
+              <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </BaseButton>
+            <!-- Overlay to close on outside click -->
+            <div v-if="showImportDropdown" class="fixed inset-0 z-40" @click="showImportDropdown = false" />
+            <!-- Dropdown menu -->
+            <div v-if="showImportDropdown" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-[180px] overflow-hidden">
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openCsvImport(selectedAccountId!); showImportDropdown = false"
+              >
+                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV générique
+              </button>
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openBinanceImport(selectedAccountId!); showImportDropdown = false"
+              >
+                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Binance CSV
+              </button>
+            </div>
+          </div>
           <BaseButton @click="openAddTransaction(selectedAccountId!)">+ Transaction</BaseButton>
         </template>
         <!-- MULTI mode: account creation -->
@@ -1000,18 +1026,41 @@ onMounted(async () => {
               <span class="sm:hidden text-lg leading-none">+</span>
               <span class="hidden sm:inline">+ Transaction</span>
             </BaseButton>
-            <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              <span class="hidden sm:inline">Importer</span>
-            </BaseButton>
-            <BaseButton size="sm" variant="outline" @click.stop="openBinanceImport(account.id)" title="Import Binance CSV">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span class="hidden sm:inline">Binance</span>
-            </BaseButton>
+            <!-- Import dropdown -->
+            <div class="relative">
+              <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span class="hidden sm:inline">Importer</span>
+                <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </BaseButton>
+              <!-- Overlay to close on outside click -->
+              <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
+              <!-- Dropdown menu -->
+              <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-[180px] overflow-hidden">
+                <button
+                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                  @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
+                >
+                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  CSV générique
+                </button>
+                <button
+                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                  @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
+                >
+                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Binance CSV
+                </button>
+              </div>
+            </div>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
