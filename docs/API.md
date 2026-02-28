@@ -1,7 +1,5 @@
 # CapitalView API
 
-**Version**: 0.1.0
-
 Personal wealth management and investment tracking API.
 
 ## Base URL
@@ -64,7 +62,7 @@ curl -X GET https://api.capitalview.example.com/bank/accounts \
   -H "X-Master-Key: $MASTER_KEY"
 ```
 
-⚠️ **Warning**: `X-Return-Master-Key: true` is designed for **server-side automation** (n8n, scripts, Postman). Do not use it in the **web frontend** (Vue.js) — the browser should rely on the HttpOnly cookie instead, which is protected against XSS.
+**Warning**: `X-Return-Master-Key: true` is designed for **server-side automation** (n8n, scripts, Postman). Do not use it in the **web frontend** (Vue.js) — the browser should rely on the HttpOnly cookie instead, which is protected against XSS.
 
 ### Registration
 
@@ -1310,7 +1308,7 @@ Requires authentication **and** the Master Key.
 {
   "status": "ok",
   "app": "CapitalView API",
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
 ```
 

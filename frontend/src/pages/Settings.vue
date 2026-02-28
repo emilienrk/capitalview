@@ -420,7 +420,7 @@ async function saveCryptoSettings(): Promise<void> {
       <!-- Version -->
       <div class="text-center py-4">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
-          CapitalView v0.1.0 — &copy; 2026
+          CapitalView v1.0.0 — &copy; 2026
         </p>
       </div>
     </div>
