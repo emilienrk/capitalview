@@ -786,8 +786,8 @@ onMounted(async () => {
       <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
         {{ crypto.error }}
       </BaseAlert>
-      <BaseAlert v-if="txWarning" variant="danger" dismissible @dismiss="txWarning = null" class="mb-6">
-        ⚠️ {{ txWarning }}
+      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
+        {{ txWarning }}
       </BaseAlert>
 
       <BaseCard v-if="!crypto.error && crypto.currentAccount">
@@ -966,8 +966,8 @@ onMounted(async () => {
       <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
         {{ crypto.error }}
       </BaseAlert>
-      <BaseAlert v-if="txWarning" variant="danger" dismissible @dismiss="txWarning = null" class="mb-6">
-        ⚠️ {{ txWarning }}
+      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
+        {{ txWarning }}
       </BaseAlert>
 
       <div v-if="crypto.accounts.length" class="space-y-4">
