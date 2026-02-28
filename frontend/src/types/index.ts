@@ -302,6 +302,12 @@ export interface CryptoTransactionBasicResponse {
   tx_hash: string | null
 }
 
+/** Wrapper returned by POST /transactions/composite and cross-account-transfer. */
+export interface CryptoCompositeTransactionResponse {
+  rows: CryptoTransactionBasicResponse[]
+  warning: string | null
+}
+
 export interface CryptoTransactionUpdate {
   symbol?: string
   name?: string
@@ -321,6 +327,7 @@ export interface CryptoTransactionBulkCreate {
   executed_at: string
   notes?: string
   tx_hash?: string
+  group_uuid?: string | null
 }
 
 export interface CryptoCompositeTransactionCreate {
@@ -366,6 +373,35 @@ export interface CryptoBulkImportRequest {
 export interface CryptoBulkImportResponse {
   imported_count: number
   transactions: CryptoTransactionBasicResponse[]
+}
+
+/** One composite operation row for the generic CSV import (one line = one trade). */
+export interface CryptoCompositeBulkItem {
+  type: 'BUY' | 'REWARD' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'CRYPTO_DEPOSIT' | 'TRANSFER' | 'EXIT' | 'GAS_FEE' | 'NON_TAXABLE_EXIT'
+  symbol: string
+  name?: string
+  amount: number
+  eur_amount?: number
+  quote_symbol?: string
+  quote_amount?: number
+  fee_included?: boolean
+  fee_symbol?: string
+  fee_amount?: number
+  executed_at: string
+  tx_hash?: string
+  notes?: string
+}
+
+export interface CryptoBulkCompositeImportRequest {
+  account_id: string
+  transactions: CryptoCompositeBulkItem[]
+}
+
+export interface CryptoBulkCompositeImportResponse {
+  /** Total number of atomic rows created in the database. */
+  imported_count: number
+  /** Number of composite operations (CSV lines) processed. */
+  groups_count: number
 }
 
 // ─── Binance Import ──────────────────────────────────────────

@@ -32,14 +32,20 @@ const csvTemplate = computed(() => {
   if (props.assetType === 'stocks') {
     return 'isin,type,amount,price_per_unit,fees,executed_at,notes'
   }
-  return 'symbol,type,amount,price_per_unit,fees,fees_symbol,executed_at,tx_hash,notes'
+  // Composite format: one line = one full operation (decomposed server-side)
+  return 'symbol,type,amount,eur_amount,quote_symbol,quote_amount,fee_symbol,fee_amount,fee_included,executed_at,tx_hash,notes'
 })
 
 const csvExample = computed(() => {
   if (props.assetType === 'stocks') {
     return 'US0378331005,BUY,10,150.50,2.99,2026-01-15T10:30:00,Premier achat\nUS88160R1014,SELL,5,250.00,1.50,2026-01-20T14:00:00,'
   }
-  return 'BTC,BUY,0.5,45000.00,15.00,USDT,2026-01-15T10:30:00,0x123abc...,\nETH,SELL,2,3000.00,8.00,USDT,2026-01-20T14:00:00,0x456def...,'
+  return (
+    'BTC,BUY,0.1,3000,EUR,3000,,,,2026-01-15T10:30:00,,Premier achat\n' +
+    'BTC,BUY,0.1,2760,USDC,3000,BNB,0.01,,2026-01-20T14:00:00,0xabc,Swap avec frais\n' +
+    'ETH,REWARD,2.5,0,,,,,,2026-01-25T09:00:00,,Staking\n' +
+    'BTC,CRYPTO_DEPOSIT,0.5,15000,,,,,,2026-01-28T12:00:00,0xdef,Transfert entrant'
+  )
 })
 
 function onFileSelect(event: Event): void {
@@ -85,15 +91,8 @@ function parseCSV(text: string): void {
     delimiter = '\t'
   }
   
-  console.log('Detected delimiter:', delimiter === ';' ? 'SEMICOLON' : delimiter === '\t' ? 'TAB' : 'COMMA')
-  
-  // Normalize French decimal commas to dots
-  let normalizedText = text
-  if (delimiter !== ',') {
-    normalizedText = text.replace(/(\d),(\d)/g, '$1.$2')
-  } else {
-    normalizedText = text.replace(/(\d),(\d)/g, '$1.$2')
-  }
+  // Normalize French decimal commas to dots (always safe — regex only matches digit,digit)
+  const normalizedText = text.replace(/(\d),(\d)/g, '$1.$2')
   
   // Normalize DD/MM/YYYY dates to ISO
   const lines = normalizedText.trim().split('\n').map((line, index) => {
@@ -107,7 +106,6 @@ function parseCSV(text: string): void {
   }
 
   const headers = lines[0]?.split(delimiter).map((h) => h.trim()) || []
-  console.log('Headers detected:', headers)
   const transactions: any[] = []
 
   for (let i = 1; i < lines.length; i++) {
@@ -115,7 +113,6 @@ function parseCSV(text: string): void {
     if (!line || !line.trim()) continue
     
     const values = line.split(delimiter).map((v) => v.trim())
-    console.log(`Ligne ${i + 1} raw values:`, values)
 
     // Pad missing optional trailing columns
     while (values.length < headers.length) {
@@ -133,20 +130,24 @@ function parseCSV(text: string): void {
     headers.forEach((header, index) => {
       const value = values[index]
 
-      if (['amount', 'price_per_unit', 'fees'].includes(header)) {
+      // Numeric fields
+      const numericFields = props.assetType === 'stocks'
+        ? ['amount', 'price_per_unit', 'fees']
+        : ['amount', 'eur_amount', 'quote_amount', 'fee_amount']
+
+      if (numericFields.includes(header)) {
         const numValue = value ? parseFloat(value) : 0
         if (value && isNaN(numValue)) {
           error.value = `Ligne ${i + 1} : valeur numérique invalide pour "${header}" : "${value}"`
           return
         }
         transaction[header] = numValue
+      } else if (header === 'fee_included') {
+        transaction[header] = value === '' || value === undefined || value.toLowerCase() !== 'false'
       } else {
         transaction[header] = value || ''
       }
     })
-
-    // Debug log
-    console.log(`Ligne ${i + 1} parsed:`, { transaction, requiredFields: ['symbol', 'type', 'amount', 'price_per_unit', 'executed_at'] })
 
     try {
       validateTransaction(transaction)
@@ -162,13 +163,15 @@ function parseCSV(text: string): void {
 }
 
 function validateTransaction(transaction: any): void {
-  if (transaction.symbol) transaction.symbol = String(transaction.symbol).trim()
+  if (transaction.symbol) transaction.symbol = String(transaction.symbol).trim().toUpperCase()
   if (transaction.isin) transaction.isin = String(transaction.isin).trim()
-  if (transaction.type) transaction.type = String(transaction.type).trim()
+  if (transaction.type) transaction.type = String(transaction.type).trim().toUpperCase()
+  if (transaction.quote_symbol) transaction.quote_symbol = String(transaction.quote_symbol).trim().toUpperCase()
+  if (transaction.fee_symbol) transaction.fee_symbol = String(transaction.fee_symbol).trim().toUpperCase()
 
   const requiredFields = props.assetType === 'stocks'
     ? ['isin', 'type', 'amount', 'price_per_unit', 'executed_at']
-    : ['symbol', 'type', 'amount', 'price_per_unit', 'executed_at']
+    : ['symbol', 'type', 'amount', 'executed_at']
 
   for (const field of requiredFields) {
     if (!transaction[field] || transaction[field] === '') {
@@ -180,30 +183,49 @@ function validateTransaction(transaction: any): void {
     if (transaction.isin.length !== 12) {
       throw new Error('Format ISIN invalide (doit faire 12 caractères)')
     }
-  } else {
-    if (!transaction.symbol || transaction.symbol === '') {
-      throw new Error('Champ "symbol" manquant ou vide')
+
+    const validTypes = ['BUY', 'SELL', 'DEPOSIT', 'DIVIDEND']
+    if (!validTypes.includes(transaction.type)) {
+      throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
     }
-  }
 
-  const validTypes = props.assetType === 'stocks'
-    ? ['BUY', 'SELL', 'DEPOSIT', 'DIVIDEND']
-    : ['BUY', 'SPEND', 'STAKING', 'DEPOSIT', 'WITHDRAW', 'FEE']
+    if (isNaN(transaction.price_per_unit) || transaction.price_per_unit < 0) {
+      throw new Error('Prix invalide (doit être >= 0)')
+    }
 
-  if (!validTypes.includes(transaction.type)) {
-    throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
+    if (transaction.fees !== undefined && (isNaN(transaction.fees) || transaction.fees < 0)) {
+      throw new Error('Frais invalides')
+    }
+  } else {
+    const validTypes = [
+      'BUY', 'REWARD', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW',
+      'CRYPTO_DEPOSIT', 'TRANSFER', 'EXIT', 'GAS_FEE', 'NON_TAXABLE_EXIT',
+    ]
+    if (!validTypes.includes(transaction.type)) {
+      throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
+    }
+
+    // BUY and CRYPTO_DEPOSIT need eur_amount
+    if (['BUY', 'CRYPTO_DEPOSIT', 'EXIT'].includes(transaction.type)) {
+      const eur = Number(transaction.eur_amount)
+      if (isNaN(eur) || eur < 0) {
+        throw new Error(`"eur_amount" invalide pour le type ${transaction.type}`)
+      }
+    }
+
+    // quote_amount required if quote_symbol is set
+    if (transaction.quote_symbol && (!transaction.quote_amount || Number(transaction.quote_amount) <= 0)) {
+      throw new Error('"quote_amount" requis quand "quote_symbol" est renseigné')
+    }
+
+    // fee_amount required if fee_symbol is set
+    if (transaction.fee_symbol && (!transaction.fee_amount || Number(transaction.fee_amount) <= 0)) {
+      throw new Error('"fee_amount" requis quand "fee_symbol" est renseigné')
+    }
   }
 
   if (isNaN(transaction.amount) || transaction.amount <= 0) {
     throw new Error('Quantité invalide (doit être > 0)')
-  }
-
-  if (isNaN(transaction.price_per_unit) || transaction.price_per_unit < 0) {
-    throw new Error('Prix invalide (doit être >= 0)')
-  }
-
-  if (transaction.fees !== undefined && (isNaN(transaction.fees) || transaction.fees < 0)) {
-    throw new Error('Frais invalides')
   }
 
   if (!isValidDate(transaction.executed_at)) {

@@ -9,8 +9,12 @@ import type {
   CryptoTransactionCreate,
   CryptoTransactionUpdate,
   CryptoTransactionBasicResponse,
+  CryptoCompositeTransactionResponse,
   CryptoBulkImportRequest,
   CryptoBulkImportResponse,
+  CryptoBulkCompositeImportRequest,
+  CryptoBulkCompositeImportResponse,
+  CryptoCompositeBulkItem,
   AccountSummaryResponse,
   TransactionResponse,
   AssetSearchResult,
@@ -177,11 +181,11 @@ export const useCryptoStore = defineStore('crypto', () => {
 
   async function createCompositeTransaction(
     data: CryptoCompositeTransactionCreate,
-  ): Promise<CryptoTransactionBasicResponse[] | null> {
+  ): Promise<CryptoCompositeTransactionResponse | null> {
     isLoading.value = true
     error.value = null
     try {
-      return await apiClient.post<CryptoTransactionBasicResponse[]>(
+      return await apiClient.post<CryptoCompositeTransactionResponse>(
         '/crypto/transactions/composite',
         data,
       )
@@ -195,11 +199,11 @@ export const useCryptoStore = defineStore('crypto', () => {
 
   async function createCrossAccountTransfer(
     data: CrossAccountTransferCreate,
-  ): Promise<CryptoTransactionBasicResponse[] | null> {
+  ): Promise<CryptoCompositeTransactionResponse | null> {
     isLoading.value = true
     error.value = null
     try {
-      return await apiClient.post<CryptoTransactionBasicResponse[]>(
+      return await apiClient.post<CryptoCompositeTransactionResponse>(
         '/crypto/transactions/cross-account-transfer',
         data,
       )
@@ -249,6 +253,26 @@ export const useCryptoStore = defineStore('crypto', () => {
       }
       const result = await apiClient.post<CryptoBulkImportResponse>('/crypto/transactions/bulk', data)
       return result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de l\'import'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function bulkCompositeImportTransactions(
+    accountId: string,
+    transactions: CryptoCompositeBulkItem[],
+  ): Promise<CryptoBulkCompositeImportResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const data: CryptoBulkCompositeImportRequest = {
+        account_id: accountId,
+        transactions,
+      }
+      return await apiClient.post<CryptoBulkCompositeImportResponse>('/crypto/transactions/bulk-composite', data)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors de l\'import'
       return null
@@ -325,6 +349,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     updateTransaction,
     deleteTransaction,
     bulkImportTransactions,
+    bulkCompositeImportTransactions,
     previewBinanceImport,
     confirmBinanceImport,
     reset,
