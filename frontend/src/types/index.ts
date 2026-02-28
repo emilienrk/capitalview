@@ -302,6 +302,12 @@ export interface CryptoTransactionBasicResponse {
   tx_hash: string | null
 }
 
+/** Wrapper returned by POST /transactions/composite and cross-account-transfer. */
+export interface CryptoCompositeTransactionResponse {
+  rows: CryptoTransactionBasicResponse[]
+  warning: string | null
+}
+
 export interface CryptoTransactionUpdate {
   symbol?: string
   name?: string
@@ -321,6 +327,7 @@ export interface CryptoTransactionBulkCreate {
   executed_at: string
   notes?: string
   tx_hash?: string
+  group_uuid?: string | null
 }
 
 export interface CryptoCompositeTransactionCreate {
@@ -366,6 +373,80 @@ export interface CryptoBulkImportRequest {
 export interface CryptoBulkImportResponse {
   imported_count: number
   transactions: CryptoTransactionBasicResponse[]
+}
+
+/** One composite operation row for the generic CSV import (one line = one trade). */
+export interface CryptoCompositeBulkItem {
+  type: 'BUY' | 'REWARD' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'CRYPTO_DEPOSIT' | 'TRANSFER' | 'EXIT' | 'GAS_FEE' | 'NON_TAXABLE_EXIT'
+  symbol: string
+  name?: string
+  amount: number
+  eur_amount?: number
+  quote_symbol?: string
+  quote_amount?: number
+  fee_included?: boolean
+  fee_symbol?: string
+  fee_amount?: number
+  executed_at: string
+  tx_hash?: string
+  notes?: string
+}
+
+export interface CryptoBulkCompositeImportRequest {
+  account_id: string
+  transactions: CryptoCompositeBulkItem[]
+}
+
+export interface CryptoBulkCompositeImportResponse {
+  /** Total number of atomic rows created in the database. */
+  imported_count: number
+  /** Number of composite operations (CSV lines) processed. */
+  groups_count: number
+}
+
+// ─── Binance Import ──────────────────────────────────────────
+
+export interface BinanceImportRowPreview {
+  operation: string
+  coin: string
+  change: number
+  mapped_type: string
+  mapped_symbol: string
+  mapped_amount: number
+  mapped_price: number
+}
+
+export interface BinanceImportGroupPreview {
+  group_index: number
+  timestamp: string
+  rows: BinanceImportRowPreview[]
+  summary: string
+  has_eur: boolean
+  auto_eur_amount: number | null
+  needs_eur_input: boolean
+  hint_usdc_amount: number | null
+  eur_amount: number | null
+}
+
+export interface BinanceImportPreviewRequest {
+  csv_content: string
+}
+
+export interface BinanceImportPreviewResponse {
+  total_groups: number
+  total_rows: number
+  groups_needing_eur: number
+  groups: BinanceImportGroupPreview[]
+}
+
+export interface BinanceImportConfirmRequest {
+  account_id: string
+  groups: BinanceImportGroupPreview[]
+}
+
+export interface BinanceImportConfirmResponse {
+  imported_count: number
+  groups_count: number
 }
 
 // ─── Notes ───────────────────────────────────────────────────
@@ -461,6 +542,7 @@ export interface UserSettingsUpdate {
   inflation_rate?: number
   crypto_module_enabled?: boolean
   crypto_mode?: 'SINGLE' | 'MULTI'
+  crypto_show_negative_positions?: boolean
   /** USD→EUR rate override. null/undefined = use auto-fetched live rate. */
   usd_eur_rate?: number | null
 }
@@ -474,6 +556,7 @@ export interface UserSettingsResponse {
   inflation_rate: number
   crypto_module_enabled: boolean
   crypto_mode: 'SINGLE' | 'MULTI'
+  crypto_show_negative_positions: boolean
   /** null = live rate is used automatically */
   usd_eur_rate: number | null
   created_at: string

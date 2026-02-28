@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiClient } from '@/api/client'
+import { apiClient, setSessionExpiredHandler } from '@/api/client'
 import type { User, TokenResponse, LoginRequest, RegisterRequest } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -25,7 +25,19 @@ export const useAuthStore = defineStore('auth', () => {
   function clearSession() {
     accessToken.value = null
     user.value = null
+    isAuthenticated.value = false
     apiClient.setToken(null)
+  }
+
+  function _registerSessionExpiredHandler() {
+    setSessionExpiredHandler(() => {
+      clearSession()
+      import('@/router/index').then(({ default: router }) => {
+        if (router.currentRoute.value.meta.requiresAuth) {
+          router.push({ name: 'login' })
+        }
+      })
+    })
   }
 
   function resetForms() {
@@ -112,6 +124,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function checkAuth(): Promise<void> {
     if (isInitialized.value) return
+
+    // Register the session-expired callback so the client can invalidate the
+    // session without reloading the page if a refresh token ever becomes invalid
+    // while the user is browsing.
+    _registerSessionExpiredHandler()
 
     try {
       const response = await apiClient.post<TokenResponse>('/auth/refresh')

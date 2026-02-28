@@ -10,6 +10,7 @@ import {
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseAutocomplete,
 } from '@/components'
 import CsvImportModal from '@/components/CsvImportModal.vue'
+import BinanceImportModal from '@/components/imports/BinanceImportModal.vue'
 import type {
   CryptoAccountCreate,
   CryptoCompositeTransactionCreate,
@@ -17,7 +18,7 @@ import type {
   CryptoTransactionUpdate,
   TransactionResponse,
   AssetSearchResult,
-  CryptoTransactionBulkCreate,
+  CryptoCompositeBulkItem,
 } from '@/types'
 
 const crypto = useCryptoStore()
@@ -53,7 +54,12 @@ type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
 const showCsvImportModal = ref(false)
+const showBinanceImportModal = ref(false)
 const csvImportAccountId = ref<string | null>(null)
+const binanceImportAccountId = ref<string | null>(null)
+// Import dropdown state: SINGLE mode (boolean) and MULTI mode (account id)
+const showImportDropdown = ref(false)
+const importDropdownAccountId = ref<string | null>(null)
 const selectedAccountId = ref<string | null>(null)
 const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
@@ -61,6 +67,8 @@ const activeDetailTab = ref<'positions' | 'history'>('positions')
 const editingTxId = ref<string | null>(null)
 const editingGroupUuid = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
+/** Non-blocking balance warning shown after a transaction is created. */
+const txWarning = ref<string | null>(null)
 
 const searchResults = ref<AssetSearchResult[]>([])
 const isSearching = ref(false)
@@ -94,8 +102,6 @@ const txForm = reactive<TxFormData>({
   fee_amount: undefined,
   executed_at: new Date().toISOString().slice(0, 16),
 })
-
-const FIAT_SYMBOLS = new Set(['EUR'])
 
 const quoteMode = ref<'EUR' | 'crypto'>('EUR')
 
@@ -142,15 +148,6 @@ const calculatedPricePerUnit = computed((): number | null => {
   const qAmt = Number(txForm.quote_amount)
   if (!qty || !qAmt) return null
   return qAmt / qty
-})
-
-const estimatedFeeEur = computed((): number | null => {
-  const baseAmount = Number(txForm.quote_amount || txForm.eur_amount || 0)
-  if (!baseAmount) return null
-  if (!txForm.fee_included && txForm.fee_eur) {
-    return Number(txForm.fee_eur)
-  }
-  return null
 })
 
 // Always resolve fee base in EUR, not in crypto quote amount.
@@ -360,11 +357,23 @@ function openCsvImport(accountId: string): void {
   showCsvImportModal.value = true
 }
 
-async function handleCsvImport(transactions: CryptoTransactionBulkCreate[]): Promise<boolean> {
+function openBinanceImport(accountId: string): void {
+  binanceImportAccountId.value = accountId
+  showBinanceImportModal.value = true
+}
+
+async function handleBinanceImported(): Promise<void> {
+  showBinanceImportModal.value = false
+  if (binanceImportAccountId.value) {
+    await selectAccount(binanceImportAccountId.value)
+  }
+}
+
+async function handleCsvImport(transactions: CryptoCompositeBulkItem[]): Promise<boolean> {
   if (!csvImportAccountId.value) return false
 
-  const result = await crypto.bulkImportTransactions(csvImportAccountId.value, transactions)
-  
+  const result = await crypto.bulkCompositeImportTransactions(csvImportAccountId.value, transactions)
+
   if (result) {
     showCsvImportModal.value = false
     await selectAccount(csvImportAccountId.value)
@@ -523,16 +532,6 @@ const groupColorIndex = computed(() => {
   return map
 })
 
-/** True if the total_cost is zero-valued (BUY, FEE with price=0). */
-function isZeroCostRow(tx: TransactionResponse): boolean {
-  return tx.total_cost === 0 && ['BUY', 'FEE', 'REWARD', 'TRANSFER'].includes(tx.type)
-}
-
-/** True if this row is an EUR anchor / spend line (the real money movement). */
-function isAnchorRow(tx: TransactionResponse): boolean {
-  return ['FIAT_ANCHOR', 'SPEND'].includes(tx.type) && tx.symbol === 'EUR'
-}
-
 /** Human-readable tooltip for technical row types. */
 function rowTooltip(tx: TransactionResponse): string | null {
   if (tx.type === 'FIAT_ANCHOR') return 'Ancre de valorisation : fige le prix de revient de l\'opération'
@@ -542,10 +541,12 @@ function rowTooltip(tx: TransactionResponse): string | null {
 }
 
 function formatAssetDisplay(asset: AssetSearchResult): string {
-  if (asset.name) {
-    return `${asset.name} (${asset.symbol})`
-  }
-  return asset.symbol
+  return asset.name ? `${asset.name} (${asset.symbol})` : asset.symbol
+}
+
+const FIAT_SYMBOLS = new Set(['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'])
+function isFiatSymbol(symbol: string): boolean {
+  return FIAT_SYMBOLS.has(symbol.toUpperCase())
 }
 
 async function handleSubmitTransaction(): Promise<void> {
@@ -618,6 +619,8 @@ async function handleSubmitTransaction(): Promise<void> {
     }
     const result = await crypto.createCrossAccountTransfer(transferPayload)
     if (result) {
+      // Show non-blocking warning if balance went negative
+      if (result.warning) txWarning.value = result.warning
       showTxModal.value = false
       await Promise.all([
         crypto.fetchAccount(txForm.account_id),
@@ -645,6 +648,8 @@ async function handleSubmitTransaction(): Promise<void> {
     success = !!result
   } else {
     const result = await crypto.createCompositeTransaction(payload)
+    // Show non-blocking warning if one or more debited symbols went negative
+    if (result?.warning) txWarning.value = result.warning
     success = !!result
   }
 
@@ -697,13 +702,11 @@ async function handleDeleteAccount(id: string): Promise<void> {
 }
 
 onMounted(async () => {
-  // Ensure settings are loaded before deciding behaviour
   if (!settingsStore.settings) {
     await settingsStore.fetchSettings()
   }
 
   if (isSingleMode.value) {
-    // Transparently load (or create) the unique default account
     await crypto.fetchDefaultAccount()
     const defaultId = crypto.accounts[0]?.id
     if (defaultId) {
@@ -732,12 +735,41 @@ onMounted(async () => {
         </BaseButton>
         <!-- SINGLE mode: actions directly in header (no account management) -->
         <template v-if="isSingleMode && selectedAccountId">
-          <BaseButton variant="outline" size="sm" @click="openCsvImport(selectedAccountId!)" title="Importer CSV">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <span class="hidden sm:inline">Importer</span>
-          </BaseButton>
+          <!-- Import dropdown -->
+          <div class="relative">
+            <BaseButton variant="outline" size="sm" @click.stop="showImportDropdown = !showImportDropdown">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              <span class="hidden sm:inline">Importer</span>
+              <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </BaseButton>
+            <!-- Overlay to close on outside click -->
+            <div v-if="showImportDropdown" class="fixed inset-0 z-40" @click="showImportDropdown = false" />
+            <!-- Dropdown menu -->
+            <div v-if="showImportDropdown" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openCsvImport(selectedAccountId!); showImportDropdown = false"
+              >
+                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV générique
+              </button>
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openBinanceImport(selectedAccountId!); showImportDropdown = false"
+              >
+                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Binance CSV
+              </button>
+            </div>
+          </div>
           <BaseButton @click="openAddTransaction(selectedAccountId!)">+ Transaction</BaseButton>
         </template>
         <!-- MULTI mode: account creation -->
@@ -754,8 +786,11 @@ onMounted(async () => {
       <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
         {{ crypto.error }}
       </BaseAlert>
+      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
+        {{ txWarning }}
+      </BaseAlert>
 
-      <BaseCard v-else-if="crypto.currentAccount">
+      <BaseCard v-if="!crypto.error && crypto.currentAccount">
         <!-- Summary Stats -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div>
@@ -814,9 +849,9 @@ onMounted(async () => {
                 <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                   <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                   <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
                   <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
                   <td class="px-4 py-2.5 text-right">
                     <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
@@ -839,8 +874,6 @@ onMounted(async () => {
                   <th class="px-4 py-2">Type</th>
                   <th class="px-4 py-2">Token</th>
                   <th class="px-4 py-2 text-right">Quantité</th>
-                  <!-- <th class="px-4 py-2 text-right">Prix</th> -->
-                  <!-- <th class="px-4 py-2 text-right">Total</th> -->
                   <th class="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -908,22 +941,6 @@ onMounted(async () => {
                   >
                     {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                   </td>
-                  <!-- Prix column (temporarily hidden)
-                  <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
-                    {{ tx.price_per_unit > 0 ? formatAmount(tx.price_per_unit) : '\u2014' }}
-                  </td>
-                  -->
-                  <!-- Total column (temporarily hidden)
-                  <td
-                    class="px-4 py-2.5 text-right"
-                    :class="[
-                      isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40 font-normal' : '',
-                      isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
-                    ]"
-                  >
-                    {{ formatAmount(tx.total_cost) }}
-                  </td>
-                  -->
                   <td class="px-4 py-2.5 text-right">
                     <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -948,6 +965,9 @@ onMounted(async () => {
 
       <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
         {{ crypto.error }}
+      </BaseAlert>
+      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
+        {{ txWarning }}
       </BaseAlert>
 
       <div v-if="crypto.accounts.length" class="space-y-4">
@@ -979,12 +999,41 @@ onMounted(async () => {
               <span class="sm:hidden text-lg leading-none">+</span>
               <span class="hidden sm:inline">+ Transaction</span>
             </BaseButton>
-            <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              <span class="hidden sm:inline">Importer</span>
-            </BaseButton>
+            <!-- Import dropdown -->
+            <div class="relative">
+              <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span class="hidden sm:inline">Importer</span>
+                <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </BaseButton>
+              <!-- Overlay to close on outside click -->
+              <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
+              <!-- Dropdown menu -->
+              <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
+                <button
+                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                  @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
+                >
+                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  CSV générique
+                </button>
+                <button
+                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                  @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
+                >
+                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Binance CSV
+                </button>
+              </div>
+            </div>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1056,9 +1105,9 @@ onMounted(async () => {
                   <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
                     <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ ['EUR','USD','GBP','CHF','JPY','CAD','AUD','CNY','NZD','SEK','NOK','DKK'].includes(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
                     <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
@@ -1081,8 +1130,6 @@ onMounted(async () => {
                     <th class="px-4 py-2">Type</th>
                     <th class="px-4 py-2">Token</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
-                    <!-- <th class="px-4 py-2 text-right">Prix</th> -->
-                    <!-- <th class="px-4 py-2 text-right">Total</th> -->
                     <th class="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1150,22 +1197,6 @@ onMounted(async () => {
                     >
                       {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                     </td>
-                    <!-- Prix column (temporarily hidden)
-                    <td class="px-4 py-2.5 text-right" :class="isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40' : ''">
-                      {{ tx.price_per_unit > 0 ? formatAmount(tx.price_per_unit) : '\u2014' }}
-                    </td>
-                    -->
-                    <!-- Total column (temporarily hidden)
-                    <td
-                      class="px-4 py-2.5 text-right"
-                      :class="[
-                        isZeroCostRow(tx) ? 'text-text-muted/40 dark:text-text-dark-muted/40 font-normal' : '',
-                        isAnchorRow(tx) ? 'font-bold text-text-main dark:text-text-dark-main' : 'font-medium',
-                      ]"
-                    >
-                      {{ formatAmount(tx.total_cost) }}
-                    </td>
-                    -->
                     <td class="px-4 py-2.5 text-right">
                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1277,9 +1308,6 @@ onMounted(async () => {
           </template>
         </div>
 
-        <!-- ╔══════════════════════╗ -->
-        <!-- ║  STEP 1              ║ -->
-        <!-- ╚══════════════════════╝ -->
         <div v-if="wizardStep === 1" class="space-y-5">
 
           <div>
@@ -1431,9 +1459,6 @@ onMounted(async () => {
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
         </div>
 
-        <!-- ╔══════════════════════╗ -->
-        <!-- ║  STEP 2              ║ -->
-        <!-- ╚══════════════════════╝ -->
         <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-5">
 
           <div>
@@ -1508,9 +1533,6 @@ onMounted(async () => {
           </Transition>
         </div>
 
-        <!-- ╔═══════════════╗ -->
-        <!-- ║  STEP 3       ║ -->
-        <!-- ╚═══════════════╝ -->
         <div v-else-if="wizardStep === 3 && showFeeStep" class="space-y-5">
 
           <div>
@@ -2017,6 +2039,14 @@ onMounted(async () => {
       asset-type="crypto"
       :on-import="handleCsvImport"
       @close="showCsvImportModal = false"
+    />
+
+    <!-- ── Binance Import Modal ────────────────────────── -->
+    <BinanceImportModal
+      :open="showBinanceImportModal"
+      :account-id="binanceImportAccountId || ''"
+      @close="showBinanceImportModal = false"
+      @imported="handleBinanceImported"
     />
   </div>
 </template>

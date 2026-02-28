@@ -23,6 +23,7 @@ const saveSuccess = ref(false)
 
 // Crypto module settings
 const cryptoModuleEnabled = ref(false)
+const cryptoShowNegativePositions = ref(false)
 const cryptoMode = ref<'SINGLE' | 'MULTI'>('SINGLE')
 // null = use auto-fetched live rate
 const usdEurRate = ref<number | null>(null)
@@ -38,6 +39,7 @@ onMounted(async () => {
     inflationRate.value = +(settingsStore.settings.inflation_rate * 100).toFixed(2)
     objectives.value = settingsStore.settings.objectives ?? ''
     cryptoModuleEnabled.value = settingsStore.settings.crypto_module_enabled
+    cryptoShowNegativePositions.value = settingsStore.settings.crypto_show_negative_positions ?? false
     cryptoMode.value = settingsStore.settings.crypto_mode
     usdEurRate.value = settingsStore.settings.usd_eur_rate ?? null
   }
@@ -77,6 +79,7 @@ async function saveCryptoSettings(): Promise<void> {
   saveCryptoSuccess.value = false
   const success = await settingsStore.updateSettings({
     crypto_module_enabled: cryptoModuleEnabled.value,
+    crypto_show_negative_positions: cryptoShowNegativePositions.value,
     crypto_mode: cryptoModuleEnabled.value ? cryptoMode.value : undefined,
     usd_eur_rate: usdEurRate.value,
   })
@@ -298,10 +301,11 @@ async function saveCryptoSettings(): Promise<void> {
               leave-from-class="opacity-100 max-h-96"
               leave-to-class="opacity-0 max-h-0"
             >
-              <div v-if="cryptoModuleEnabled" class="space-y-3 pt-3 border-t border-surface-border dark:border-surface-dark-border">
-                <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Mode de gestion</p>
+              <div v-if="cryptoModuleEnabled" class="space-y-6 pt-3 border-t border-surface-border dark:border-surface-dark-border">
+                <div class="space-y-3">
+                  <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Mode de gestion</p>
 
-                <!-- Option SINGLE -->
+                  <!-- Option SINGLE -->
                 <label
                   :class="[
                     'flex items-start gap-3 p-4 rounded-card border-2 cursor-pointer transition-colors',
@@ -358,6 +362,34 @@ async function saveCryptoSettings(): Promise<void> {
                     </p>
                   </div>
                 </label>
+                </div>
+
+                <div class="pt-4 border-t border-surface-border dark:border-surface-dark-border">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="font-medium text-text-main dark:text-text-dark-main">Afficher les positions négatives</p>
+                      <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                        Affiche les cryptos dont le solde est négatif (ex: short selling)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      @click="cryptoShowNegativePositions = !cryptoShowNegativePositions"
+                      :class="[
+                        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                        cryptoShowNegativePositions ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                      ]"
+                      :aria-pressed="cryptoShowNegativePositions"
+                    >
+                      <span
+                        :class="[
+                          'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                          cryptoShowNegativePositions ? 'translate-x-6' : 'translate-x-1',
+                        ]"
+                      />
+                    </button>
+                  </div>
+                </div>
               </div>
             </Transition>
 
@@ -420,7 +452,7 @@ async function saveCryptoSettings(): Promise<void> {
       <!-- Version -->
       <div class="text-center py-4">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
-          CapitalView v0.1.0 — &copy; 2026
+          CapitalView v1.0.0 — &copy; 2026
         </p>
       </div>
     </div>

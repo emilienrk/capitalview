@@ -15,7 +15,10 @@ from dtos import (
     CryptoAccountBasicResponse,
     CryptoBulkImportRequest,
     CryptoBulkImportResponse,
+    CryptoBulkCompositeImportRequest,
+    CryptoBulkCompositeImportResponse,
     CryptoCompositeTransactionCreate,
+    CryptoCompositeTransactionResponse,
     CryptoTransactionCreate,
     CryptoTransactionUpdate,
     CryptoTransactionBasicResponse,
@@ -24,7 +27,12 @@ from dtos import (
     AssetSearchResult,
     AssetInfoResponse,
     CrossAccountTransferCreate,
+    BinanceImportPreviewRequest,
+    BinanceImportPreviewResponse,
+    BinanceImportConfirmRequest,
+    BinanceImportConfirmResponse,
 )
+from services.imports.binance import generate_preview, execute_import
 from services.crypto_account import (
     create_crypto_account,
     get_crypto_account,
@@ -36,19 +44,67 @@ from services.crypto_account import (
 from services.settings import get_or_create_settings
 from services.encryption import hash_index
 from services.exchange_rate import get_effective_usd_eur_rate, convert_crypto_prices_to_eur
+from dtos.crypto import FIAT_SYMBOLS
 from services.crypto_transaction import (
     create_composite_crypto_transaction,
     create_cross_account_transfer,
     create_crypto_transaction,
     get_crypto_transaction,
     get_account_transactions,
+    get_symbol_balance,
     update_crypto_transaction,
     delete_crypto_transaction,
-    get_crypto_account_summary
+    get_crypto_account_summary,
+    _DEBIT_TYPES,
 )
 from services.market_data.manager import market_data_manager
 
 router = APIRouter(prefix="/crypto", tags=["Crypto"])
+
+
+def _compute_balance_warning(
+    session,
+    account_uuid: str,
+    created_rows,
+    master_key: str,
+    extra_account_for_symbols: dict[str, str] | None = None,
+) -> str | None:
+    """
+    Check whether any debited crypto symbol has gone negative after the
+    operation.  Returns a human-readable warning string or None.
+
+    ``extra_account_for_symbols`` maps symbol → account_uuid to support
+    cross-account checks (e.g., source account for a TRANSFER).
+    """
+    # Collect (symbol, account) pairs that were debited
+    to_check: dict[str, str] = {}  # symbol → account_uuid
+    for row in created_rows:
+        type_str = row.type if isinstance(row.type, str) else row.type.value
+        if type_str not in _DEBIT_TYPES:
+            continue
+        sym = (row.symbol or "").upper()
+        if not sym or sym in FIAT_SYMBOLS:
+            continue
+        # Prefer the extra mapping when provided (cross-account TRANSFER row)
+        acc = (
+            extra_account_for_symbols.get(sym, account_uuid)
+            if extra_account_for_symbols
+            else account_uuid
+        )
+        to_check[sym] = acc
+
+    if not to_check:
+        return None
+
+    negative: list[str] = []
+    for sym, acc in sorted(to_check.items()):
+        balance = get_symbol_balance(session, acc, sym, master_key)
+        if balance < 0:
+            negative.append(f"{sym} (solde : {balance:+.8g})")
+
+    if not negative:
+        return None
+    return "Solde insuffisant après cette opération — " + ", ".join(negative)
 
 
 # ============== ACCOUNTS ==============
@@ -101,7 +157,7 @@ def get_default_account(
         float(settings.usd_eur_rate) if settings.usd_eur_rate is not None else None
     )
     account_model = get_or_create_default_account(session, current_user.uuid, master_key)
-    summary = get_crypto_account_summary(session, account_model, master_key)
+    summary = get_crypto_account_summary(session, account_model, master_key, settings.crypto_show_negative_positions)
     return convert_crypto_prices_to_eur(summary, rate)
 
 
@@ -122,7 +178,7 @@ def get_account(
     rate = get_effective_usd_eur_rate(
         float(settings.usd_eur_rate) if settings.usd_eur_rate is not None else None
     )
-    summary = get_crypto_account_summary(session, account_model, master_key)
+    summary = get_crypto_account_summary(session, account_model, master_key, settings.crypto_show_negative_positions)
     return convert_crypto_prices_to_eur(summary, rate)
 
 
@@ -188,7 +244,7 @@ def create_transaction(
     )
 
 
-@router.post("/transactions/composite", response_model=list[CryptoTransactionBasicResponse], status_code=201)
+@router.post("/transactions/composite", response_model=CryptoCompositeTransactionResponse, status_code=201)
 def create_composite_transaction(
     data: CryptoCompositeTransactionCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -211,7 +267,7 @@ def create_composite_transaction(
 
     created = create_composite_crypto_transaction(session, data, master_key)
 
-    return [
+    rows = [
         CryptoTransactionBasicResponse(
             id=tx.id,
             account_id=data.account_id,
@@ -227,8 +283,11 @@ def create_composite_transaction(
         for tx in created
     ]
 
+    warning = _compute_balance_warning(session, data.account_id, created, master_key)
+    return CryptoCompositeTransactionResponse(rows=rows, warning=warning)
 
-@router.post("/transactions/cross-account-transfer", response_model=list[CryptoTransactionBasicResponse], status_code=201)
+
+@router.post("/transactions/cross-account-transfer", response_model=CryptoCompositeTransactionResponse, status_code=201)
 def create_cross_account_transfer_route(
     data: CrossAccountTransferCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -245,7 +304,7 @@ def create_cross_account_transfer_route(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    return [
+    rows = [
         CryptoTransactionBasicResponse(
             id=tx.id,
             account_id=data.from_account_id,
@@ -260,6 +319,16 @@ def create_cross_account_transfer_route(
         )
         for tx in created
     ]
+
+    # For cross-account transfers the symbol is always debited from the source account
+    warning = _compute_balance_warning(
+        session,
+        data.from_account_id,
+        created,
+        master_key,
+        extra_account_for_symbols={data.symbol.upper(): data.from_account_id},
+    )
+    return CryptoCompositeTransactionResponse(rows=rows, warning=warning)
 
 
 @router.get("/transactions", response_model=list[TransactionResponse])
@@ -384,11 +453,12 @@ def bulk_import_transactions(
             tx_hash=item.tx_hash,
         )
 
-        resp = create_crypto_transaction(session, create_dto, master_key)
+        resp = create_crypto_transaction(session, create_dto, master_key, group_uuid=item.group_uuid)
 
         basic = CryptoTransactionBasicResponse(
             id=resp.id,
             account_id=data.account_id,
+            group_uuid=item.group_uuid,
             symbol=resp.symbol,
             type=item.type,
             amount=resp.amount,
@@ -402,6 +472,53 @@ def bulk_import_transactions(
     return CryptoBulkImportResponse(
         imported_count=len(created_responses),
         transactions=created_responses
+    )
+
+
+@router.post("/transactions/bulk-composite", response_model=CryptoBulkCompositeImportResponse, status_code=201)
+def bulk_composite_import_transactions(
+    data: CryptoBulkCompositeImportRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    master_key: Annotated[str, Depends(get_master_key)],
+    session: Session = Depends(get_session)
+):
+    """
+    Bulk import composite operations from a CSV file.
+
+    Each item in `transactions` represents one user-facing operation
+    (e.g. "Buy 0.1 BTC for 3000 EUR + 0.01 BNB fee") and is decomposed
+    server-side into 1-4 atomic rows sharing a group_uuid, exactly like
+    POST /transactions/composite.
+    """
+    account = get_crypto_account(session, data.account_id, current_user.uuid, master_key)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    total_atomic_rows = 0
+
+    for item in data.transactions:
+        composite_dto = CryptoCompositeTransactionCreate(
+            account_id=data.account_id,
+            type=item.type,
+            symbol=item.symbol,
+            name=item.name,
+            amount=item.amount,
+            quote_symbol=item.quote_symbol,
+            quote_amount=item.quote_amount,
+            eur_amount=item.eur_amount,
+            fee_included=item.fee_included,
+            fee_symbol=item.fee_symbol,
+            fee_amount=item.fee_amount,
+            executed_at=item.executed_at,
+            tx_hash=item.tx_hash,
+            notes=item.notes,
+        )
+        created = create_composite_crypto_transaction(session, composite_dto, master_key)
+        total_atomic_rows += len(created)
+
+    return CryptoBulkCompositeImportResponse(
+        imported_count=total_atomic_rows,
+        groups_count=len(data.transactions),
     )
 
 
@@ -448,3 +565,48 @@ def get_assets_info(
             type=None
         ))
     return response
+
+
+# ============== BINANCE IMPORT ==============
+
+@router.post("/import/binance/preview", response_model=BinanceImportPreviewResponse)
+def preview_binance_import(
+    data: BinanceImportPreviewRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Parse a Binance CSV and return a preview of grouped transactions.
+
+    Groups sharing the same UTC second receive a common group.
+    Groups that need a manual EUR anchor are flagged with
+    ``needs_eur_input = true``.
+    """
+    return generate_preview(data.csv_content)
+
+
+@router.post("/import/binance/confirm", response_model=BinanceImportConfirmResponse, status_code=201)
+def confirm_binance_import(
+    data: BinanceImportConfirmRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    master_key: Annotated[str, Depends(get_master_key)],
+    session: Session = Depends(get_session),
+):
+    """
+    Create all transactions from a validated Binance import preview.
+
+    The frontend sends back the preview groups (possibly with
+    ``eur_amount`` filled in) and the target ``account_id``.
+    """
+    account = get_crypto_account(session, data.account_id, current_user.uuid, master_key)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Validate: every group that needs EUR must have eur_amount
+    for g in data.groups:
+        if g.needs_eur_input and (g.eur_amount is None or g.eur_amount < 0):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Le groupe #{g.group_index + 1} nécessite un montant EUR.",
+            )
+
+    return execute_import(session, data.account_id, data.groups, master_key)

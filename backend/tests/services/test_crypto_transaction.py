@@ -130,13 +130,11 @@ def test_get_account_transactions(session: Session, master_key: str):
 
 
 @patch("services.crypto_transaction.get_crypto_info")
-@patch("services.crypto_transaction.get_crypto_price")
-def test_get_crypto_account_summary(mock_price, mock_info, session: Session, master_key: str):
+def test_get_crypto_account_summary(mock_info, session: Session, master_key: str):
     mock_info.side_effect = lambda s, symbol: {
         "BTC": ("Bitcoin", Decimal("40000.0")),
         "ETH": ("Ethereum", Decimal("3000.0")),
     }.get(symbol, ("Unknown", Decimal("0")))
-    mock_price.side_effect = lambda s, symbol: Decimal("3000.0") if symbol == "ETH" else Decimal("1.0")
 
     account = CryptoAccount(uuid="acc_main_crypto", user_uuid_bidx=hash_index("user_1", master_key), name_enc=encrypt_data("My Wallet", master_key))
     session.add(account)
@@ -866,5 +864,58 @@ def test_crypto_fee_explicit_eur_takes_priority_over_percentage(session: Session
 
     buy_row = next(r for r in rows if r.type == "BUY")
     assert buy_row.price_per_unit == Decimal("0")  # crypto → price = 0
+
+
+def test_bulk_create_with_group_uuid_pru(session: Session, master_key: str):
+    """Bulk-imported atomic rows with group_uuid are costed correctly.
+
+    BUY BTC (price=0) + SPEND EUR (price=1) share a group_uuid →
+    PRU = 3000 / 0.1 = 30 000, not 0.
+    """
+    from unittest.mock import patch
+    from services.crypto_account import get_crypto_account as _get_acc
+    account = CryptoAccount(
+        uuid="acc_bulk_grp",
+        user_uuid_bidx=hash_index("u_bulk_grp", master_key),
+        name_enc=encrypt_data("Bulk Group", master_key),
+    )
+    session.add(account)
+    session.commit()
+
+    group = "bulk-grp-uuid-abc"
+    create_crypto_transaction(
+        session,
+        CryptoTransactionCreate(
+            account_id="acc_bulk_grp",
+            symbol="BTC",
+            type=CryptoTransactionType.BUY,
+            amount=Decimal("0.1"),
+            price_per_unit=Decimal("0"),
+            executed_at=datetime(2024, 1, 1),
+        ),
+        master_key,
+        group_uuid=group,
+    )
+    create_crypto_transaction(
+        session,
+        CryptoTransactionCreate(
+            account_id="acc_bulk_grp",
+            symbol="EUR",
+            type=CryptoTransactionType.SPEND,
+            amount=Decimal("3000"),
+            price_per_unit=Decimal("1"),
+            executed_at=datetime(2024, 1, 1),
+        ),
+        master_key,
+        group_uuid=group,
+    )
+
+    with patch("services.crypto_transaction.get_crypto_info", return_value=("Bitcoin", Decimal("40000"))):
+        summary = get_crypto_account_summary(session, account, master_key)
+
+    btc = next(p for p in summary.positions if p.symbol == "BTC")
+    assert btc.total_amount == Decimal("0.1")
+    assert btc.total_invested == Decimal("3000.00")
+    assert btc.average_buy_price == Decimal("30000.0000")
 
 

@@ -107,7 +107,7 @@ async function handleLogout(): Promise<void> {
 }
 
 onMounted(async () => {
-  if (!settingsStore.settings) {
+  if (auth.isAuthenticated && !settingsStore.settings) {
     await settingsStore.fetchSettings()
   }
 })
