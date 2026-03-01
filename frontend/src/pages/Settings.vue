@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
-import { BaseCard, BaseButton, BaseInput, BaseAlert, BaseSkeleton } from '@/components'
+import { BaseCard, BaseButton, BaseInput, BaseAlert, BaseSkeleton, BaseTextarea } from '@/components'
 
 const auth = useAuthStore()
 const settingsStore = useSettingsStore()
+const appVersion = __APP_VERSION__
 const { isDark, toggleDarkMode } = useDarkMode()
 const { formatDateTime } = useFormatters()
 
@@ -20,6 +21,18 @@ const inflationRate = ref(2)
 const objectives = ref('')
 const isSaving = ref(false)
 const saveSuccess = ref(false)
+
+// Objectives save state (independent from financial settings)
+const isSavingObjectives = ref(false)
+const saveObjectivesSuccess = ref(false)
+
+// Password change form
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const isSavingPassword = ref(false)
+const passwordError = ref('')
+const passwordSuccess = ref(false)
 
 // Crypto module settings
 const cryptoModuleEnabled = ref(false)
@@ -62,16 +75,43 @@ async function saveFinancialSettings(): Promise<void> {
 }
 
 async function saveObjectives(): Promise<void> {
-  isSaving.value = true
-  saveSuccess.value = false
+  isSavingObjectives.value = true
+  saveObjectivesSuccess.value = false
   const success = await settingsStore.updateSettings({
     objectives: objectives.value || null,
   })
-  isSaving.value = false
+  isSavingObjectives.value = false
   if (success) {
-    saveSuccess.value = true
-    setTimeout(() => { saveSuccess.value = false }, 2000)
+    saveObjectivesSuccess.value = true
+    setTimeout(() => { saveObjectivesSuccess.value = false }, 2000)
   }
+}
+
+function handlePasswordChange(): void {
+  passwordError.value = ''
+  passwordSuccess.value = false
+  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
+    passwordError.value = 'Veuillez remplir tous les champs.'
+    return
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'Les nouveaux mots de passe ne correspondent pas.'
+    return
+  }
+  if (newPassword.value.length < 8) {
+    passwordError.value = 'Le mot de passe doit contenir au moins 8 caractères.'
+    return
+  }
+  // TODO: appel API backend à implémenter
+  isSavingPassword.value = true
+  setTimeout(() => {
+    isSavingPassword.value = false
+    passwordSuccess.value = true
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    setTimeout(() => { passwordSuccess.value = false }, 3000)
+  }, 500)
 }
 
 async function saveCryptoSettings(): Promise<void> {
@@ -99,13 +139,36 @@ async function saveCryptoSettings(): Promise<void> {
       {{ settingsStore.error }}
     </BaseAlert>
 
-    <BaseAlert v-if="saveSuccess" variant="success" class="mb-6">
-      Paramètres sauvegardés.
-    </BaseAlert>
+    <!-- Sticky anchor navigation -->
+    <nav class="sticky top-0 z-10 -mx-1 mb-6 bg-background dark:bg-background-dark py-2">
+      <div class="flex gap-2 overflow-x-auto scrollbar-hide">
+        <a v-for="section in [
+          { id: 'profil', label: 'Profil' },
+          { id: 'apparence', label: 'Apparence' },
+          { id: 'finances', label: 'Finances' },
+          { id: 'objectifs', label: 'Objectifs' },
+          { id: 'crypto', label: 'Crypto' },
+          { id: 'securite', label: 'Sécurité' },
+        ]" :key="section.id"
+          :href="'#' + section.id"
+          class="shrink-0 px-4 py-1.5 rounded-button text-sm font-medium border border-surface-border dark:border-surface-dark-border text-text-muted dark:text-text-dark-muted bg-surface dark:bg-surface-dark hover:border-primary hover:text-primary transition-colors"
+        >
+          {{ section.label }}
+        </a>
+      </div>
+    </nav>
 
-    <div class="space-y-6 max-w-2xl">
+    <div class="space-y-6 max-w-3xl">
       <!-- Profile -->
-      <BaseCard title="Profil">
+      <BaseCard id="profil">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Profil</h3>
+          </div>
+        </template>
         <div class="space-y-4">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -140,7 +203,15 @@ async function saveCryptoSettings(): Promise<void> {
       </BaseCard>
 
       <!-- Appearance -->
-      <BaseCard title="Apparence">
+      <BaseCard id="apparence">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Apparence</h3>
+          </div>
+        </template>
         <div class="flex items-center justify-between">
           <div>
             <p class="font-medium text-text-main dark:text-text-dark-main">Thème sombre</p>
@@ -166,7 +237,15 @@ async function saveCryptoSettings(): Promise<void> {
       </BaseCard>
 
       <!-- Financial Parameters -->
-      <BaseCard title="Paramètres financiers">
+      <BaseCard id="finances">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Paramètres financiers</h3>
+          </div>
+        </template>
         <template v-if="settingsStore.isLoading && !settingsStore.settings">
           <div class="space-y-4">
             <div v-for="i in 4" :key="i" class="space-y-2">
@@ -218,7 +297,10 @@ async function saveCryptoSettings(): Promise<void> {
                 placeholder="2"
               />
             </div>
-            <div class="flex justify-end">
+            <div class="flex items-center justify-end gap-4">
+              <BaseAlert v-if="saveSuccess" variant="success" class="flex-1 py-1.5!">
+                Paramètres financiers sauvegardés.
+              </BaseAlert>
               <BaseButton type="submit" :loading="isSaving" size="sm">
                 Enregistrer
               </BaseButton>
@@ -228,7 +310,15 @@ async function saveCryptoSettings(): Promise<void> {
       </BaseCard>
 
       <!-- Objectives -->
-      <BaseCard title="Objectifs patrimoniaux">
+      <BaseCard id="objectifs">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Objectifs patrimoniaux</h3>
+          </div>
+        </template>
         <template v-if="settingsStore.isLoading && !settingsStore.settings">
           <div class="space-y-2">
             <BaseSkeleton variant="rect" height="5rem" />
@@ -239,14 +329,16 @@ async function saveCryptoSettings(): Promise<void> {
             Notez vos objectifs d'investissement et d'épargne.
           </p>
           <form @submit.prevent="saveObjectives" class="space-y-4">
-            <textarea
+            <BaseTextarea
               v-model="objectives"
-              rows="4"
+              :rows="4"
               placeholder="Vos objectifs d'épargne et d'investissement..."
-              class="w-full rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main placeholder:text-text-muted/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-y"
             />
-            <div class="flex justify-end">
-              <BaseButton type="submit" :loading="isSaving" size="sm">
+            <div class="flex items-center justify-end gap-4">
+              <BaseAlert v-if="saveObjectivesSuccess" variant="success" class="flex-1 py-1.5!">
+                Objectifs sauvegardés.
+              </BaseAlert>
+              <BaseButton type="submit" :loading="isSavingObjectives" size="sm">
                 Enregistrer
               </BaseButton>
             </div>
@@ -255,7 +347,15 @@ async function saveCryptoSettings(): Promise<void> {
       </BaseCard>
 
       <!-- Crypto Module -->
-      <BaseCard title="Module Crypto">
+      <BaseCard id="crypto">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Module Crypto</h3>
+          </div>
+        </template>
         <template v-if="settingsStore.isLoading && !settingsStore.settings">
           <div class="space-y-4">
             <BaseSkeleton variant="rect" height="2.5rem" />
@@ -437,14 +537,66 @@ async function saveCryptoSettings(): Promise<void> {
       </BaseCard>
 
       <!-- Security -->
-      <BaseCard title="Sécurité">
-        <div class="space-y-4">
-          <p class="text-sm text-text-muted dark:text-text-dark-muted">
-            Toutes vos données sensibles sont chiffrées pour garantir une confidentialité totale.
-          </p>
+      <BaseCard id="securite">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Sécurité</h3>
+          </div>
+        </template>
+        <div class="space-y-6">
+          <!-- Encryption status -->
           <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-success" />
-            <span class="text-sm text-text-body dark:text-text-dark-body">Protection active</span>
+            <div class="w-2 h-2 rounded-full bg-success shrink-0" />
+            <span class="text-sm text-text-body dark:text-text-dark-body">Chiffrement des données actif — vos informations sensibles sont protégées</span>
+          </div>
+
+          <!-- Password change form -->
+          <div class="pt-4 border-t border-surface-border dark:border-surface-dark-border space-y-4">
+            <div>
+              <p class="font-medium text-text-main dark:text-text-dark-main">Changer le mot de passe</p>
+              <p class="text-sm text-text-muted dark:text-text-dark-muted mt-0.5">Choisissez un mot de passe d'au moins 8 caractères.</p>
+            </div>
+
+            <BaseAlert v-if="passwordError" variant="danger">
+              {{ passwordError }}
+            </BaseAlert>
+            <BaseAlert v-if="passwordSuccess" variant="success">
+              Fonctionnalité à venir — le mot de passe n'a pas été modifié.
+            </BaseAlert>
+
+            <form @submit.prevent="handlePasswordChange" class="space-y-4">
+              <BaseInput
+                v-model="currentPassword"
+                label="Mot de passe actuel"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <BaseInput
+                  v-model="newPassword"
+                  label="Nouveau mot de passe"
+                  type="password"
+                  placeholder="••••••••"
+                  autocomplete="new-password"
+                />
+                <BaseInput
+                  v-model="confirmPassword"
+                  label="Confirmer le mot de passe"
+                  type="password"
+                  placeholder="••••••••"
+                  autocomplete="new-password"
+                />
+              </div>
+              <div class="flex justify-end">
+                <BaseButton type="submit" :loading="isSavingPassword" size="sm">
+                  Changer le mot de passe
+                </BaseButton>
+              </div>
+            </form>
           </div>
         </div>
       </BaseCard>
@@ -452,7 +604,7 @@ async function saveCryptoSettings(): Promise<void> {
       <!-- Version -->
       <div class="text-center py-4">
         <p class="text-xs text-text-muted dark:text-text-dark-muted">
-          CapitalView v1.0.0 — &copy; 2026
+          CapitalView v{{ appVersion }} — &copy; 2026
         </p>
       </div>
     </div>
