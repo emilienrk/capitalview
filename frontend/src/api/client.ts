@@ -100,14 +100,14 @@ class ApiClient {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
       const detail = error.detail || `HTTP ${response.status}`
 
-      // Master Key missing → session incomplete, redirect to login
+      // Master Key missing → session incomplete, redirect to login via router (no hard reload)
       if (
         response.status === 400 &&
         typeof detail === 'string' &&
         detail.toLowerCase().includes('master key')
       ) {
         this.setToken(null)
-        window.location.href = '/login'
+        onSessionExpired?.()
         throw new Error(detail)
       }
 

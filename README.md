@@ -2,7 +2,7 @@
 
 > 🔒 **Secure, Private & Encrypted** Personal Wealth Management.
 
-**URL**: [https://capitalview.emilien.roukine.com](https://capitalview.emilien.roukine.com)
+**URL**: [https://capitalview.fr](https://capitalview.fr)
 
 ## Overview
 

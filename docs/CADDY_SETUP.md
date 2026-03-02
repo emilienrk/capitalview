@@ -33,8 +33,8 @@ sudo systemctl reload caddy
 
 ```
 Type    Name                            Value
-A       capitalview.emilien.roukine.com    <VPS_IP>
-A       api.capitalview.emilien.roukine.com <VPS_IP>
+A       capitalview.fr    <VPS_IP>
+A       api.capitalview.fr <VPS_IP>
 ```
 
 ## Benefits
