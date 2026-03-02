@@ -35,8 +35,8 @@ Required values in `.env.production`:
 - `ENCRYPTION_KEY`: Sensitive data encryption key
 - `DATABASE_URL`: PostgreSQL connection string
 - `POSTGRES_PASSWORD`: Strong database password
-- `CORS_ORIGINS`: https://capitalview.emilien.roukine.com
-- `VITE_API_URL`: https://api.capitalview.emilien.roukine.com
+- `CORS_ORIGINS`: https://capitalview.fr
+- `VITE_API_URL`: https://api.capitalview.fr
 
 ### 2. SSL Configuration
 

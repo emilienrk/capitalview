@@ -667,3 +667,52 @@ export interface DashboardStatisticsResponse {
   distribution: InvestmentDistribution
   wealth: WealthBreakdown
 }
+
+// ─── Community ───────────────────────────────────────────────
+
+export interface CommunitySettingsUpdate {
+  is_active: boolean
+  display_name?: string | null
+  bio?: string | null
+  shared_stock_isins: string[]
+  shared_crypto_symbols: string[]
+}
+
+export interface CommunitySettingsResponse {
+  is_active: boolean
+  display_name: string | null
+  bio: string | null
+  shared_stock_isins: string[]
+  shared_crypto_symbols: string[]
+  positions_count: number
+}
+
+export interface CommunityPositionResponse {
+  symbol: string
+  asset_type: 'CRYPTO' | 'STOCK'
+  pnl_percentage: number | null
+}
+
+export interface CommunityProfileResponse {
+  username: string
+  display_name: string | null
+  bio: string | null
+  positions: CommunityPositionResponse[]
+  global_pnl_percentage: number | null
+}
+
+export interface CommunityProfileListItem {
+  username: string
+  display_name: string | null
+  bio: string | null
+}
+
+export interface AvailablePosition {
+  symbol: string
+  asset_type: 'CRYPTO' | 'STOCK'
+}
+
+export interface AvailablePositionsResponse {
+  stocks: AvailablePosition[]
+  crypto: AvailablePosition[]
+}

@@ -5,7 +5,7 @@ Personal wealth management and investment tracking API.
 ## Base URL
 
 - **Development**: `http://localhost:8000`
-- **Production**: `https://api.capitalview.emilien.roukine.com`
+- **Production**: `https://api.capitalview.fr`
 
 ---
 

@@ -14,6 +14,7 @@ const OtherInvestments = () => import('@/pages/OtherInvestments.vue')
 const Notes = () => import('@/pages/Notes.vue')
 const Settings = () => import('@/pages/Settings.vue')
 const Register = () => import('@/pages/Register.vue')
+const Community = () => import('@/pages/Community.vue')
 
 const routes = [
   {
@@ -87,6 +88,12 @@ const routes = [
     path: '/settings',
     name: 'settings',
     component: Settings,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/community',
+    name: 'community',
+    component: Community,
     meta: { requiresAuth: true },
   },
 ]
