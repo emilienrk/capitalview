@@ -6,6 +6,7 @@ import type {
   BankSummaryResponse,
   CashflowBalanceResponse,
   DashboardStatisticsResponse,
+  UserSettingsResponse,
 } from '@/types'
 
 export const useDashboardStore = defineStore('dashboard', () => {
@@ -16,22 +17,31 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchAll() {
+  async function fetchAll(settings?: UserSettingsResponse | null) {
     isLoading.value = true
     error.value = null
 
-    try {
-      const [portfolioData, bankData, cashflowData, statsData] = await Promise.all([
-        apiClient.get<PortfolioResponse>('/dashboard/portfolio'),
-        apiClient.get<BankSummaryResponse>('/bank/accounts'),
-        apiClient.get<CashflowBalanceResponse>('/cashflow/me/balance'),
-        apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics'),
-      ])
+    const bankEnabled = settings?.bank_module_enabled ?? true
+    const cashflowEnabled = settings?.cashflow_module_enabled ?? true
 
-      portfolio.value = portfolioData
-      bankAccounts.value = bankData
-      cashflowBalance.value = cashflowData
-      statistics.value = statsData
+    try {
+      const requests: Promise<unknown>[] = [
+        apiClient.get<PortfolioResponse>('/dashboard/portfolio'),
+        bankEnabled
+          ? apiClient.get<BankSummaryResponse>('/bank/accounts')
+          : Promise.resolve(null),
+        cashflowEnabled
+          ? apiClient.get<CashflowBalanceResponse>('/cashflow/me/balance')
+          : Promise.resolve(null),
+        apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics'),
+      ]
+
+      const [portfolioData, bankData, cashflowData, statsData] = await Promise.all(requests)
+
+      portfolio.value = portfolioData as PortfolioResponse
+      bankAccounts.value = bankEnabled ? (bankData as BankSummaryResponse) : null
+      cashflowBalance.value = cashflowEnabled ? (cashflowData as CashflowBalanceResponse) : null
+      statistics.value = statsData as DashboardStatisticsResponse
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load dashboard'
     } finally {

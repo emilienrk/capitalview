@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useBankStore } from '@/stores/bank'
 import { useAssetStore } from '@/stores/asset'
+import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
 import AssetFormModal from '@/components/AssetFormModal.vue'
@@ -15,7 +16,15 @@ import type { AssetCreate, AssetUpdate, AssetResponse } from '@/types'
 const dashboard = useDashboardStore()
 const bank = useBankStore()
 const asset = useAssetStore()
+const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate, formatDateShort } = useFormatters()
+
+const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
+
+// 3 cols when bank is shown, 2 when hidden
+const breakdownColsClass = computed(() =>
+  bankEnabled.value ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'
+)
 
 const showAssetModal = ref(false)
 const editingAsset = ref<AssetResponse | null>(null)
@@ -28,18 +37,21 @@ const sellPrice = ref<number | string>('')
 const sellDate = ref<string>(new Date().toISOString().substring(0, 10))
 
 onMounted(async () => {
-  await Promise.all([
-    dashboard.fetchAll(),
-    bank.fetchAccounts(),
+  const promises: Promise<unknown>[] = [
+    dashboard.fetchAll(settingsStore.settings),
     asset.fetchAssets(),
-  ])
+  ]
+  if (bankEnabled.value) {
+    promises.push(bank.fetchAccounts())
+  }
+  await Promise.all(promises)
 })
 
 /**
- * Total net worth = bank balance + portfolio current value + personal assets
+ * Total net worth = (bank balance if enabled) + portfolio current value + personal assets
  */
 function totalNetWorth(): number | null {
-  const bankTotal = Number(bank.summary?.total_balance) || 0
+  const bankTotal = bankEnabled.value ? (Number(bank.summary?.total_balance) || 0) : 0
   const portfolioValue = Number(dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested) || 0
   const assetsTotal = Number(asset.summary?.total_estimated_value) || 0
   return bankTotal + portfolioValue + assetsTotal
@@ -125,8 +137,9 @@ const groupedAssets = computed(() => {
       </div>
 
       <!-- Breakdown -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div :class="['grid gap-4', breakdownColsClass]">
         <BaseStatCard
+          v-if="bankEnabled"
           label="Liquidités"
           :value="formatCurrency(bank.summary?.total_balance)"
         />

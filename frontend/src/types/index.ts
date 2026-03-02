@@ -543,6 +543,9 @@ export interface UserSettingsUpdate {
   crypto_module_enabled?: boolean
   crypto_mode?: 'SINGLE' | 'MULTI'
   crypto_show_negative_positions?: boolean
+  bank_module_enabled?: boolean
+  cashflow_module_enabled?: boolean
+  wealth_module_enabled?: boolean
   /** USD→EUR rate override. null/undefined = use auto-fetched live rate. */
   usd_eur_rate?: number | null
 }
@@ -557,6 +560,9 @@ export interface UserSettingsResponse {
   crypto_module_enabled: boolean
   crypto_mode: 'SINGLE' | 'MULTI'
   crypto_show_negative_positions: boolean
+  bank_module_enabled: boolean
+  cashflow_module_enabled: boolean
+  wealth_module_enabled: boolean
   /** null = live rate is used automatically */
   usd_eur_rate: number | null
   created_at: string

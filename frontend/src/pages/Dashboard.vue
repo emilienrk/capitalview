@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import PageHeader from '@/components/PageHeader.vue'
 import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton } from '@/components'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
+const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass, formatAccountType } = useFormatters()
+
+const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
+const cashflowEnabled = computed(() => settingsStore.settings?.cashflow_module_enabled ?? true)
+const wealthEnabled = computed(() => settingsStore.settings?.wealth_module_enabled ?? true)
+
+// KPI card count = 2 fixed + optional bank + optional cashflow
+const kpiCount = computed(() => 2 + (bankEnabled.value ? 1 : 0) + (cashflowEnabled.value ? 1 : 0))
+const kpiColsClass = computed(() => {
+  switch (kpiCount.value) {
+    case 2: return 'grid-cols-1 sm:grid-cols-2'
+    case 3: return 'grid-cols-1 sm:grid-cols-3'
+    default: return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+  }
+})
 
 onMounted(() => {
   if (auth.isAuthenticated) {
-    dashboard.fetchAll()
+    dashboard.fetchAll(settingsStore.settings)
   }
 })
 </script>
@@ -31,10 +47,10 @@ onMounted(() => {
 
     <div class="space-y-8">
       <!-- ── Summary KPI Cards ──────────────────────────── -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div :class="['grid gap-4', kpiColsClass]">
         <!-- Skeleton KPI cards -->
         <template v-if="dashboard.isLoading">
-          <div v-for="i in 4" :key="i" class="rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-5 shadow-soft">
+          <div v-for="i in kpiCount" :key="i" class="rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-5 shadow-soft">
             <div class="flex items-start justify-between">
               <div class="flex-1 space-y-3">
                 <BaseSkeleton variant="rect" width="60%" height="0.75rem" />
@@ -48,6 +64,7 @@ onMounted(() => {
         <!-- Real KPI cards -->
         <template v-else>
           <BaseStatCard
+            v-if="bankEnabled"
             label="Solde bancaire"
             :value="formatCurrency(dashboard.bankAccounts?.total_balance)"
           >
@@ -89,6 +106,7 @@ onMounted(() => {
           </BaseStatCard>
 
           <BaseStatCard
+            v-if="cashflowEnabled"
             label="Épargne mensuelle"
             :value="formatCurrency(dashboard.cashflowBalance?.monthly_balance)"
             :sub-value="dashboard.cashflowBalance?.savings_rate != null ? `Taux ${formatPercent(dashboard.cashflowBalance.savings_rate)}` : undefined"
@@ -213,7 +231,7 @@ onMounted(() => {
             </div>
 
             <!-- Cash -->
-            <div class="flex items-center justify-between p-4 rounded-secondary bg-info/5 border border-info/10">
+            <div v-if="bankEnabled" class="flex items-center justify-between p-4 rounded-secondary bg-info/5 border border-info/10">
               <div class="flex items-center gap-3">
                 <div class="w-3 h-3 rounded-full bg-info" />
                 <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Cash</p>
@@ -245,7 +263,7 @@ onMounted(() => {
             </div>
 
             <!-- Assets -->
-            <div class="flex items-center justify-between p-4 rounded-secondary bg-secondary/5 border border-secondary/10">
+            <div v-if="wealthEnabled" class="flex items-center justify-between p-4 rounded-secondary bg-secondary/5 border border-secondary/10">
               <div class="flex items-center gap-3">
                 <div class="w-3 h-3 rounded-full bg-secondary" />
                 <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Patrimoine matériel</p>

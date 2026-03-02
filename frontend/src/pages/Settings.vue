@@ -43,6 +43,13 @@ const usdEurRate = ref<number | null>(null)
 const isSavingCrypto = ref(false)
 const saveCryptoSuccess = ref(false)
 
+// Bank / Cashflow / Wealth module settings
+const bankModuleEnabled = ref(true)
+const cashflowModuleEnabled = ref(true)
+const wealthModuleEnabled = ref(true)
+const isSavingModules = ref(false)
+const saveModulesSuccess = ref(false)
+
 onMounted(async () => {
   await settingsStore.fetchSettings()
   if (settingsStore.settings) {
@@ -55,6 +62,9 @@ onMounted(async () => {
     cryptoShowNegativePositions.value = settingsStore.settings.crypto_show_negative_positions ?? false
     cryptoMode.value = settingsStore.settings.crypto_mode
     usdEurRate.value = settingsStore.settings.usd_eur_rate ?? null
+    bankModuleEnabled.value = settingsStore.settings.bank_module_enabled ?? true
+    cashflowModuleEnabled.value = settingsStore.settings.cashflow_module_enabled ?? true
+    wealthModuleEnabled.value = settingsStore.settings.wealth_module_enabled ?? true
   }
 })
 
@@ -129,6 +139,21 @@ async function saveCryptoSettings(): Promise<void> {
     setTimeout(() => { saveCryptoSuccess.value = false }, 2000)
   }
 }
+
+async function saveModulesSettings(): Promise<void> {
+  isSavingModules.value = true
+  saveModulesSuccess.value = false
+  const success = await settingsStore.updateSettings({
+    bank_module_enabled: bankModuleEnabled.value,
+    cashflow_module_enabled: cashflowModuleEnabled.value,
+    wealth_module_enabled: wealthModuleEnabled.value,
+  })
+  isSavingModules.value = false
+  if (success) {
+    saveModulesSuccess.value = true
+    setTimeout(() => { saveModulesSuccess.value = false }, 2000)
+  }
+}
 </script>
 
 <template>
@@ -147,6 +172,7 @@ async function saveCryptoSettings(): Promise<void> {
           { id: 'apparence', label: 'Apparence' },
           { id: 'finances', label: 'Finances' },
           { id: 'objectifs', label: 'Objectifs' },
+          { id: 'modules', label: 'Modules' },
           { id: 'crypto', label: 'Crypto' },
           { id: 'securite', label: 'Sécurité' },
         ]" :key="section.id"
@@ -343,6 +369,118 @@ async function saveCryptoSettings(): Promise<void> {
               </BaseButton>
             </div>
           </form>
+        </template>
+      </BaseCard>
+
+      <!-- Modules -->
+      <BaseCard id="modules">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Modules d'affichage</h3>
+          </div>
+        </template>
+        <template v-if="settingsStore.isLoading && !settingsStore.settings">
+          <div class="space-y-4">
+            <BaseSkeleton v-for="i in 3" :key="i" variant="rect" height="2.5rem" />
+          </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-text-muted dark:text-text-dark-muted mb-4">
+            Choisissez les modules à afficher dans la navigation.
+          </p>
+          <div class="space-y-5">
+            <!-- Compte Bancaire toggle -->
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-medium text-text-main dark:text-text-dark-main">Compte Bancaire</p>
+                <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                  Affiche la gestion des comptes bancaires dans la navigation
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="bankModuleEnabled = !bankModuleEnabled"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0',
+                  bankModuleEnabled ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                ]"
+                :aria-pressed="bankModuleEnabled"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    bankModuleEnabled ? 'translate-x-6' : 'translate-x-1',
+                  ]"
+                />
+              </button>
+            </div>
+
+            <!-- Cashflow toggle -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-border dark:border-surface-dark-border">
+              <div>
+                <p class="font-medium text-text-main dark:text-text-dark-main">Cashflow</p>
+                <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                  Affiche le suivi des flux de trésorerie dans la navigation
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="cashflowModuleEnabled = !cashflowModuleEnabled"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0',
+                  cashflowModuleEnabled ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                ]"
+                :aria-pressed="cashflowModuleEnabled"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    cashflowModuleEnabled ? 'translate-x-6' : 'translate-x-1',
+                  ]"
+                />
+              </button>
+            </div>
+
+            <!-- Patrimoine toggle -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-border dark:border-surface-dark-border">
+              <div>
+                <p class="font-medium text-text-main dark:text-text-dark-main">Patrimoine</p>
+                <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                  Affiche la gestion du patrimoine (biens, investissements) dans la navigation
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="wealthModuleEnabled = !wealthModuleEnabled"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0',
+                  wealthModuleEnabled ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                ]"
+                :aria-pressed="wealthModuleEnabled"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    wealthModuleEnabled ? 'translate-x-6' : 'translate-x-1',
+                  ]"
+                />
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <BaseAlert v-if="saveModulesSuccess" variant="success" class="flex-1 mr-4 py-1.5!">
+                Modules sauvegardés.
+              </BaseAlert>
+              <div class="ml-auto">
+                <BaseButton @click="saveModulesSettings" :loading="isSavingModules" size="sm">
+                  Enregistrer
+                </BaseButton>
+              </div>
+            </div>
+          </div>
         </template>
       </BaseCard>
 
