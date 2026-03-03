@@ -98,7 +98,14 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
-      const detail = error.detail || `HTTP ${response.status}`
+
+      // FastAPI 422: detail is an array of Pydantic validation errors
+      let detail: string
+      if (Array.isArray(error.detail)) {
+        detail = error.detail.map((e: { msg?: string; message?: string }) => e.msg ?? e.message ?? 'Erreur de validation').join(', ')
+      } else {
+        detail = error.detail || `HTTP ${response.status}`
+      }
 
       // Master Key missing → session incomplete, redirect to login via router (no hard reload)
       if (
@@ -139,8 +146,8 @@ class ApiClient {
     })
   }
 
-  async delete(endpoint: string): Promise<void> {
-    await this.request(endpoint, { method: 'DELETE' })
+  async delete<T = void>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE' })
   }
 }
 

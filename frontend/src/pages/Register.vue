@@ -35,6 +35,7 @@ const passwordStrength = computed(() => {
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
 const isFormValid = computed(() =>
   username.value.length >= 3 &&
+  /^[a-zA-Z0-9_-]+$/.test(username.value) &&
   email.value.includes('@') &&
   Object.values(passwordChecks.value).every(Boolean) &&
   passwordsMatch.value
@@ -117,6 +118,9 @@ async function handleRegister() {
               class="w-full pl-11 pr-4 py-3.5 bg-background/50 dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border rounded-input focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-text-main dark:text-text-dark-main placeholder:text-text-muted/50"
             />
           </div>
+          <p v-if="username.length > 0 && !/^[a-zA-Z0-9_-]+$/.test(username)" class="text-xs text-danger ml-1">
+            Lettres, chiffres, _ et - uniquement (pas de point ni d'espace)
+          </p>
         </div>
 
         <!-- Email -->

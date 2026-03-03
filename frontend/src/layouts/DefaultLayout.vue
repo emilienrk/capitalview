@@ -3,27 +3,21 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
-import { useDarkMode } from '@/composables/useDarkMode'
 import { useSwipe } from '@/composables/useSwipe'
 import { useSettingsStore } from '@/stores/settings'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-const { isDark, toggleDarkMode } = useDarkMode()
 const settingsStore = useSettingsStore()
 
 const sidebarOpen = ref(false)
 
-// Swipe gestures – mobile only (touch devices)
-// Swipe right from left edge → open sidebar
-// Swipe left anywhere → close sidebar
 useSwipe({
   onSwipeRight: () => { sidebarOpen.value = true },
   onSwipeLeft: () => { sidebarOpen.value = false },
 })
 
-// Prevent body scroll when sidebar is open on mobile
 watch(sidebarOpen, (isOpen) => {
   if (isOpen) {
     document.body.style.overflow = 'hidden'
@@ -66,15 +60,15 @@ const BASE_NAV_ITEMS: NavItem[] = [
     to: '/wealth',
     icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
   },
+    {
+    label: 'Communauté',
+    to: '/community',
+    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+  },
   {
     label: 'Notes',
     to: '/notes',
     icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
-  },
-  {
-    label: 'Communauté',
-    to: '/community',
-    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
   },
   {
     label: 'Paramètres',
@@ -89,11 +83,6 @@ const CRYPTO_NAV_ITEM: NavItem = {
   icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
 }
 
-/**
- * Build the navigation list based on module settings.
- * By default (settings not yet loaded), all modules are shown.
- * Crypto requires explicit opt-in; Bank, Cashflow and Wealth are opt-out.
- */
 const navItems = computed<NavItem[]>(() => {
   const s = settingsStore.settings
   const byPath = (path: string) => BASE_NAV_ITEMS.find(i => i.to === path)!
@@ -109,8 +98,8 @@ const navItems = computed<NavItem[]>(() => {
 
   if (s?.wealth_module_enabled ?? true) items.push(byPath('/wealth'))
 
-  items.push(byPath('/notes'))
   items.push(byPath('/community'))
+  items.push(byPath('/notes'))
   items.push(byPath('/settings'))
 
   return items

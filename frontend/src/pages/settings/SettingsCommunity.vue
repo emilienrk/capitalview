@@ -9,6 +9,7 @@ const auth = useAuthStore()
 
 // Profile fields
 const communityActive = ref(false)
+const isPrivate = ref(true)
 const displayName = ref('')
 const bio = ref('')
 
@@ -31,6 +32,7 @@ onMounted(async () => {
 
   if (communityStore.settings) {
     communityActive.value = communityStore.settings.is_active
+    isPrivate.value = communityStore.settings.is_private
     displayName.value = communityStore.settings.display_name ?? ''
     bio.value = communityStore.settings.bio ?? ''
     selectedStockIsins.value = new Set(communityStore.settings.shared_stock_isins)
@@ -80,6 +82,7 @@ async function save(): Promise<void> {
   saveSuccess.value = false
   const success = await communityStore.updateSettings({
     is_active: communityActive.value,
+    is_private: isPrivate.value,
     display_name: displayName.value.trim() || null,
     bio: bio.value.trim() || null,
     shared_stock_isins: [...selectedStockIsins.value],
@@ -148,6 +151,44 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
               />
             </button>
           </div>
+
+          <!-- Privacy toggle (shown when active) -->
+          <Transition
+            enter-active-class="transition-all duration-200 overflow-hidden"
+            enter-from-class="opacity-0 max-h-0"
+            enter-to-class="opacity-100 max-h-24"
+            leave-active-class="transition-all duration-200 overflow-hidden"
+            leave-from-class="opacity-100 max-h-24"
+            leave-to-class="opacity-0 max-h-0"
+          >
+            <div v-if="communityActive" class="flex items-center justify-between pt-2">
+              <div>
+                <p class="font-medium text-text-main dark:text-text-dark-main flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                  Compte privé
+                </p>
+                <p class="text-sm text-text-muted dark:text-text-dark-muted">
+                  Votre profil n'apparaîtra que si on recherche votre pseudo exact. Vos positions ne seront visibles qu'aux abonnés mutuels.
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="isPrivate = !isPrivate"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0',
+                  isPrivate ? 'bg-primary' : 'bg-surface-border dark:bg-surface-dark-border',
+                ]"
+                :aria-pressed="isPrivate"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    isPrivate ? 'translate-x-6' : 'translate-x-1',
+                  ]"
+                />
+              </button>
+            </div>
+          </Transition>
 
           <!-- Profile fields (shown when active) -->
           <Transition
@@ -282,7 +323,10 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
                   @change="toggleStock(pos.symbol)"
                   class="accent-primary shrink-0 w-4 h-4"
                 />
-                <span class="font-medium text-sm text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
+                <div class="min-w-0">
+                  <p class="font-medium text-sm text-text-main dark:text-text-dark-main truncate">{{ pos.name || pos.symbol }}</p>
+                  <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
+                </div>
               </label>
             </div>
           </div>
