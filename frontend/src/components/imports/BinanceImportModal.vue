@@ -41,7 +41,7 @@ const previewStats = reactive({
 })
 
 // Per-group price per unit input (keyed by group_index)
-const groupPricePerUnit = reactive<Record<number, number | null>>({})
+const groupPricePerUnit = reactive<Record<number, string>>({})
 
 // Set of group indices excluded by the user (crypto withdrawals)
 const excludedGroups = reactive(new Set<number>())
@@ -157,7 +157,7 @@ async function sendPreview(csvContent: string): Promise<void> {
 
     // Init price-per-unit map & excluded set
     for (const g of previewGroups.value) {
-      groupPricePerUnit[g.group_index] = null
+      groupPricePerUnit[g.group_index] = ''
     }
     excludedGroups.clear()
 
@@ -172,16 +172,16 @@ async function sendPreview(csvContent: string): Promise<void> {
 // ── Price per unit → eur_amount calculation ──────────────────
 
 function setGroupPricePerUnit(groupIndex: number, value: string): void {
-  const n = value === '' ? null : Number(value)
-  groupPricePerUnit[groupIndex] = n !== null && !isNaN(n) && n >= 0 ? n : null
+  // Keep raw string to allow intermediary decimal states (e.g. "0.", "1.5")
+  groupPricePerUnit[groupIndex] = value
+  const n = value === '' ? null : parseFloat(value.replace(',', '.'))
 
   // Compute eur_amount = total_buy_amount × price_per_unit
   const group = previewGroups.value.find((g) => g.group_index === groupIndex)
   if (!group) return
   const buySummary = getMainBuySummary(group)
-  const price = groupPricePerUnit[groupIndex]
-  if (buySummary && price !== null && price >= 0) {
-    group.eur_amount = Number((buySummary.totalAmount * price).toFixed(2))
+  if (buySummary && n !== null && !isNaN(n) && n >= 0) {
+    group.eur_amount = Number((buySummary.totalAmount * n).toFixed(2))
   } else {
     group.eur_amount = null
   }
@@ -428,9 +428,8 @@ function handleClose(): void {
                     <!-- Price per unit input -->
                     <div class="flex items-center gap-1">
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="text"
+                        inputmode="decimal"
                         :placeholder="'€/' + (getMainBuySummary(group)?.symbol ?? '?')"
                         :value="groupPricePerUnit[group.group_index] ?? ''"
                         @input="setGroupPricePerUnit(group.group_index, ($event.target as HTMLInputElement).value)"

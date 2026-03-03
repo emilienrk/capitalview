@@ -198,6 +198,18 @@ const feeActiveValue = computed((): string => {
   return txForm.fee_percentage != null ? String(txForm.fee_percentage) : ''
 })
 
+// Local display value to avoid reactive loop that kills intermediary decimal states (e.g. "0.")
+const feeDisplayValue = ref<string>(feeActiveValue.value)
+watch(feeActiveValue, (val) => {
+  // Only sync from the computed when the stored number actually differs from what's displayed.
+  // This prevents "0." from being overwritten to "0" mid-typing.
+  const parsed = parseFloat(feeDisplayValue.value.replace(',', '.'))
+  const incoming = parseFloat(val)
+  if (parsed !== incoming) {
+    feeDisplayValue.value = val
+  }
+})
+
 const feeConversionDisplay = computed((): string | null => {
   if (feeInputMode.value === 'eur') {
     if (txForm.fee_percentage != null && Number(txForm.fee_percentage) > 0) {
@@ -212,6 +224,9 @@ const feeConversionDisplay = computed((): string | null => {
 })
 
 function onUnifiedFeeInput(val: string): void {
+  feeDisplayValue.value = val
+  // Skip conversion for pure intermediary states
+  if (val === '' || val === '-' || val.endsWith('.') || val.endsWith(',')) return
   if (feeInputMode.value === 'eur') {
     onFeeEurInput(val)
   } else {
@@ -1600,11 +1615,10 @@ onMounted(async () => {
 
                 <div class="relative">
                   <input
-                    :value="feeActiveValue"
+                    :value="feeDisplayValue"
                     @input="onUnifiedFeeInput(($event.target as HTMLInputElement).value)"
-                    type="number"
-                    step="any"
-                    min="0"
+                    type="text"
+                    inputmode="decimal"
                     required
                     :placeholder="feeInputMode === 'eur' ? '0.00' : '0.00'"
                     class="w-full pl-4 pr-26 py-3 rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-lg font-semibold tabular-nums text-text-main dark:text-text-dark-main placeholder:text-text-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-150"
@@ -1881,11 +1895,10 @@ onMounted(async () => {
                 <!-- Input + unit toggle -->
                 <div class="relative">
                   <input
-                    :value="feeActiveValue"
+                    :value="feeDisplayValue"
                     @input="onUnifiedFeeInput(($event.target as HTMLInputElement).value)"
-                    type="number"
-                    step="any"
-                    min="0"
+                    type="text"
+                    inputmode="decimal"
                     required
                     :placeholder="feeInputMode === 'eur' ? '0.00' : '0.00'"
                     class="w-full pl-4 pr-26 py-3 rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-lg font-semibold tabular-nums text-text-main dark:text-text-dark-main placeholder:text-text-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-150"
