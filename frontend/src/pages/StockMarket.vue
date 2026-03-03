@@ -2,16 +2,18 @@
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
 import { useFormatters } from '@/composables/useFormatters'
+import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
 import CsvImportModal from '@/components/CsvImportModal.vue'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate } from '@/types'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse } from '@/types'
 
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
+const { displayCurrency, usdToEurRate, setCurrency, fetchRate } = useCurrencyToggle()
 
 // ── State ────────────────────────────────────────────────────
 const showAccountModal = ref(false)
@@ -102,6 +104,53 @@ const accountCounts = computed(() => {
 
 /** Portfolio totals from currentAccount data (when selected) */
 const selectedAccountSummary = computed(() => stocks.currentAccount)
+
+/** Show currency toggle only if current account has at least one non-EUR position */
+const canToggleCurrency = computed(() =>
+  selectedAccountSummary.value?.positions?.some(p => p.currency && p.currency !== 'EUR') ?? false
+)
+
+// ── Currency helpers ─────────────────────────────────────────
+/** Convert a position value to EUR using the live rate (assumes non-EUR = USD) */
+function posToEur(value: number | string | null | undefined, currency: string): number | null {
+  if (value == null) return null
+  const n = Number(value)
+  if (isNaN(n)) return null
+  if (currency && currency !== 'EUR') return n * usdToEurRate.value
+  return n
+}
+
+/** Format a market price in the active display currency */
+function formatPosPrice(value: number | string | null | undefined, currency: string): string {
+  const c = currency || 'EUR'
+  if (c !== 'EUR' && displayCurrency.value === 'EUR') {
+    return formatCurrency(posToEur(value, c), 'EUR')
+  }
+  return formatCurrency(value, c)
+}
+
+/** Format PRU: always entered in EUR, convert to native in USD mode */
+function formatPru(avgBuyPrice: number | string, currency: string): string {
+  const c = currency || 'EUR'
+  if (c !== 'EUR' && displayCurrency.value === 'USD') {
+    const rate = usdToEurRate.value
+    return formatCurrency(rate > 0 ? Number(avgBuyPrice) / rate : Number(avgBuyPrice), c)
+  }
+  return formatCurrency(avgBuyPrice, 'EUR')
+}
+
+/** P&L in EUR (total_invested is always EUR as entered by user) */
+function posProfitLossEur(pos: PositionResponse): number | null {
+  if (pos.current_value == null) return null
+  return posToEur(pos.current_value, pos.currency) as number - Number(pos.total_invested)
+}
+
+function posProfitLossPctEur(pos: PositionResponse): number | null {
+  const pl = posProfitLossEur(pos)
+  if (pl == null) return null
+  const inv = Number(pos.total_invested)
+  return inv > 0 ? (pl / inv) * 100 : 0
+}
 
 // ── Actions ──────────────────────────────────────────────────
 function openCreateAccount(): void {
@@ -402,6 +451,7 @@ function formatAssetDisplay(asset: AssetSearchResult): string {
 // ── Lifecycle ────────────────────────────────────────────────
 onMounted(() => {
   stocks.fetchAccounts()
+  fetchRate()
 })
 </script>
 
@@ -522,7 +572,7 @@ onMounted(() => {
           </div>
 
           <!-- Tabs -->
-          <div class="mb-6">
+          <div class="mb-4">
             <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
               <button
                 v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
@@ -540,6 +590,29 @@ onMounted(() => {
             </div>
           </div>
 
+          <!-- Currency display toggle (only when account has non-EUR positions) -->
+          <div v-if="canToggleCurrency && activeDetailTab === 'positions'" class="mb-5 flex items-center gap-2">
+            <span class="text-xs text-text-muted dark:text-text-dark-muted">Affichage cours :</span>
+            <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-0.5">
+              <button
+                v-for="opt in [{ key: 'EUR', label: '€ EUR' }, { key: 'USD', label: '$ Devise native' }]"
+                :key="opt.key"
+                @click="setCurrency(opt.key as 'EUR' | 'USD')"
+                :class="[
+                  'px-3 py-1 text-xs font-medium rounded-md transition-all duration-200',
+                  displayCurrency === opt.key
+                    ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+            <span v-if="displayCurrency === 'USD'" class="text-xs text-info italic">
+              P/L calculé en €
+            </span>
+          </div>
+
           <!-- Positions table -->
           <div v-if="activeDetailTab === 'positions'">
             <div v-if="selectedAccountSummary.positions?.length" class="overflow-x-auto">
@@ -549,10 +622,10 @@ onMounted(() => {
                     <th class="px-4 py-2">Nom</th>
                     <th class="px-4 py-2 text-right">Quantité</th>
                     <th class="px-4 py-2 text-right">PRU</th>
-                    <th class="px-4 py-2 text-right">Investi</th>
+                    <th class="px-4 py-2 text-right">Investi (€)</th>
                     <th class="px-4 py-2 text-right">Cours</th>
                     <th class="px-4 py-2 text-right">Valeur</th>
-                    <th class="px-4 py-2 text-right">P/L</th>
+                    <th class="px-4 py-2 text-right">P/L (€)</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
@@ -566,16 +639,16 @@ onMounted(() => {
                       <span v-if="pos.exchange" class="ml-1 text-xs text-text-muted dark:text-text-dark-muted">({{ pos.exchange }})</span>
                     </td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatPru(pos.average_buy_price, pos.currency) }}</td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.current_price) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatCurrency(pos.current_value) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatPosPrice(pos.current_price, pos.currency) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatPosPrice(pos.current_value, pos.currency) }}</td>
                     <td class="px-4 py-2.5 text-right">
-                      <span :class="['font-medium', profitLossClass(pos.profit_loss)]">
-                        {{ formatCurrency(pos.profit_loss) }}
+                      <span :class="['font-medium', profitLossClass(posProfitLossEur(pos))]">
+                        {{ formatCurrency(posProfitLossEur(pos)) }}
                       </span>
-                      <span :class="['block text-xs', profitLossClass(pos.profit_loss_percentage)]">
-                        {{ formatPercent(pos.profit_loss_percentage) }}
+                      <span :class="['block text-xs', profitLossClass(posProfitLossPctEur(pos))]">
+                        {{ formatPercent(posProfitLossPctEur(pos)) }}
                       </span>
                     </td>
                   </tr>
