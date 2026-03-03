@@ -1,22 +1,57 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useCommunityStore } from '@/stores/community'
 import { useAuthStore } from '@/stores/auth'
+import { useStocksStore } from '@/stores/stocks'
+import { useCryptoStore } from '@/stores/crypto'
 import PageHeader from '@/components/PageHeader.vue'
-import { BaseCard, BaseAlert, BaseSkeleton, BaseSpinner, BaseBadge, BaseInput } from '@/components'
+import {
+  BaseCard, BaseAlert, BaseSkeleton, BaseSpinner, BaseBadge,
+  BaseButton, BaseModal, BaseAutocomplete, BaseInput, BaseTextarea,
+} from '@/components'
+import type { PickCreate, PickResponse, AssetSearchResult } from '@/types'
 
 const communityStore = useCommunityStore()
 const authStore = useAuthStore()
+const stocksStore = useStocksStore()
+const cryptoStore = useCryptoStore()
+
 const selectedUsername = ref<string | null>(null)
 const searchQuery = ref('')
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
+// Main view mode: 'list' (profiles), 'profile' (detail), 'my-picks' (own picks panel)
+const showMyPicks = ref(false)
+
+// Profile detail tab
+const profileTab = ref<'positions' | 'picks'>('positions')
+
+// Pick modal state
+const showPickModal = ref(false)
+const editingPick = ref<PickResponse | null>(null)
+const pickForm = ref<{ symbol: string; asset_type: 'CRYPTO' | 'STOCK'; comment: string; target_price: string }>({
+  symbol: '',
+  asset_type: 'STOCK',
+  comment: '',
+  target_price: '',
+})
+const pickSubmitting = ref(false)
+
+// Asset search for pick modal
+const assetSearchQuery = ref('')
+const assetSearchResults = ref<AssetSearchResult[]>([])
+const isSearchingAssets = ref(false)
+let assetSearchTimeout: ReturnType<typeof setTimeout> | null = null
+
 onMounted(async () => {
-  await communityStore.fetchProfiles()
+  await Promise.all([
+    communityStore.fetchProfiles(),
+    communityStore.fetchMyPicks(),
+  ])
 })
 
-// Debounced search
+// Debounced search for profiles
 watch(searchQuery, (val) => {
   if (searchTimeout) clearTimeout(searchTimeout)
   if (!val.trim()) {
@@ -28,8 +63,49 @@ watch(searchQuery, (val) => {
   }, 300)
 })
 
+// Debounced asset search for pick modal
+function handleAssetSearch(query: string): void {
+  assetSearchQuery.value = query
+
+  if (assetSearchTimeout) clearTimeout(assetSearchTimeout)
+  if (!query || query.length < 2) {
+    assetSearchResults.value = []
+    return
+  }
+
+  assetSearchTimeout = setTimeout(async () => {
+    isSearchingAssets.value = true
+    try {
+      const searchFn = pickForm.value.asset_type === 'CRYPTO'
+        ? cryptoStore.searchAssets
+        : stocksStore.searchAssets
+      assetSearchResults.value = await searchFn(query)
+    } catch (e) {
+      console.error('Asset search error:', e)
+      assetSearchResults.value = []
+    } finally {
+      isSearchingAssets.value = false
+    }
+  }, 300)
+}
+
+function handleSelectAsset(asset: AssetSearchResult): void {
+  pickForm.value.symbol = asset.symbol
+  assetSearchQuery.value = asset.name ? `${asset.symbol} — ${asset.name}` : asset.symbol
+  assetSearchResults.value = []
+}
+
+function formatAssetDisplay(asset: AssetSearchResult): string {
+  if (asset.name) {
+    return `${asset.symbol} — ${asset.name}${asset.exchange ? ` (${asset.exchange})` : ''}`
+  }
+  return asset.symbol
+}
+
 async function viewProfile(username: string): Promise<void> {
+  showMyPicks.value = false
   selectedUsername.value = username
+  profileTab.value = 'positions'
   await communityStore.fetchProfile(username)
 }
 
@@ -38,20 +114,30 @@ function closeProfile(): void {
   communityStore.viewedProfile = null
 }
 
+function openMyPicks(): void {
+  selectedUsername.value = null
+  communityStore.viewedProfile = null
+  showMyPicks.value = true
+}
+
+function closeMyPicks(): void {
+  showMyPicks.value = false
+}
+
 async function handleFollow(username: string): Promise<void> {
   await communityStore.followUser(username)
-  // Refresh profile if viewing it
   if (selectedUsername.value === username) {
     await communityStore.fetchProfile(username)
   }
+  await communityStore.fetchProfiles()
 }
 
 async function handleUnfollow(username: string): Promise<void> {
   await communityStore.unfollowUser(username)
-  // Refresh profile if viewing it
   if (selectedUsername.value === username) {
     await communityStore.fetchProfile(username)
   }
+  await communityStore.fetchProfiles()
 }
 
 function formatPnl(pnl: number | null): string {
@@ -68,6 +154,88 @@ function pnlColorClass(pnl: number | null): string {
 function isOwnProfile(username: string): boolean {
   return authStore.user?.username === username
 }
+
+// ── Pick actions ─────────────────────────────────────────
+
+function openAddPick(): void {
+  editingPick.value = null
+  pickForm.value = { symbol: '', asset_type: 'STOCK', comment: '', target_price: '' }
+  assetSearchQuery.value = ''
+  assetSearchResults.value = []
+  showPickModal.value = true
+}
+
+function openEditPick(pick: PickResponse): void {
+  editingPick.value = pick
+  pickForm.value = {
+    symbol: pick.symbol,
+    asset_type: pick.asset_type,
+    comment: pick.comment || '',
+    target_price: pick.target_price !== null ? String(pick.target_price) : '',
+  }
+  assetSearchQuery.value = pick.symbol
+  assetSearchResults.value = []
+  showPickModal.value = true
+}
+
+function closePickModal(): void {
+  showPickModal.value = false
+  editingPick.value = null
+  assetSearchQuery.value = ''
+  assetSearchResults.value = []
+}
+
+// Re-trigger search when asset type changes (stock vs crypto)
+watch(() => pickForm.value.asset_type, () => {
+  if (assetSearchQuery.value.length >= 2 && !editingPick.value) {
+    handleAssetSearch(assetSearchQuery.value)
+  }
+})
+
+const isPickFormValid = computed(() => {
+  return pickForm.value.symbol.trim().length > 0
+})
+
+async function submitPick(): Promise<void> {
+  if (!isPickFormValid.value || pickSubmitting.value) return
+  pickSubmitting.value = true
+
+  const targetPrice = pickForm.value.target_price.trim()
+    ? parseFloat(pickForm.value.target_price.replace(',', '.'))
+    : null
+
+  if (editingPick.value) {
+    await communityStore.updatePick(editingPick.value.id, {
+      comment: pickForm.value.comment.trim() || null,
+      target_price: isNaN(targetPrice as number) ? null : targetPrice,
+    })
+  } else {
+    const data: PickCreate = {
+      symbol: pickForm.value.symbol.trim().toUpperCase(),
+      asset_type: pickForm.value.asset_type,
+      comment: pickForm.value.comment.trim() || null,
+      target_price: isNaN(targetPrice as number) ? null : targetPrice,
+    }
+    await communityStore.createPick(data)
+  }
+  pickSubmitting.value = false
+  closePickModal()
+}
+
+async function handleDeletePick(pickId: number): Promise<void> {
+  await communityStore.deletePick(pickId)
+}
+
+/** Whether viewing the current user's own profile. */
+const isViewingOwnProfile = computed(() => {
+  if (!communityStore.viewedProfile) return false
+  return isOwnProfile(communityStore.viewedProfile.username)
+})
+
+/** Picks displayed on the currently viewed profile. */
+const profilePicks = computed(() => {
+  return communityStore.viewedProfile?.picks ?? []
+})
 </script>
 
 <template>
@@ -77,16 +245,29 @@ function isOwnProfile(username: string): boolean {
         title="Communauté"
         description="Recherchez des investisseurs et suivez leurs performances"
       />
-      <RouterLink
-        :to="{ path: '/settings', query: { tab: 'communaute' } }"
-        class="shrink-0 flex items-center gap-2 px-4 py-2 rounded-button text-sm font-medium bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border hover:border-primary hover:text-primary text-text-body dark:text-text-dark-main transition-colors"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-        </svg>
-        Configurer mon profil
-      </RouterLink>
+      <div class="flex items-center gap-2">
+        <BaseButton variant="outline" size="sm" @click="openMyPicks">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+          </svg>
+          Mes suivis
+          <span
+            v-if="communityStore.myPicks.length > 0"
+            class="inline-flex items-center justify-center px-1.5 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+          >
+            {{ communityStore.myPicks.length }}
+          </span>
+        </BaseButton>
+        <RouterLink :to="{ path: '/settings', query: { tab: 'communaute' } }">
+          <BaseButton variant="outline" size="sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            Configurer mon profil
+          </BaseButton>
+        </RouterLink>
+      </div>
     </div>
 
     <BaseAlert v-if="communityStore.error" variant="danger" dismissible @dismiss="communityStore.error = null" class="mb-6">
@@ -94,8 +275,101 @@ function isOwnProfile(username: string): boolean {
     </BaseAlert>
 
     <div class="max-w-4xl">
+      <!-- My picks panel -->
+      <template v-if="showMyPicks">
+        <button
+          @click="closeMyPicks"
+          class="mb-4 text-sm text-primary hover:underline flex items-center gap-1"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Retour
+        </button>
+
+        <BaseCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-danger" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                </svg>
+                <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Mes suivis</h3>
+                <span
+                  v-if="communityStore.myPicks.length > 0"
+                  class="inline-flex items-center justify-center px-1.5 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                >
+                  {{ communityStore.myPicks.length }}
+                </span>
+              </div>
+              <BaseButton size="sm" @click="openAddPick">
+                + Ajouter
+              </BaseButton>
+            </div>
+          </template>
+
+          <BaseSpinner v-if="communityStore.isLoadingPicks" class="mx-auto my-8" />
+
+          <div v-else-if="communityStore.myPicks.length === 0" class="text-center py-8">
+            <svg class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+            </svg>
+            <p class="text-text-muted dark:text-text-dark-muted font-medium">Aucun suivi pour le moment</p>
+            <p class="text-sm text-text-muted dark:text-text-dark-muted mt-1">
+              Ajoutez des actions ou cryptos que vous surveillez.
+            </p>
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="pick in communityStore.myPicks"
+              :key="pick.id"
+              class="p-3 rounded-primary border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <BaseBadge :variant="pick.asset_type === 'CRYPTO' ? 'info' : 'secondary'" size="sm">
+                    {{ pick.asset_type }}
+                  </BaseBadge>
+                  <span class="font-semibold text-text-main dark:text-text-dark-main">{{ pick.symbol }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span v-if="pick.target_price !== null" class="text-xs text-text-muted dark:text-text-dark-muted">
+                    Cible : <span class="font-medium text-text-main dark:text-text-dark-main">{{ pick.target_price }}</span>
+                  </span>
+                  <button
+                    @click="openEditPick(pick)"
+                    class="p-1 text-text-muted dark:text-text-dark-muted hover:text-primary transition-colors"
+                    title="Modifier"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                  </button>
+                  <button
+                    @click="handleDeletePick(pick.id)"
+                    class="p-1 text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors"
+                    title="Supprimer"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p v-if="pick.comment" class="mt-2 text-sm text-text-body dark:text-text-dark-main">
+                {{ pick.comment }}
+              </p>
+              <p class="mt-1 text-xs text-text-muted dark:text-text-dark-muted">
+                {{ new Date(pick.created_at).toLocaleDateString('fr-FR') }}
+              </p>
+            </div>
+          </div>
+        </BaseCard>
+      </template>
+
       <!-- Profile detail view -->
-      <template v-if="selectedUsername && communityStore.viewedProfile">
+      <template v-else-if="selectedUsername && communityStore.viewedProfile">
         <button
           @click="closeProfile"
           class="mb-4 text-sm text-primary hover:underline flex items-center gap-1"
@@ -131,28 +405,20 @@ function isOwnProfile(username: string): boolean {
                   <p v-if="communityStore.viewedProfile.bio" class="text-sm text-text-muted dark:text-text-dark-muted mt-0.5">
                     {{ communityStore.viewedProfile.bio }}
                   </p>
-                  <div class="flex items-center gap-3 mt-1 text-xs text-text-muted dark:text-text-dark-muted">
-                    <span><strong class="text-text-main dark:text-text-dark-main">{{ communityStore.viewedProfile.followers_count }}</strong> abonné(s)</span>
-                    <span><strong class="text-text-main dark:text-text-dark-main">{{ communityStore.viewedProfile.following_count }}</strong> abonnement(s)</span>
-                  </div>
                 </div>
               </div>
               <div class="flex flex-col items-end gap-2">
                 <!-- Follow / Unfollow button -->
-                <button
+                <BaseButton
                   v-if="!isOwnProfile(communityStore.viewedProfile.username)"
+                  :variant="communityStore.viewedProfile.is_following ? 'outline' : 'primary'"
+                  size="sm"
                   @click="communityStore.viewedProfile.is_following
                     ? handleUnfollow(communityStore.viewedProfile.username)
                     : handleFollow(communityStore.viewedProfile.username)"
-                  :class="[
-                    'px-4 py-1.5 text-sm font-medium rounded-button transition-colors',
-                    communityStore.viewedProfile.is_following
-                      ? 'bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border text-text-body dark:text-text-dark-main hover:border-danger hover:text-danger'
-                      : 'bg-primary text-primary-content hover:bg-primary-light',
-                  ]"
                 >
                   {{ communityStore.viewedProfile.is_following ? 'Ne plus suivre' : 'Suivre' }}
-                </button>
+                </BaseButton>
                 <BaseBadge v-if="communityStore.viewedProfile.is_mutual" variant="success" size="sm">
                   Abonnement mutuel
                 </BaseBadge>
@@ -181,29 +447,131 @@ function isOwnProfile(username: string): boolean {
             </p>
           </div>
 
-          <!-- Positions -->
+          <!-- Tab navigation -->
           <template v-else>
-            <div v-if="communityStore.viewedProfile.positions.length === 0" class="text-center py-8">
-              <p class="text-text-muted dark:text-text-dark-muted">Aucune position partagée.</p>
+            <div class="flex border-b border-surface-border dark:border-surface-dark-border mb-4">
+              <button
+                @click="profileTab = 'positions'"
+                :class="[
+                  'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+                  profileTab === 'positions'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                Positions
+              </button>
+              <button
+                @click="profileTab = 'picks'"
+                :class="[
+                  'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+                  profileTab === 'picks'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                Picks
+                <span
+                  v-if="profilePicks.length > 0"
+                  class="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
+                >
+                  {{ profilePicks.length }}
+                </span>
+              </button>
             </div>
 
-            <div v-else class="divide-y divide-surface-border dark:divide-surface-dark-border">
-              <div
-                v-for="pos in communityStore.viewedProfile.positions"
-                :key="pos.symbol + pos.asset_type"
-                class="flex items-center justify-between py-3"
-              >
-                <div class="flex items-center gap-3">
-                  <BaseBadge :variant="pos.asset_type === 'CRYPTO' ? 'info' : 'secondary'" size="sm">
-                    {{ pos.asset_type }}
-                  </BaseBadge>
-                  <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
-                </div>
-                <span class="font-semibold tabular-nums" :class="pnlColorClass(pos.pnl_percentage)">
-                  {{ formatPnl(pos.pnl_percentage) }}
-                </span>
+            <!-- Positions tab -->
+            <template v-if="profileTab === 'positions'">
+              <div v-if="communityStore.viewedProfile.positions.length === 0" class="text-center py-8">
+                <p class="text-text-muted dark:text-text-dark-muted">Aucune position partagée.</p>
               </div>
-            </div>
+
+              <div v-else class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                <div
+                  v-for="pos in communityStore.viewedProfile.positions"
+                  :key="pos.symbol + pos.asset_type"
+                  class="flex items-center justify-between py-3"
+                >
+                  <div class="flex items-center gap-3">
+                    <BaseBadge :variant="pos.asset_type === 'CRYPTO' ? 'info' : 'secondary'" size="sm">
+                      {{ pos.asset_type }}
+                    </BaseBadge>
+                    <span class="font-medium text-text-main dark:text-text-dark-main">{{ pos.symbol }}</span>
+                  </div>
+                  <span class="font-semibold tabular-nums" :class="pnlColorClass(pos.pnl_percentage)">
+                    {{ formatPnl(pos.pnl_percentage) }}
+                  </span>
+                </div>
+              </div>
+            </template>
+
+            <!-- Picks tab -->
+            <template v-if="profileTab === 'picks'">
+              <!-- Add pick button (own profile only) -->
+              <div v-if="isViewingOwnProfile" class="mb-4">
+                <BaseButton size="sm" @click="openAddPick">
+                  + Ajouter un pick
+                </BaseButton>
+              </div>
+
+              <div v-if="profilePicks.length === 0" class="text-center py-8">
+                <svg class="w-10 h-10 mx-auto text-text-muted dark:text-text-dark-muted mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                </svg>
+                <p class="text-text-muted dark:text-text-dark-muted">
+                  {{ isViewingOwnProfile ? 'Vous n\'avez pas encore de picks.' : 'Aucun pick pour le moment.' }}
+                </p>
+              </div>
+
+              <div v-else class="space-y-3">
+                <div
+                  v-for="pick in profilePicks"
+                  :key="pick.id"
+                  class="p-3 rounded-primary border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark"
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <BaseBadge :variant="pick.asset_type === 'CRYPTO' ? 'info' : 'secondary'" size="sm">
+                        {{ pick.asset_type }}
+                      </BaseBadge>
+                      <span class="font-semibold text-text-main dark:text-text-dark-main">{{ pick.symbol }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span v-if="pick.target_price !== null" class="text-xs text-text-muted dark:text-text-dark-muted">
+                        Cible : <span class="font-medium text-text-main dark:text-text-dark-main">{{ pick.target_price }}</span>
+                      </span>
+                      <!-- Edit / Delete buttons (own profile only) -->
+                      <template v-if="isViewingOwnProfile">
+                        <button
+                          @click="openEditPick(pick)"
+                          class="p-1 text-text-muted dark:text-text-dark-muted hover:text-primary transition-colors"
+                          title="Modifier"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          </svg>
+                        </button>
+                        <button
+                          @click="handleDeletePick(pick.id)"
+                          class="p-1 text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                          </svg>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                  <p v-if="pick.comment" class="mt-2 text-sm text-text-body dark:text-text-dark-main">
+                    {{ pick.comment }}
+                  </p>
+                  <p class="mt-1 text-xs text-text-muted dark:text-text-dark-muted">
+                    {{ new Date(pick.created_at).toLocaleDateString('fr-FR') }}
+                  </p>
+                </div>
+              </div>
+            </template>
           </template>
         </BaseCard>
       </template>
@@ -353,5 +721,107 @@ function isOwnProfile(username: string): boolean {
         </template>
       </template>
     </div>
+
+    <!-- Pick modal (global, accessible from any view) -->
+    <BaseModal
+      :open="showPickModal"
+      :title="editingPick ? 'Modifier le suivi' : 'Ajouter un suivi'"
+      size="sm"
+      @close="closePickModal"
+    >
+      <form id="pick-form" @submit.prevent="submitPick" class="space-y-4">
+        <!-- Asset type toggle -->
+        <div>
+          <label class="block text-sm font-medium text-text-main dark:text-text-dark-main mb-1.5">Type</label>
+          <div class="flex gap-3">
+            <label
+              :class="[
+                'flex-1 px-3 py-2 text-center text-sm rounded-input border cursor-pointer transition-colors',
+                pickForm.asset_type === 'STOCK'
+                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                  : 'border-surface-border dark:border-surface-dark-border text-text-muted dark:text-text-dark-muted hover:border-primary/50',
+              ]"
+            >
+              <input v-model="pickForm.asset_type" type="radio" value="STOCK" class="sr-only" :disabled="!!editingPick" />
+              Action
+            </label>
+            <label
+              :class="[
+                'flex-1 px-3 py-2 text-center text-sm rounded-input border cursor-pointer transition-colors',
+                pickForm.asset_type === 'CRYPTO'
+                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                  : 'border-surface-border dark:border-surface-dark-border text-text-muted dark:text-text-dark-muted hover:border-primary/50',
+              ]"
+            >
+              <input v-model="pickForm.asset_type" type="radio" value="CRYPTO" class="sr-only" :disabled="!!editingPick" />
+              Crypto
+            </label>
+          </div>
+        </div>
+
+        <!-- Symbol autocomplete -->
+        <BaseAutocomplete
+          v-if="!editingPick"
+          :modelValue="assetSearchQuery"
+          @update:modelValue="handleAssetSearch"
+          @select="handleSelectAsset"
+          label="Actif"
+          :placeholder="pickForm.asset_type === 'CRYPTO' ? 'Rechercher BTC, ETH, SOL…' : 'Rechercher AAPL, MSFT, LVMH…'"
+          :options="assetSearchResults"
+          :remote="true"
+          :loading="isSearchingAssets"
+          :displayValue="formatAssetDisplay"
+          required
+        >
+          <template #item="{ item }">
+            <div class="flex items-center justify-between w-full">
+              <div>
+                <span class="font-medium">{{ item.symbol }}</span>
+                <span v-if="item.name" class="text-text-muted dark:text-text-dark-muted ml-1.5">{{ item.name }}</span>
+              </div>
+              <span v-if="item.exchange" class="text-xs text-text-muted dark:text-text-dark-muted">{{ item.exchange }}</span>
+            </div>
+          </template>
+        </BaseAutocomplete>
+
+        <!-- Display symbol as read-only when editing -->
+        <BaseInput
+          v-if="editingPick"
+          :modelValue="pickForm.symbol"
+          label="Symbole"
+          disabled
+        />
+
+        <!-- Target price -->
+        <BaseInput
+          v-model="pickForm.target_price"
+          label="Prix cible (optionnel)"
+          placeholder="Ex : 250, 0.85…"
+          type="text"
+        />
+
+        <!-- Comment -->
+        <BaseTextarea
+          v-model="pickForm.comment"
+          label="Commentaire (optionnel)"
+          placeholder="Pourquoi ce choix ?"
+          :rows="3"
+        />
+      </form>
+
+      <template #footer>
+        <BaseButton variant="ghost" @click="closePickModal">
+          Annuler
+        </BaseButton>
+        <BaseButton
+          type="submit"
+          form="pick-form"
+          :loading="pickSubmitting"
+          :disabled="!isPickFormValid"
+        >
+          {{ editingPick ? 'Modifier' : 'Ajouter' }}
+        </BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>

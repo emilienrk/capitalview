@@ -9,6 +9,9 @@ import type {
   CommunityProfileResponse,
   CommunitySearchResult,
   FollowResponse,
+  PickCreate,
+  PickResponse,
+  PickUpdate,
 } from '@/types'
 
 export const useCommunityStore = defineStore('community', () => {
@@ -126,9 +129,6 @@ export const useCommunityStore = defineStore('community', () => {
       if (viewedProfile.value && viewedProfile.value.username === username) {
         viewedProfile.value.is_following = res.is_following
         viewedProfile.value.is_mutual = res.is_mutual
-        if (res.is_following) {
-          viewedProfile.value.followers_count++
-        }
       }
       // Update in search results / profiles lists
       _updateFollowState(username, res)
@@ -149,7 +149,6 @@ export const useCommunityStore = defineStore('community', () => {
       if (viewedProfile.value && viewedProfile.value.username === username) {
         viewedProfile.value.is_following = res.is_following
         viewedProfile.value.is_mutual = res.is_mutual
-        viewedProfile.value.followers_count = Math.max(0, viewedProfile.value.followers_count - 1)
       }
       _updateFollowState(username, res)
       return res
@@ -186,6 +185,81 @@ export const useCommunityStore = defineStore('community', () => {
     }
   }
 
+  // ── Picks (likes) ─────────────────────────────────────────
+
+  const myPicks = ref<PickResponse[]>([])
+  const isLoadingPicks = ref(false)
+
+  async function fetchMyPicks(): Promise<void> {
+    isLoadingPicks.value = true
+    error.value = null
+    try {
+      myPicks.value = await apiClient.get<PickResponse[]>('/community/picks/me')
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Impossible de charger vos picks'
+    } finally {
+      isLoadingPicks.value = false
+    }
+  }
+
+  async function createPick(data: PickCreate): Promise<PickResponse | null> {
+    error.value = null
+    try {
+      const pick = await apiClient.post<PickResponse>('/community/picks', data)
+      myPicks.value.unshift(pick)
+      // Also add to viewed profile if it's the current user's profile
+      if (viewedProfile.value) {
+        viewedProfile.value.picks.unshift(pick)
+      }
+      return pick
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Impossible de créer le pick'
+      return null
+    }
+  }
+
+  async function updatePick(pickId: number, data: PickUpdate): Promise<PickResponse | null> {
+    error.value = null
+    try {
+      const pick = await apiClient.put<PickResponse>(`/community/picks/${pickId}`, data)
+      // Update in myPicks
+      const idx = myPicks.value.findIndex((p) => p.id === pickId)
+      if (idx !== -1) myPicks.value[idx] = pick
+      // Update in viewed profile
+      if (viewedProfile.value) {
+        const pidx = viewedProfile.value.picks.findIndex((p) => p.id === pickId)
+        if (pidx !== -1) viewedProfile.value.picks[pidx] = pick
+      }
+      return pick
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Impossible de modifier le pick'
+      return null
+    }
+  }
+
+  async function deletePick(pickId: number): Promise<boolean> {
+    error.value = null
+    try {
+      await apiClient.delete(`/community/picks/${pickId}`)
+      myPicks.value = myPicks.value.filter((p) => p.id !== pickId)
+      // Remove from viewed profile
+      if (viewedProfile.value) {
+        viewedProfile.value.picks = viewedProfile.value.picks.filter((p) => p.id !== pickId)
+      }
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Impossible de supprimer le pick'
+      return false
+    }
+  }
+
+  /** Check if the current user already picked a given symbol+asset_type. */
+  function hasPicked(symbol: string, assetType: 'CRYPTO' | 'STOCK'): boolean {
+    return myPicks.value.some(
+      (p) => p.symbol === symbol && p.asset_type === assetType,
+    )
+  }
+
   return {
     settings,
     isLoadingSettings,
@@ -206,5 +280,13 @@ export const useCommunityStore = defineStore('community', () => {
     followUser,
     unfollowUser,
     fetchAvailablePositions,
+    // Picks
+    myPicks,
+    isLoadingPicks,
+    fetchMyPicks,
+    createPick,
+    updatePick,
+    deletePick,
+    hasPicked,
   }
 })

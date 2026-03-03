@@ -707,6 +707,7 @@ export interface CommunityProfileResponse {
   global_pnl_percentage: number | null
   followers_count: number
   following_count: number
+  picks: PickResponse[]
 }
 
 export interface CommunityProfileListItem {
@@ -743,4 +744,29 @@ export interface AvailablePosition {
 export interface AvailablePositionsResponse {
   stocks: AvailablePosition[]
   crypto: AvailablePosition[]
+}
+
+// ── Picks (likes) ──────────────────────────────────────────────
+
+export interface PickCreate {
+  symbol: string
+  asset_type: 'CRYPTO' | 'STOCK'
+  comment?: string | null
+  target_price?: number | null
+}
+
+export interface PickUpdate {
+  comment?: string | null
+  target_price?: number | null
+}
+
+export interface PickResponse {
+  id: number
+  username: string
+  symbol: string
+  asset_type: 'CRYPTO' | 'STOCK'
+  comment: string | null
+  target_price: number | null
+  created_at: string
+  updated_at: string
 }
