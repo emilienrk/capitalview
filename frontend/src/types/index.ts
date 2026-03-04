@@ -691,6 +691,7 @@ export interface CommunitySettingsResponse {
 
 export interface CommunityPositionResponse {
   symbol: string
+  name: string | null
   asset_type: 'CRYPTO' | 'STOCK'
   pnl_percentage: number | null
 }
@@ -708,6 +709,7 @@ export interface CommunityProfileResponse {
   followers_count: number
   following_count: number
   picks: PickResponse[]
+  created_at: string | null
 }
 
 export interface CommunityProfileListItem {

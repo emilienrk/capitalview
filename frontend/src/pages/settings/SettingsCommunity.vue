@@ -278,7 +278,6 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
         <template v-else>
           <p class="text-sm text-text-muted dark:text-text-dark-muted mb-4">
             Cochez les positions dont vous souhaitez partager le PnL (%).
-            Seules les positions avec un solde positif sont disponibles.
           </p>
 
           <!-- Stocks -->

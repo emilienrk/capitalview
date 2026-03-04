@@ -72,7 +72,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader title="Paramètres" description="Configuration de votre compte et préférences" />
+    <PageHeader title="Paramètres" />
 
     <BaseAlert v-if="settingsStore.error" variant="danger" dismissible @dismiss="settingsStore.error = null" class="mb-6">
       {{ settingsStore.error }}
