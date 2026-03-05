@@ -11,6 +11,7 @@ import {
 import CsvImportModal from '@/components/CsvImportModal.vue'
 import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse } from '@/types'
 
+
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
 const { displayCurrency, usdToEurRate, setCurrency, fetchRate } = useCurrencyToggle()
@@ -47,10 +48,19 @@ const txForm = reactive<StockTransactionCreate>({
   executed_at: new Date().toISOString().slice(0, 16),
 })
 
-const searchResults = ref<AssetSearchResult[]>([])
-const isSearching = ref(false)
-const searchQuery = ref('')
-const isinError = ref<string | null>(null)
+// ── Unified asset search ─────────────────────────────────────
+interface AssetOption {
+  symbol: string
+  isin: string | null
+  name: string | null
+  exchange: string | null
+  _source: 'known' | 'api'
+}
+const assetQuery = ref('')
+const assetOptions = ref<AssetOption[]>([])
+const isAssetSearching = ref(false)
+const assetError = ref<string | null>(null)
+const showExchange = ref(false)
 
 // ── Options ──────────────────────────────────────────────────
 const txTypeOptions = [
@@ -104,6 +114,42 @@ const accountCounts = computed(() => {
 
 /** Portfolio totals from currentAccount data (when selected) */
 const selectedAccountSummary = computed(() => stocks.currentAccount)
+
+/** Deduplicated list of known assets from existing transactions, shown by default in the asset picker */
+const knownAssetOptions = computed((): AssetOption[] => {
+  const seen = new Map<string, AssetOption>()
+  for (const tx of stocks.transactions) {
+    const key = tx.isin || `${tx.symbol}__${tx.exchange ?? ''}`
+    if (!seen.has(key)) {
+      seen.set(key, {
+        symbol: tx.symbol,
+        isin: tx.isin,
+        name: tx.name,
+        exchange: tx.exchange,
+        _source: 'known',
+      })
+    }
+  }
+  return Array.from(seen.values())
+    .sort((a, b) => (a.name ?? a.symbol).localeCompare(b.name ?? b.symbol))
+})
+
+function formatAssetOption(opt: AssetOption): string {
+  const parts: string[] = [opt.symbol]
+  if (opt.name) parts.push(opt.name)
+  if (opt.isin) parts.push(`(${opt.isin})`)
+  return parts.join(' – ')
+}
+
+function handleSelectUnifiedAsset(asset: AssetOption): void {
+  txForm.symbol = asset.symbol
+  txForm.isin = asset.isin ?? ''
+  txForm.exchange = asset.exchange ?? ''
+  if (asset.name) txForm.name = asset.name
+  assetQuery.value = formatAssetOption(asset)
+  assetError.value = null
+  if (asset.exchange) showExchange.value = true
+}
 
 /** Show currency toggle only if current account has at least one non-EUR position */
 const canToggleCurrency = computed(() =>
@@ -193,8 +239,10 @@ function openAddTransaction(accountId: string): void {
   txForm.price_per_unit = 0
   txForm.fees = 0
   txForm.executed_at = new Date().toISOString().slice(0, 16)
-  searchQuery.value = ''
-  searchResults.value = []
+  assetQuery.value = ''
+  assetOptions.value = knownAssetOptions.value
+  assetError.value = null
+  showExchange.value = false
   showTxModal.value = true
 }
 
@@ -227,16 +275,20 @@ function openEditTransaction(tx: any): void {
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
   txForm.executed_at = tx.executed_at.slice(0, 16)
-  searchQuery.value = tx.symbol
-  searchResults.value = []
+  // Pre-fill unified asset field from known assets or raw tx data
+  const knownMatch = knownAssetOptions.value.find(k =>
+    (tx.isin && k.isin === tx.isin) || k.symbol === tx.symbol
+  )
+  assetQuery.value = knownMatch
+    ? formatAssetOption(knownMatch)
+    : tx.name ? `${tx.symbol} – ${tx.name}` : tx.symbol
+  assetOptions.value = knownAssetOptions.value
+  assetError.value = null
+  showExchange.value = !!tx.exchange
   showTxModal.value = true
 }
 
 async function handleSubmitTransaction(): Promise<void> {
-  if (isinError.value) {
-    return
-  }
-  
   if (!txForm.isin || txForm.isin.trim() === '') {
     alert("L'ISIN est obligatoire.")
     return
@@ -341,116 +393,64 @@ function badgeVariant(type: string): 'primary' | 'info' | 'warning' {
   return 'info'
 }
 
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
-async function handleSearchInput(value: string): Promise<void> {
-  searchQuery.value = value
-  txForm.symbol = value
-  
-  if (!value || value.length < 2) {
-    searchResults.value = []
+// ISIN-like detection: 2 letters + at least 3 alphanumeric, no spaces
+const ISIN_LIKE_RE = /^[A-Za-z]{2}[A-Za-z0-9]{3,}$/
+
+let assetSearchTimeout: ReturnType<typeof setTimeout> | null = null
+async function handleAssetInput(value: string): Promise<void> {
+  assetQuery.value = value
+  assetError.value = null
+
+  const q = value.trim().toLowerCase()
+
+  // Always filter known assets immediately (client-side)
+  const knownMatches: AssetOption[] = !q
+    ? knownAssetOptions.value
+    : knownAssetOptions.value.filter(a =>
+        a.symbol.toLowerCase().includes(q) ||
+        (a.name?.toLowerCase().includes(q) ?? false) ||
+        (a.isin?.toLowerCase().includes(q) ?? false)
+      )
+
+  // Decide whether to also call the API:
+  // - fewer than 3 known matches AND at least 2 chars typed
+  // - OR the input looks like an ISIN (never in the known list by definition)
+  const isIsinLike = ISIN_LIKE_RE.test(value) && !value.includes(' ')
+  const needsApi = q.length >= 2 && (isIsinLike || knownMatches.length < 3)
+
+  if (!needsApi) {
+    assetOptions.value = knownMatches
     return
   }
-  
-  if (searchTimeout) clearTimeout(searchTimeout)
-  
-  searchTimeout = setTimeout(async () => {
-    isSearching.value = true
+
+  // Show known matches immediately, then append API results
+  assetOptions.value = knownMatches
+
+  if (assetSearchTimeout) clearTimeout(assetSearchTimeout)
+  isAssetSearching.value = true
+
+  assetSearchTimeout = setTimeout(async () => {
     try {
-      searchResults.value = await stocks.searchAssets(value)
-    } catch (error) {
-      console.error('Search error:', error)
-      searchResults.value = []
+      const apiRaw: AssetSearchResult[] = await stocks.searchAssets(value)
+      // Deduplicate: skip API results already covered by known assets
+      const apiExtra: AssetOption[] = apiRaw
+        .filter(r => !knownMatches.some(k =>
+          (r.isin && r.isin === k.isin) || r.symbol === k.symbol
+        ))
+        .map(r => ({ symbol: r.symbol, isin: r.isin ?? null, name: r.name, exchange: r.exchange, _source: 'api' as const }))
+      assetOptions.value = [...knownMatches, ...apiExtra]
+    } catch {
+      // keep current known matches on error
     } finally {
-      isSearching.value = false
+      isAssetSearching.value = false
     }
   }, 300)
-}
-
-async function handleIsinBlur(): Promise<void> {
-  const isin = txForm.isin?.trim()
-  if (!isin) {
-    isinError.value = null
-    return
-  }
-
-  isinError.value = null
-  isSearching.value = true
-  try {
-    const results = await stocks.searchAssets(isin)
-    if (results && results.length > 0) {
-      const asset = results[0]
-      
-      if (asset) {
-        txForm.symbol = asset.symbol
-        if (asset.name) {
-           txForm.name = asset.name 
-        }
-        if (asset.exchange) {
-          txForm.exchange = asset.exchange
-        }
-        
-        searchQuery.value = asset.symbol
-        searchResults.value = []
-      }
-    } else {
-      isinError.value = "Aucun actif trouvé pour cet ISIN"
-    }
-  } catch (e) {
-    console.error(e)
-    isinError.value = "Erreur lors de la recherche"
-  } finally {
-    isSearching.value = false
-  }
-}
-
-async function handleSelectAsset(asset: AssetSearchResult): Promise<void> {
-  txForm.symbol = asset.symbol
-  txForm.exchange = asset.exchange || ''
-  
-  if (asset.name) txForm.name = asset.name
-  searchQuery.value = asset.symbol
-  searchResults.value = []
-  
-  if (asset.isin) {
-    txForm.isin = asset.isin
-  } else {
-    // Attempt to fetch ISIN via detailed info
-    // Only fetch if we have a symbol
-    if (asset.symbol) {
-      // Show loading indicator in autocomplete or somewhere appropriate?
-      // Re-using isSearching might be confusing if the dropdown is closed.
-      // But let's try to get it.
-      try {
-        const details = await stocks.getAssetsInfo([asset.symbol])
-        if (details.length > 0) {
-          const detail = details[0]
-          if (detail) {
-            if (detail.isin) {
-              txForm.isin = detail.isin
-            }
-            // Update name if we got a better one
-            if (detail.name) {
-               txForm.name = detail.name
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch asset details", e)
-      }
-    }
-  }
-}
-
-function formatAssetDisplay(asset: AssetSearchResult): string {
-  if (asset.name) {
-    return `${asset.symbol} - ${asset.name}${asset.exchange ? ` (${asset.exchange})` : ''}`
-  }
-  return asset.symbol
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
 onMounted(() => {
   stocks.fetchAccounts()
+  stocks.fetchTransactions()
   fetchRate()
 })
 </script>
@@ -507,7 +507,7 @@ onMounted(() => {
           selectedAccountId === account.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-background-dark' : '',
         ]"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div
             class="flex-1 cursor-pointer min-w-0"
             @click="selectAccount(account.id)"
@@ -523,16 +523,15 @@ onMounted(() => {
               <span class="text-xs text-text-muted dark:text-text-dark-muted">Créé le {{ formatDate(account.created_at) }}</span>
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
+          <div class="flex items-center gap-2 shrink-0 self-start">
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
-              <span class="sm:hidden text-lg leading-none">+</span>
-              <span class="hidden sm:inline">+ Transaction</span>
+              + Transaction
             </BaseButton>
             <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              <span class="hidden sm:inline">Importer</span>
+              Importer
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -780,25 +779,70 @@ onMounted(() => {
     <!-- ── Create/Edit Transaction Modal ─────────────────────── -->
     <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction'" @close="showTxModal = false">
       <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
-        <BaseAutocomplete
-          :model-value="searchQuery"
-          @update:model-value="handleSearchInput"
-          @select="handleSelectAsset"
-          label="Action / symbol"
-          placeholder="Rechercher une action..."
-          :options="searchResults"
-          :display-value="formatAssetDisplay"
-          :loading="isSearching"
-          remote
-          required
-        />
-        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
-          💡 Si aucune suggestion ne correspond, vous pouvez saisir le symbole manuellement
-        </p>
-        <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.isin!" label="ISIN" placeholder="Code ISIN" @blur="handleIsinBlur" :error="isinError || undefined" required />
-          <BaseInput v-model="txForm.exchange!" label="Place de marché" placeholder="Place de marché" />
+
+        <!-- ── Unified asset picker ── -->
+        <div>
+          <BaseAutocomplete
+            v-model="assetQuery"
+            @update:model-value="handleAssetInput"
+            @select="handleSelectUnifiedAsset"
+            label="Actif"
+            placeholder="Nom, symbole ou ISIN…"
+            :options="assetOptions"
+            :display-value="formatAssetOption"
+            :loading="isAssetSearching"
+            :show-all-on-focus="true"
+            remote
+            required
+          >
+            <template #item="{ item }">
+              <div class="flex items-center justify-between gap-2 w-full">
+                <div class="min-w-0">
+                  <span class="font-medium">{{ item.symbol }}</span>
+                  <span v-if="item.name" class="text-text-muted dark:text-text-dark-muted text-xs ml-1.5">{{ item.name }}</span>
+                  <span v-if="item.isin" class="text-text-muted dark:text-text-dark-muted text-xs ml-1">({{ item.isin }})</span>
+                </div>
+                <span
+                  :class="[
+                    'text-xs shrink-0 px-1.5 py-0.5 rounded-secondary font-medium',
+                    item._source === 'known'
+                      ? 'bg-primary-light text-primary'
+                      : 'bg-background-subtle dark:bg-background-dark-subtle text-text-muted dark:text-text-dark-muted',
+                  ]"
+                >{{ item._source === 'known' ? 'portefeuille' : 'marché' }}</span>
+              </div>
+            </template>
+          </BaseAutocomplete>
+          <p v-if="assetError" class="text-xs text-danger mt-1">{{ assetError }}</p>
+          <p v-else class="text-xs text-text-muted dark:text-text-dark-muted mt-1">
+            Tapez un nom, un symbole ou un ISIN — les actifs de votre portefeuille apparaissent en premier
+          </p>
         </div>
+
+        <!-- ISIN pré-rempli (confirmation / correction) + place de marché optionnelle -->
+        <div :class="showExchange ? 'grid grid-cols-2 gap-4' : ''">
+          <BaseInput
+            v-model="txForm.isin!"
+            label="ISIN"
+            placeholder="Auto-rempli à la sélection"
+            required
+          />
+          <BaseInput
+            v-if="showExchange"
+            v-model="txForm.exchange!"
+            label="Place de marché"
+            placeholder="Ex : XPAR, XNAS…"
+          />
+        </div>
+        <button
+          v-if="!showExchange"
+          type="button"
+          class="text-xs text-primary hover:underline -mt-2 block"
+          @click="showExchange = true"
+        >
+          + Ajouter une place de marché
+        </button>
+
         <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
         <div class="grid grid-cols-2 gap-4">
           <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />

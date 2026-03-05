@@ -14,6 +14,7 @@ interface Props {
   remote?: boolean
   loading?: boolean
   displayValue?: (option: any) => string
+  showAllOnFocus?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
   options: () => [],
   remote: false,
   loading: false,
+  showAllOnFocus: false,
   displayValue: (option: any) => typeof option === 'string' ? option : String(option),
 })
 
@@ -37,6 +39,13 @@ const wrapperRef = ref<HTMLDivElement | null>(null)
 
 const filteredOptions = computed(() => {
   if (props.remote) return props.options
+  if (props.showAllOnFocus) {
+    if (!props.modelValue) return props.options.slice(0, 50)
+    const query = props.modelValue.toLowerCase()
+    return props.options
+      .filter(opt => props.displayValue(opt).toLowerCase().includes(query))
+      .slice(0, 50)
+  }
   if (!props.modelValue) return []
   const query = props.modelValue.toLowerCase()
   return props.options
@@ -56,7 +65,7 @@ watch(() => props.options, (newOptions) => {
 function onInput(event: Event): void {
   const target = event.target as HTMLInputElement
   emit('update:modelValue', target.value)
-  if (target.value.length >= 2) {
+  if (props.showAllOnFocus || target.value.length >= 2) {
     isOpen.value = true
   } else {
     isOpen.value = false
@@ -121,7 +130,7 @@ onUnmounted(() => {
         :required="props.required"
         @input="onInput"
         @keydown="onKeydown"
-        @focus="isOpen = true"
+        @focus="isOpen = props.showAllOnFocus || isOpen"
         autocomplete="off"
         :class="[
           'w-full px-4 py-2.5 rounded-input border bg-surface dark:bg-surface-dark transition-all duration-150',

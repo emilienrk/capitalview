@@ -805,283 +805,32 @@ onMounted(async () => {
         {{ txWarning }}
       </BaseAlert>
 
-      <BaseCard v-if="!crypto.error && crypto.currentAccount">
+      <template v-if="!crypto.error && crypto.currentAccount">
         <!-- Summary Stats -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div>
-            <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-            <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
+            <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">Investi</p>
+            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
           </div>
-          <div>
-            <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
-            <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
+          <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
+            <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">Valeur actuelle</p>
+            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.current_value) }}</p>
+          </div>
+          <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
+            <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">P/L</p>
+            <p :class="['text-xl font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss)]">
               {{ formatAmount(crypto.currentAccount.profit_loss) }}
             </p>
           </div>
-          <div>
-            <p class="text-xs text-text-muted dark:text-text-dark-muted">Performance</p>
-            <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss_percentage)]">
+          <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
+            <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">Performance</p>
+            <p :class="['text-xl font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss_percentage)]">
               {{ formatPercent(crypto.currentAccount.profit_loss_percentage) }}
             </p>
           </div>
         </div>
 
-        <!-- Tabs (Segmented Control) -->
-        <div class="mb-6">
-          <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
-            <button
-              v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
-              :key="tab.key"
-              @click="activeDetailTab = tab.key as any"
-              :class="[
-                'px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
-                activeDetailTab === tab.key
-                  ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                  : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
-              ]"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Positions Tab -->
-        <div v-if="activeDetailTab === 'positions'">
-          <div v-if="crypto.currentAccount.positions?.length" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                  <th class="px-4 py-2">Nom</th>
-                  <th class="px-4 py-2 text-right">Quantité</th>
-                  <th class="px-4 py-2 text-right">PRU</th>
-                  <th class="px-4 py-2 text-right">Investi</th>
-                  <th class="px-4 py-2 text-right">Cours</th>
-                  <th class="px-4 py-2 text-right">Valeur</th>
-                  <th class="px-4 py-2 text-right">P/L</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                  <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
-                  <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
-                  <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
-                  <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
-                  <td class="px-4 py-2.5 text-right">
-                    <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <BaseEmptyState v-else title="Aucune position" description="Ajoutez des transactions pour voir vos positions crypto" />
-        </div>
-
-        <!-- History Tab -->
-        <div v-else>
-          <div v-if="accountTransactions.length" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                  <th class="w-1 px-0 py-2"></th>
-                  <th class="px-4 py-2">Date</th>
-                  <th class="px-4 py-2">Type</th>
-                  <th class="px-4 py-2">Token</th>
-                  <th class="px-4 py-2 text-right">Quantité</th>
-                  <th class="px-4 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(tx, idx) in sortedTransactions" :key="tx.id"
-                  :class="[
-                    'transition-colors',
-                    isInGroup(tx)
-                      ? (groupColorIndex[tx.group_uuid!] === 0
-                          ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
-                          : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
-                      : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                    isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
-                    !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
-                  ]"
-                >
-                  <!-- Group indicator bar -->
-                  <td class="w-1 px-0 py-0 relative">
-                    <div
-                      v-if="isInGroup(tx)"
-                      :class="[
-                        'absolute left-0 w-0.75',
-                        groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
-                        isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
-                        isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
-                      ]"
-                      style="top: 0; bottom: 0;"
-                    />
-                  </td>
-                  <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
-                  <td class="px-4 py-2.5">
-                    <span class="inline-flex items-center gap-1.5">
-                      <BaseBadge :variant="
-                        tx.type === 'BUY' ? 'success' :
-                        tx.type === 'SPEND' ? 'danger' :
-                        tx.type === 'FEE' ? 'warning' :
-                        tx.type === 'REWARD' ? 'info' :
-                        tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
-                        tx.type === 'TRANSFER' ? 'secondary' :
-                        tx.type === 'EXIT' ? 'danger' :
-                        'secondary'
-                      ">
-                        {{ tx.type }}
-                      </BaseBadge>
-                      <!-- Tooltip for technical rows -->
-                      <span
-                        v-if="rowTooltip(tx)"
-                        class="relative group/tip cursor-help"
-                      >
-                        <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10" stroke-width="2" />
-                          <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-                        </svg>
-                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
-                          {{ rowTooltip(tx) }}
-                        </span>
-                      </span>
-                    </span>
-                  </td>
-                  <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
-                  <td
-                    class="px-4 py-2.5 text-right font-mono"
-                    :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
-                  >
-                    {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
-                  </td>
-                  <td class="px-4 py-2.5 text-right">
-                    <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </BaseButton>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
-        </div>
-      </BaseCard>
-    </template>
-
-    <!-- ── MULTI MODE view ────────────────────────────────── -->
-    <template v-else>
-      <div v-if="crypto.isLoading && !crypto.accounts.length" class="flex justify-center py-20">
-        <BaseSpinner size="lg" label="Chargement..." />
-      </div>
-
-      <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
-        {{ crypto.error }}
-      </BaseAlert>
-      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
-        {{ txWarning }}
-      </BaseAlert>
-
-      <div v-if="crypto.accounts.length" class="space-y-4">
-        <BaseCard
-        v-for="account in crypto.accounts"
-        :key="account.id"
-        :class="[
-          'transition-all duration-150',
-          selectedAccountId === account.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-background-dark' : '',
-        ]"
-      >
-        <div class="flex items-center justify-between">
-          <div
-            class="flex-1 cursor-pointer min-w-0"
-            @click="selectAccount(account.id)"
-          >
-            <div class="flex items-center gap-3">
-              <h3 class="font-semibold text-text-main dark:text-text-dark-main truncate">{{ account.name }}</h3>
-              <span v-if="account.platform" class="px-2 py-0.5 rounded text-xs font-medium bg-surface-active dark:bg-surface-dark-active text-text-muted dark:text-text-dark-muted">
-                {{ account.platform }}
-              </span>
-            </div>
-            <div class="flex items-center gap-3 mt-1">
-              <span v-if="account.public_address" class="text-xs text-text-muted dark:text-text-dark-muted font-mono truncate max-w-50">{{ account.public_address }}</span>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
-            <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
-              <span class="sm:hidden text-lg leading-none">+</span>
-              <span class="hidden sm:inline">+ Transaction</span>
-            </BaseButton>
-            <!-- Import dropdown -->
-            <div class="relative">
-              <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <span class="hidden sm:inline">Importer</span>
-                <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </BaseButton>
-              <!-- Overlay to close on outside click -->
-              <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
-              <!-- Dropdown menu -->
-              <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
-                <button
-                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
-                  @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
-                >
-                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  CSV générique
-                </button>
-                <button
-                  class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
-                  @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
-                >
-                  <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Binance CSV
-                </button>
-              </div>
-            </div>
-            <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </BaseButton>
-          </div>
-        </div>
-
-        <!-- Inline Detail -->
-        <div
-          v-if="selectedAccountId === account.id && crypto.currentAccount"
-          class="mt-6 pt-6 border-t border-surface-border dark:border-surface-dark-border"
-        >
-          <!-- Summary Stats -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <div>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
-              <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss)]">
-                {{ formatAmount(crypto.currentAccount.profit_loss) }}
-              </p>
-            </div>
-            <div>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">Performance</p>
-              <p :class="['text-lg font-bold', profitLossClass(crypto.currentAccount.profit_loss_percentage)]">
-                {{ formatPercent(crypto.currentAccount.profit_loss_percentage) }}
-              </p>
-            </div>
-          </div>
-
+        <BaseCard>
           <!-- Tabs (Segmented Control) -->
           <div class="mb-6">
             <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
@@ -1103,81 +852,529 @@ onMounted(async () => {
 
           <!-- Positions Tab -->
           <div v-if="activeDetailTab === 'positions'">
-            <div v-if="crypto.currentAccount.positions?.length" class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                    <th class="px-4 py-2">Nom</th>
-                    <th class="px-4 py-2 text-right">Quantité</th>
-                    <th class="px-4 py-2 text-right">PRU</th>
-                    <th class="px-4 py-2 text-right">Investi</th>
-                    <th class="px-4 py-2 text-right">Cours</th>
-                    <th class="px-4 py-2 text-right">Valeur</th>
-                    <th class="px-4 py-2 text-right">P/L</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                  <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</td>
-                    <td class="px-4 py-2.5 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatAmount(pos.current_value) }}</td>
-                    <td class="px-4 py-2.5 text-right">
-                      <span :class="['font-medium', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <template v-if="crypto.currentAccount.positions?.length">
+              <!-- Desktop table -->
+              <div class="hidden md:block overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-[11px] text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                      <th class="px-4 py-3">Actif</th>
+                      <th class="px-4 py-3 text-right">Quantité</th>
+                      <th class="px-4 py-3 text-right">PRU</th>
+                      <th class="px-4 py-3 text-right">Investi</th>
+                      <th class="px-4 py-3 text-right">Cours</th>
+                      <th class="px-4 py-3 text-right">Valeur</th>
+                      <th class="px-4 py-3 text-right">P/L</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                    <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                      <td class="px-4 py-3">
+                        <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
+                        <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
+                      </td>
+                      <td class="px-4 py-3 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
+                      <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                      <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                      <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                      <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <span :class="['font-semibold', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Mobile cards -->
+              <div class="md:hidden space-y-3">
+                <div
+                  v-for="pos in crypto.currentAccount.positions"
+                  :key="pos.symbol"
+                  class="rounded-secondary border border-surface-border dark:border-surface-dark-border p-4"
+                >
+                  <div class="flex items-center justify-between mb-3">
+                    <div>
+                      <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
+                      <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
+                    </div>
+                    <span :class="['text-sm font-bold tabular-nums', profitLossClass(pos.profit_loss)]">
+                      {{ formatPercent(pos.profit_loss_percentage) }}
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div>
+                      <p class="text-text-muted dark:text-text-dark-muted">Quantité</p>
+                      <p class="font-mono font-medium text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-text-muted dark:text-text-dark-muted">Valeur</p>
+                      <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-text-muted dark:text-text-dark-muted">PRU</p>
+                      <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-text-muted dark:text-text-dark-muted">Investi</p>
+                      <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
             <BaseEmptyState v-else title="Aucune position" description="Ajoutez des transactions pour voir vos positions crypto" />
           </div>
 
           <!-- History Tab -->
           <div v-else>
-            <div v-if="accountTransactions.length" class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
-                    <th class="w-1 px-0 py-2"></th>
-                    <th class="px-4 py-2">Date</th>
-                    <th class="px-4 py-2">Type</th>
-                    <th class="px-4 py-2">Token</th>
-                    <th class="px-4 py-2 text-right">Quantité</th>
-                    <th class="px-4 py-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
+            <template v-if="accountTransactions.length">
+              <!-- Desktop table -->
+              <div class="hidden md:block overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-[11px] text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                      <th class="w-1 px-0 py-3"></th>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Type</th>
+                      <th class="px-4 py-3">Token</th>
+                      <th class="px-4 py-3 text-right">Quantité</th>
+                      <th class="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(tx, idx) in sortedTransactions" :key="tx.id"
+                      :class="[
+                        'transition-colors',
+                        isInGroup(tx)
+                          ? (groupColorIndex[tx.group_uuid!] === 0
+                              ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
+                              : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
+                          : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                        isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
+                        !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
+                      ]"
+                    >
+                      <td class="w-1 px-0 py-0 relative">
+                        <div
+                          v-if="isInGroup(tx)"
+                          :class="[
+                            'absolute left-0 w-0.75',
+                            groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
+                            isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
+                            isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
+                          ]"
+                          style="top: 0; bottom: 0;"
+                        />
+                      </td>
+                      <td class="px-4 py-3 text-text-muted dark:text-text-dark-muted whitespace-nowrap">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
+                      <td class="px-4 py-3">
+                        <span class="inline-flex items-center gap-1.5">
+                          <BaseBadge :variant="
+                            tx.type === 'BUY' ? 'success' :
+                            tx.type === 'SPEND' ? 'danger' :
+                            tx.type === 'FEE' ? 'warning' :
+                            tx.type === 'REWARD' ? 'info' :
+                            tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                            tx.type === 'TRANSFER' ? 'secondary' :
+                            tx.type === 'EXIT' ? 'danger' :
+                            'secondary'
+                          ">
+                            {{ tx.type }}
+                          </BaseBadge>
+                          <span
+                            v-if="rowTooltip(tx)"
+                            class="relative group/tip cursor-help"
+                          >
+                            <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" stroke-width="2" />
+                              <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                            </svg>
+                            <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
+                              {{ rowTooltip(tx) }}
+                            </span>
+                          </span>
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
+                      <td
+                        class="px-4 py-3 text-right font-mono"
+                        :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                      >
+                        {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </BaseButton>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Mobile cards -->
+              <div class="md:hidden space-y-2">
+                <div
+                  v-for="(tx, idx) in sortedTransactions" :key="tx.id"
+                  :class="[
+                    'rounded-secondary p-3 transition-colors',
+                    isInGroup(tx)
+                      ? (groupColorIndex[tx.group_uuid!] === 0
+                          ? 'bg-primary/5 dark:bg-primary/10 border-l-2 border-primary/30'
+                          : 'bg-secondary/5 dark:bg-secondary/10 border-l-2 border-secondary/30')
+                      : 'border border-surface-border dark:border-surface-dark-border',
+                  ]"
+                >
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <BaseBadge :variant="
+                        tx.type === 'BUY' ? 'success' :
+                        tx.type === 'SPEND' ? 'danger' :
+                        tx.type === 'FEE' ? 'warning' :
+                        tx.type === 'REWARD' ? 'info' :
+                        tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                        tx.type === 'TRANSFER' ? 'secondary' :
+                        tx.type === 'EXIT' ? 'danger' :
+                        'secondary'
+                      ">
+                        {{ tx.type }}
+                      </BaseBadge>
+                      <span class="font-semibold text-sm text-text-main dark:text-text-dark-main truncate">{{ tx.symbol }}</span>
+                    </div>
+                    <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </BaseButton>
+                  </div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</span>
+                    <span
+                      class="font-mono font-medium"
+                      :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                    >
+                      {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
+          </div>
+        </BaseCard>
+      </template>
+    </template>
+
+    <!-- ── MULTI MODE view ────────────────────────────────── -->
+    <template v-else>
+      <div v-if="crypto.isLoading && !crypto.accounts.length" class="flex justify-center py-20">
+        <BaseSpinner size="lg" label="Chargement..." />
+      </div>
+
+      <BaseAlert v-if="crypto.error" variant="danger" dismissible @dismiss="crypto.error = null" class="mb-6">
+        {{ crypto.error }}
+      </BaseAlert>
+      <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
+        {{ txWarning }}
+      </BaseAlert>
+
+      <div v-if="crypto.accounts.length" class="space-y-4">
+        <BaseCard
+          v-for="account in crypto.accounts"
+          :key="account.id"
+          :class="[
+            'transition-all duration-150',
+            selectedAccountId === account.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-background-dark' : '',
+          ]"
+        >
+          <!-- Account header -->
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              class="flex-1 cursor-pointer min-w-0"
+              @click="selectAccount(account.id)"
+            >
+              <div class="flex items-center gap-2.5">
+                <h3 class="font-semibold text-text-main dark:text-text-dark-main truncate">{{ account.name }}</h3>
+                <span v-if="account.platform" class="px-2 py-0.5 rounded-badge text-[11px] font-medium bg-surface-active dark:bg-surface-dark-active text-text-muted dark:text-text-dark-muted">
+                  {{ account.platform }}
+                </span>
+              </div>
+              <p v-if="account.public_address" class="text-xs text-text-muted dark:text-text-dark-muted font-mono truncate max-w-60 mt-1">{{ account.public_address }}</p>
+            </div>
+            <!-- Actions: wrap on mobile -->
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
+                + Transaction
+              </BaseButton>
+              <div class="relative">
+                <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span class="hidden sm:inline">Importer</span>
+                  <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </BaseButton>
+                <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
+                <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
+                  <button
+                    class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                    @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
+                  >
+                    <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    CSV générique
+                  </button>
+                  <button
+                    class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                    @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
+                  >
+                    <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Binance CSV
+                  </button>
+                </div>
+              </div>
+              <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </BaseButton>
+            </div>
+          </div>
+
+          <!-- Inline Detail -->
+          <div
+            v-if="selectedAccountId === account.id && crypto.currentAccount"
+            class="mt-6 pt-6 border-t border-surface-border dark:border-surface-dark-border"
+          >
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">Investi</p>
+                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
+              </div>
+              <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">Valeur actuelle</p>
+                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.current_value) }}</p>
+              </div>
+              <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">P/L</p>
+                <p :class="['text-lg font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss)]">
+                  {{ formatAmount(crypto.currentAccount.profit_loss) }}
+                </p>
+              </div>
+              <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">Performance</p>
+                <p :class="['text-lg font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss_percentage)]">
+                  {{ formatPercent(crypto.currentAccount.profit_loss_percentage) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Tabs (Segmented Control) -->
+            <div class="mb-6">
+              <div class="inline-flex bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
+                <button
+                  v-for="tab in [{ key: 'positions', label: 'Positions' }, { key: 'history', label: 'Historique' }]"
+                  :key="tab.key"
+                  @click="activeDetailTab = tab.key as any"
+                  :class="[
+                    'px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                    activeDetailTab === tab.key
+                      ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                      : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                  ]"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Positions Tab -->
+            <div v-if="activeDetailTab === 'positions'">
+              <template v-if="crypto.currentAccount.positions?.length">
+                <!-- Desktop table -->
+                <div class="hidden md:block overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-left text-[11px] text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                        <th class="px-4 py-3">Actif</th>
+                        <th class="px-4 py-3 text-right">Quantité</th>
+                        <th class="px-4 py-3 text-right">PRU</th>
+                        <th class="px-4 py-3 text-right">Investi</th>
+                        <th class="px-4 py-3 text-right">Cours</th>
+                        <th class="px-4 py-3 text-right">Valeur</th>
+                        <th class="px-4 py-3 text-right">P/L</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
+                      <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                        <td class="px-4 py-3">
+                          <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
+                          <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
+                        <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
+                        <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                        <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
+                        <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</td>
+                        <td class="px-4 py-3 text-right">
+                          <span :class="['font-semibold', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Mobile cards -->
+                <div class="md:hidden space-y-3">
+                  <div
+                    v-for="pos in crypto.currentAccount.positions"
+                    :key="pos.symbol"
+                    class="rounded-secondary border border-surface-border dark:border-surface-dark-border p-4"
+                  >
+                    <div class="flex items-center justify-between mb-3">
+                      <div>
+                        <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
+                        <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
+                      </div>
+                      <span :class="['text-sm font-bold tabular-nums', profitLossClass(pos.profit_loss)]">
+                        {{ formatPercent(pos.profit_loss_percentage) }}
+                      </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <div>
+                        <p class="text-text-muted dark:text-text-dark-muted">Quantité</p>
+                        <p class="font-mono font-medium text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-text-muted dark:text-text-dark-muted">Valeur</p>
+                        <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</p>
+                      </div>
+                      <div>
+                        <p class="text-text-muted dark:text-text-dark-muted">PRU</p>
+                        <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-text-muted dark:text-text-dark-muted">Investi</p>
+                        <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <BaseEmptyState v-else title="Aucune position" description="Ajoutez des transactions pour voir vos positions crypto" />
+            </div>
+
+            <!-- History Tab -->
+            <div v-else>
+              <template v-if="accountTransactions.length">
+                <!-- Desktop table -->
+                <div class="hidden md:block overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-left text-[11px] text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
+                        <th class="w-1 px-0 py-3"></th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Type</th>
+                        <th class="px-4 py-3">Token</th>
+                        <th class="px-4 py-3 text-right">Quantité</th>
+                        <th class="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(tx, idx) in sortedTransactions" :key="tx.id"
+                        :class="[
+                          'transition-colors',
+                          isInGroup(tx)
+                            ? (groupColorIndex[tx.group_uuid!] === 0
+                                ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
+                                : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
+                            : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                          isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
+                          !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
+                        ]"
+                      >
+                        <td class="w-1 px-0 py-0 relative">
+                          <div
+                            v-if="isInGroup(tx)"
+                            :class="[
+                              'absolute left-0 w-0.75',
+                              groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
+                              isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
+                              isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
+                            ]"
+                            style="top: 0; bottom: 0;"
+                          />
+                        </td>
+                        <td class="px-4 py-3 text-text-muted dark:text-text-dark-muted whitespace-nowrap">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
+                        <td class="px-4 py-3">
+                          <span class="inline-flex items-center gap-1.5">
+                            <BaseBadge :variant="
+                              tx.type === 'BUY' ? 'success' :
+                              tx.type === 'SPEND' ? 'danger' :
+                              tx.type === 'FEE' ? 'warning' :
+                              tx.type === 'REWARD' ? 'info' :
+                              tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                              tx.type === 'TRANSFER' ? 'secondary' :
+                              tx.type === 'EXIT' ? 'danger' :
+                              'secondary'
+                            ">
+                              {{ tx.type }}
+                            </BaseBadge>
+                            <span
+                              v-if="rowTooltip(tx)"
+                              class="relative group/tip cursor-help"
+                            >
+                              <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke-width="2" />
+                                <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                              </svg>
+                              <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
+                                {{ rowTooltip(tx) }}
+                              </span>
+                            </span>
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
+                        <td
+                          class="px-4 py-3 text-right font-mono"
+                          :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                        >
+                          {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </BaseButton>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Mobile cards -->
+                <div class="md:hidden space-y-2">
+                  <div
                     v-for="(tx, idx) in sortedTransactions" :key="tx.id"
                     :class="[
-                      'transition-colors',
+                      'rounded-secondary p-3 transition-colors',
                       isInGroup(tx)
                         ? (groupColorIndex[tx.group_uuid!] === 0
-                            ? 'bg-primary/3 dark:bg-primary/6 hover:bg-primary/6 dark:hover:bg-primary/10'
-                            : 'bg-secondary/3 dark:bg-secondary/6 hover:bg-secondary/6 dark:hover:bg-secondary/10')
-                        : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                      isGroupStart(tx, idx) ? 'border-t border-surface-border dark:border-surface-dark-border' : '',
-                      !isInGroup(tx) ? 'border-t border-surface-border/50 dark:border-surface-dark-border/50' : '',
+                            ? 'bg-primary/5 dark:bg-primary/10 border-l-2 border-primary/30'
+                            : 'bg-secondary/5 dark:bg-secondary/10 border-l-2 border-secondary/30')
+                        : 'border border-surface-border dark:border-surface-dark-border',
                     ]"
                   >
-                    <!-- Group indicator bar -->
-                    <td class="w-1 px-0 py-0 relative">
-                      <div
-                        v-if="isInGroup(tx)"
-                        :class="[
-                          'absolute left-0 w-0.75',
-                          groupColorIndex[tx.group_uuid!] === 0 ? 'bg-primary/40' : 'bg-secondary/40',
-                          isGroupStart(tx, idx) ? 'top-0 rounded-t-full' : 'top-0',
-                          isGroupEnd(tx, idx)   ? 'bottom-0 rounded-b-full' : 'bottom-0',
-                        ]"
-                        style="top: 0; bottom: 0;"
-                      />
-                    </td>
-                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
-                    <td class="px-4 py-2.5">
-                      <span class="inline-flex items-center gap-1.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center gap-2 min-w-0">
                         <BaseBadge :variant="
                           tx.type === 'BUY' ? 'success' :
                           tx.type === 'SPEND' ? 'danger' :
@@ -1190,52 +1387,39 @@ onMounted(async () => {
                         ">
                           {{ tx.type }}
                         </BaseBadge>
-                        <!-- Tooltip for technical rows -->
-                        <span
-                          v-if="rowTooltip(tx)"
-                          class="relative group/tip cursor-help"
-                        >
-                          <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" stroke-width="2" />
-                            <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-                          </svg>
-                          <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
-                            {{ rowTooltip(tx) }}
-                          </span>
-                        </span>
-                      </span>
-                    </td>
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
-                    <td
-                      class="px-4 py-2.5 text-right font-mono"
-                      :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
-                    >
-                      {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
-                    </td>
-                    <td class="px-4 py-2.5 text-right">
+                        <span class="font-semibold text-sm text-text-main dark:text-text-dark-main truncate">{{ tx.symbol }}</span>
+                      </div>
                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </BaseButton>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</span>
+                      <span
+                        class="font-mono font-medium"
+                        :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                      >
+                        {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
             </div>
-            <BaseEmptyState v-else title="Aucune transaction" description="L'historique des transactions est vide" />
           </div>
-        </div>
-      </BaseCard>
+        </BaseCard>
       </div>
 
-    <BaseEmptyState
-      v-else-if="!crypto.isLoading"
-      title="Aucun portefeuille crypto"
-      description="Ajoutez votre premier portefeuille pour suivre vos crypto-monnaies"
-      action-label="Ajouter un portefeuille"
-      @action="openCreateAccount"
-    />
+      <BaseEmptyState
+        v-else-if="!crypto.isLoading"
+        title="Aucun portefeuille crypto"
+        description="Ajoutez votre premier portefeuille pour suivre vos crypto-monnaies"
+        action-label="Ajouter un portefeuille"
+        @action="openCreateAccount"
+      />
     </template>
 
     <!-- Create/Edit Account Modal -->
