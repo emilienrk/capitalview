@@ -215,7 +215,8 @@ onMounted(async () => {
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-4 lg:p-8">
+      <!-- padding-bottom accounts for iPhone home indicator safe area -->
+      <main class="flex-1 overflow-y-auto p-4 lg:p-8" style="padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));">
         <div class="max-w-7xl mx-auto">
           <slot />
         </div>

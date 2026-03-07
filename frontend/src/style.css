@@ -1,3 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @config "../tailwind.config.js";
+
+html, body {
+  touch-action: manipulation;
+  /* Prevent iOS rubber-band bounce (feels like a browser, not an app) */
+  overscroll-behavior: none;
+  /* Remove grey tap highlight on interactive elements */
+  -webkit-tap-highlight-color: transparent;
+  /* Smoother font rendering (matches native apps) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent accidental text selection on UI elements */
+  user-select: none;
+}
+
+/* Re-enable text selection for actual content areas */
+p, span, h1, h2, h3, h4, h5, h6, li, td, th, .selectable,
+input, textarea {
+  user-select: text;
+}
