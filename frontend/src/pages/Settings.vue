@@ -84,7 +84,7 @@ onMounted(async () => {
       {{ settingsStore.error }}
     </BaseAlert>
 
-    <div class="flex flex-col lg:flex-row gap-6 items-start">
+    <div class="flex flex-col lg:flex-row gap-6 lg:items-start">
 
       <!-- Sidebar navigation (desktop) / Icon grid (mobile) -->
       <aside class="w-full lg:w-52 lg:shrink-0 lg:sticky lg:top-4">
@@ -118,7 +118,7 @@ onMounted(async () => {
             :key="tab.id"
             @click="setTab(tab.id)"
             :class="[
-              'flex flex-col items-center justify-center gap-1.5 px-1 py-2.5 rounded-button text-[10px] font-medium leading-tight transition-colors',
+              'flex flex-col items-center justify-center gap-1.5 px-1 py-2.5 rounded-primary text-[10px] font-medium leading-tight transition-colors',
               activeTab === tab.id
                 ? 'bg-primary text-primary-content'
                 : 'text-text-muted dark:text-text-dark-muted hover:bg-surface-active dark:hover:bg-surface-dark-hover hover:text-text-main dark:hover:text-text-dark-main',

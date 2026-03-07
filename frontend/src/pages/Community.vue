@@ -274,7 +274,7 @@ const profilePicks = computed(() => {
       {{ communityStore.error }}
     </BaseAlert>
 
-    <div class="max-w-4xl">
+    <div>
       <!-- My picks panel -->
       <template v-if="showMyPicks">
         <button
