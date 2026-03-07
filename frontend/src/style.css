@@ -4,8 +4,9 @@
 
 html, body {
   touch-action: manipulation;
-  /* Prevent iOS rubber-band bounce (feels like a browser, not an app) */
-  overscroll-behavior: none;
+  /* Block horizontal overscroll only (prevents swipe-back browser navigation)
+     Vertical bounce is kept intentional — blocking it makes scroll feel stuck */
+  overscroll-behavior-x: none;
   /* Remove grey tap highlight on interactive elements */
   -webkit-tap-highlight-color: transparent;
   /* Smoother font rendering (matches native apps) */
