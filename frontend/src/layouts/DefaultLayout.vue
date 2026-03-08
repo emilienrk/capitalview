@@ -202,7 +202,10 @@ onMounted(async () => {
     <!-- ── Main content ──────────────────────────────────── -->
     <div class="flex-1 flex flex-col min-w-0 lg:ml-sidebar">
       <!-- Mobile top bar -->
-      <header class="lg:hidden flex items-center h-14 px-4 pt-[env(safe-area-inset-top)] bg-surface dark:bg-surface-dark border-b border-surface-border dark:border-surface-dark-border sticky top-0 z-20">
+      <header
+        class="lg:hidden flex items-center px-4 bg-surface dark:bg-surface-dark border-b border-surface-border dark:border-surface-dark-border sticky top-0 z-20"
+        style="height: calc(3.5rem + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px);"
+      >
         <button
           @click="sidebarOpen = true"
           class="p-2 -ml-2 rounded-secondary text-text-muted dark:text-text-dark-muted hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
