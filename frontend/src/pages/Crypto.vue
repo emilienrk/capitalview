@@ -26,7 +26,6 @@ const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate, displayCurrency, usdToEurRate, toggleCurrency } = useCurrencyToggle()
 
-/** True when the user is in Patrimoine Global (single-account) mode. */
 const isSingleMode = computed(
   () =>
     settingsStore.settings?.crypto_module_enabled === true &&
@@ -109,14 +108,14 @@ const feeMode = ref<'none' | 'included' | 'separate' | 'token'>('none')
 const feeInputMode = ref<'eur' | 'percent'>('eur')
 
 const showQuoteStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT')
-const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT')
+const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT')
 
 const wizardStep = ref(1)
 const WIZARD_STEPS = 3
 const wizardVisibleSteps = computed(() => {
-  if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') return 3  // step1 + quote + fee
-  if (txForm.type === 'CRYPTO_DEPOSIT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT') return 2 // step1 + fee (skip quote)
-  return 1                                        // single-step types
+  if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') return 3
+  if (txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT') return 2 // step1 + fee (skip quote)
+  return 1
 })
 const isLastStep = computed(() =>
   wizardStep.value === 3 || wizardVisibleSteps.value === 1
@@ -150,12 +149,10 @@ const calculatedPricePerUnit = computed((): number | null => {
   return qAmt / qty
 })
 
-// Always resolve fee base in EUR, not in crypto quote amount.
 function eurBaseAmount(): number {
   if (txForm.type === 'BUY_FIAT') return Number(txForm.quote_amount || 0)
   if (txForm.type === 'BUY_SPOT') return (Number(txForm.price_per_unit) || 0) * (Number(txForm.amount) || 0)
   if (txForm.type === 'TRANSFER_TO_ACCOUNT') {
-    // Base = quantity × PRU of the symbol in the source account
     const sym = (txForm.symbol || '').toUpperCase()
     const pos = crypto.currentAccount?.positions?.find(p => p.symbol === sym)
     const pru = pos?.average_buy_price ?? 0
@@ -190,7 +187,6 @@ function onFeeEurInput(val: string | number): void {
   }
 }
 
-// Fee input helpers — EUR↔% live conversion (UI only)
 const feeActiveValue = computed((): string => {
   if (feeInputMode.value === 'eur') {
     return txForm.fee_eur != null ? String(txForm.fee_eur) : ''
@@ -198,11 +194,8 @@ const feeActiveValue = computed((): string => {
   return txForm.fee_percentage != null ? String(txForm.fee_percentage) : ''
 })
 
-// Local display value to avoid reactive loop that kills intermediary decimal states (e.g. "0.")
 const feeDisplayValue = ref<string>(feeActiveValue.value)
 watch(feeActiveValue, (val) => {
-  // Only sync from the computed when the stored number actually differs from what's displayed.
-  // This prevents "0." from being overwritten to "0" mid-typing.
   const parsed = parseFloat(feeDisplayValue.value.replace(',', '.'))
   const incoming = parseFloat(val)
   if (parsed !== incoming) {
@@ -254,7 +247,7 @@ const previewPru = computed((): number | null => {
 
 function nextWizardStep(): void {
   if (wizardStep.value === 1 && showFeeStep.value && !showQuoteStep.value) {
-    wizardStep.value = 3  // CRYPTO_DEPOSIT: skip quote step
+    wizardStep.value = 3
   } else if (wizardStep.value < WIZARD_STEPS) {
     wizardStep.value++
   }
@@ -262,7 +255,7 @@ function nextWizardStep(): void {
 
 function prevWizardStep(): void {
   if (wizardStep.value === 3 && !showQuoteStep.value) {
-    wizardStep.value = 1  // skip back over quote step
+    wizardStep.value = 1
   } else if (wizardStep.value > 1) {
     wizardStep.value--
   }
@@ -301,7 +294,7 @@ const txTypeDescriptions: Record<string, string> = {
   REWARD: 'Crypto reçue via staking, intérêts ou récompense.',
   FIAT_DEPOSIT: 'Dépôt d\'euros sur un compte exchange.',
   FIAT_WITHDRAW: 'Retrait d\'euros vers un compte bancaire.',
-  CRYPTO_DEPOSIT: 'Réception de crypto avec son coût de revient d\'origine.',
+  CRYPTO_DEPOSIT: 'Réception de crypto achetée hors périmètre. Enregistre un dépôt EUR, un achat crypto et une sortie EUR pour refléter l\'investissement réel.',
   GAS_FEE: 'Frais de réseau payés on-chain (ex : gaz Ethereum).',
   EXIT: 'Vente de crypto contre des euros — événement fiscalement imposable.',
   NON_TAXABLE_EXIT: 'Don, envoi ou perte — aucune contrepartie EUR, valeur de cession nulle.',
@@ -479,7 +472,6 @@ function isNegativeType(type: string): boolean {
   return ['SPEND', 'FEE', 'TRANSFER', 'EXIT'].includes(type)
 }
 
-// -- Grouped & sorted transaction list for history view --
 const TX_TYPE_ORDER: Record<string, number> = {
   REWARD: 0,
   BUY: 1,
@@ -515,26 +507,22 @@ const multiRowGroups = computed(() => {
   return new Set(Object.entries(counts).filter(([, c]) => c > 1).map(([g]) => g))
 })
 
-/** Returns true if this row is the first in its visual group (for the top-border marker). */
 function isGroupStart(tx: TransactionResponse, idx: number): boolean {
   if (!tx.group_uuid || !multiRowGroups.value.has(tx.group_uuid)) return false
   if (idx === 0) return true
   return sortedTransactions.value[idx - 1]?.group_uuid !== tx.group_uuid
 }
 
-/** Returns true if this row is the last in its visual group (for the bottom-border marker). */
 function isGroupEnd(tx: TransactionResponse, idx: number): boolean {
   if (!tx.group_uuid || !multiRowGroups.value.has(tx.group_uuid)) return false
   if (idx === sortedTransactions.value.length - 1) return true
   return sortedTransactions.value[idx + 1]?.group_uuid !== tx.group_uuid
 }
 
-/** Returns true if this row belongs to a multi-row group. */
 function isInGroup(tx: TransactionResponse): boolean {
   return !!tx.group_uuid && multiRowGroups.value.has(tx.group_uuid)
 }
 
-/** Alternating group color index (0 or 1) for visual distinction. */
 const groupColorIndex = computed(() => {
   const map: Record<string, number> = {}
   let colorIdx = 0
@@ -547,7 +535,6 @@ const groupColorIndex = computed(() => {
   return map
 })
 
-/** Human-readable tooltip for technical row types. */
 function rowTooltip(tx: TransactionResponse): string | null {
   if (tx.type === 'FIAT_ANCHOR') return 'Ancre de valorisation : fige le prix de revient de l\'opération'
   if (tx.type === 'FEE') return 'Frais réseau / exchange — déduit du solde token'
@@ -634,7 +621,6 @@ async function handleSubmitTransaction(): Promise<void> {
     }
     const result = await crypto.createCrossAccountTransfer(transferPayload)
     if (result) {
-      // Show non-blocking warning if balance went negative
       if (result.warning) txWarning.value = result.warning
       showTxModal.value = false
       await Promise.all([
@@ -663,7 +649,6 @@ async function handleSubmitTransaction(): Promise<void> {
     success = !!result
   } else {
     const result = await crypto.createCompositeTransaction(payload)
-    // Show non-blocking warning if one or more debited symbols went negative
     if (result?.warning) txWarning.value = result.warning
     success = !!result
   }
