@@ -198,6 +198,21 @@ function posProfitLossPctEur(pos: PositionResponse): number | null {
   return inv > 0 ? (pl / inv) * 100 : 0
 }
 
+/** Transactions sorted from most recent to oldest. */
+const sortedTransactions = computed(() => {
+  return [...accountTransactions.value].sort(
+    (a, b) => new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime()
+  )
+})
+
+/** Positions sorted by total invested (descending) — most invested asset first. */
+const sortedPositions = computed(() => {
+  if (!selectedAccountSummary.value?.positions) return []
+  return [...selectedAccountSummary.value.positions].sort(
+    (a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0)
+  )
+})
+
 // ── Actions ──────────────────────────────────────────────────
 function openCreateAccount(): void {
   editingAccountId.value = null
@@ -629,7 +644,7 @@ onMounted(() => {
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
                   <tr
-                    v-for="pos in selectedAccountSummary.positions"
+                    v-for="pos in sortedPositions"
                     :key="`${pos.symbol}-${pos.exchange || 'NONE'}`"
                     class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors"
                   >
@@ -661,7 +676,7 @@ onMounted(() => {
 
           <!-- History Tab -->
           <div v-else>
-            <div v-if="accountTransactions.length" class="overflow-x-auto">
+            <div v-if="sortedTransactions.length" class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
@@ -677,7 +692,7 @@ onMounted(() => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                  <tr v-for="tx in accountTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                  <tr v-for="tx in sortedTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
                     <td class="px-4 py-2.5">
                       <BaseBadge :variant="tx.type === 'BUY' || tx.type === 'DEPOSIT' ? 'success' : tx.type === 'SELL' ? 'danger' : 'info'">

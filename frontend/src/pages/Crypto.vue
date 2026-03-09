@@ -486,17 +486,22 @@ const sortedTransactions = computed(() => {
   return [...accountTransactions.value].sort((a, b) => {
     const dateA = new Date(a.executed_at).getTime()
     const dateB = new Date(b.executed_at).getTime()
-    if (dateA !== dateB) return dateA - dateB
+    if (dateA !== dateB) return dateB - dateA
     // Group together by group_uuid
     const gA = a.group_uuid ?? ''
     const gB = b.group_uuid ?? ''
     if (gA !== gB) return gA.localeCompare(gB)
-    // Within the same group, sort by type priority
     return (TX_TYPE_ORDER[a.type] ?? 99) - (TX_TYPE_ORDER[b.type] ?? 99)
   })
 })
 
-/** Set of group_uuids that contain more than one row (real composite operations). */
+const sortedPositions = computed(() => {
+  if (!crypto.currentAccount?.positions) return []
+  return [...crypto.currentAccount.positions].sort(
+    (a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0)
+  )
+})
+
 const multiRowGroups = computed(() => {
   const counts: Record<string, number> = {}
   for (const tx of accountTransactions.value) {
@@ -853,7 +858,7 @@ onMounted(async () => {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                    <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                    <tr v-for="pos in sortedPositions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                       <td class="px-4 py-3">
                         <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
                         <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
@@ -873,7 +878,7 @@ onMounted(async () => {
               <!-- Mobile cards -->
               <div class="md:hidden space-y-3">
                 <div
-                  v-for="pos in crypto.currentAccount.positions"
+                  v-for="pos in sortedPositions"
                   :key="pos.symbol"
                   class="rounded-secondary border border-surface-border dark:border-surface-dark-border p-4"
                 >
@@ -1199,7 +1204,7 @@ onMounted(async () => {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                      <tr v-for="pos in crypto.currentAccount.positions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                      <tr v-for="pos in sortedPositions" :key="pos.symbol" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
                         <td class="px-4 py-3">
                           <p class="font-semibold text-text-main dark:text-text-dark-main">{{ pos.name || pos.symbol }}</p>
                           <p v-if="pos.name" class="text-xs text-text-muted dark:text-text-dark-muted">{{ pos.symbol }}</p>
@@ -1219,7 +1224,7 @@ onMounted(async () => {
                 <!-- Mobile cards -->
                 <div class="md:hidden space-y-3">
                   <div
-                    v-for="pos in crypto.currentAccount.positions"
+                    v-for="pos in sortedPositions"
                     :key="pos.symbol"
                     class="rounded-secondary border border-surface-border dark:border-surface-dark-border p-4"
                   >
