@@ -2,6 +2,7 @@
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useCashflowStore } from '@/stores/cashflow'
 import { useFormatters } from '@/composables/useFormatters'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -10,7 +11,8 @@ import {
 import type { CashflowCreate, CashflowResponse, FlowType, Frequency } from '@/types'
 
 const cashflow = useCashflowStore()
-const { formatCurrency, formatDate, profitLossClass } = useFormatters()
+const { formatCurrency } = useFormatters()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const showFormModal = ref(false)
 const editingId = ref<string | null>(null)
@@ -273,6 +275,19 @@ onMounted(async () => {
   <div>
     <PageHeader title="Flux de trésorerie" description="Gérez vos revenus et dépenses récurrents et ponctuels">
       <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
         <BaseButton @click="openCreate()">+ Nouveau flux</BaseButton>
       </template>
     </PageHeader>
@@ -291,7 +306,7 @@ onMounted(async () => {
     <div v-if="cashflow.cashflows.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <BaseStatCard
         label="Revenus mensuels"
-        :value="formatCurrency(inflowsTotal)"
+        :value="maskValue(formatCurrency(inflowsTotal))"
         sub-value-class="text-success"
       >
         <template #icon>
@@ -305,7 +320,7 @@ onMounted(async () => {
 
       <BaseStatCard
         label="Dépenses mensuelles"
-        :value="formatCurrency(outflowsTotal)"
+        :value="maskValue(formatCurrency(outflowsTotal))"
         sub-value-class="text-danger"
       >
         <template #icon>
@@ -319,7 +334,7 @@ onMounted(async () => {
 
       <BaseStatCard
         label="Balance nette"
-        :value="formatCurrency(netBalance)"
+        :value="maskValue(formatCurrency(netBalance))"
       >
         <template #icon>
           <div class="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10">
@@ -361,7 +376,7 @@ onMounted(async () => {
               <BaseBadge variant="secondary">{{ cat.count }}</BaseBadge>
             </div>
             <span class="text-sm font-semibold text-success whitespace-nowrap ml-4">
-              {{ formatCurrency(cat.total) }}
+              {{ maskValue(formatCurrency(cat.total)) }}
             </span>
           </div>
           <p
@@ -387,7 +402,7 @@ onMounted(async () => {
               <BaseBadge variant="secondary">{{ cat.count }}</BaseBadge>
             </div>
             <span class="text-sm font-semibold text-danger whitespace-nowrap ml-4">
-              {{ formatCurrency(cat.total) }}
+              {{ maskValue(formatCurrency(cat.total)) }}
             </span>
           </div>
           <p
@@ -557,12 +572,38 @@ onMounted(async () => {
           required
           :error="errors.name"
         />
-        <BaseSelect
-          v-model="form.flow_type"
-          label="Type"
-          :options="flowTypeOptions"
-          required
-        />
+
+        <!-- Flow type toggle -->
+        <div class="space-y-1.5">
+          <label class="block text-sm font-medium text-text-main dark:text-text-dark-main">Type</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              @click="form.flow_type = 'INFLOW'"
+              :class="[
+                'py-2.5 rounded-input border text-sm font-medium transition-colors',
+                form.flow_type === 'INFLOW'
+                  ? 'bg-success/10 border-success/40 text-success'
+                  : 'bg-surface dark:bg-surface-dark border-surface-border dark:border-surface-dark-border text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >
+              ↑ Revenu
+            </button>
+            <button
+              type="button"
+              @click="form.flow_type = 'OUTFLOW'"
+              :class="[
+                'py-2.5 rounded-input border text-sm font-medium transition-colors',
+                form.flow_type === 'OUTFLOW'
+                  ? 'bg-danger/10 border-danger/40 text-danger'
+                  : 'bg-surface dark:bg-surface-dark border-surface-border dark:border-surface-dark-border text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >
+              ↓ Dépense
+            </button>
+          </div>
+        </div>
+
         <BaseAutocomplete
           v-model="form.category"
           label="Catégorie"
@@ -596,7 +637,7 @@ onMounted(async () => {
             required
           />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div v-if="form.frequency === 'MONTHLY' || form.frequency === 'YEARLY'" :class="form.frequency === 'YEARLY' ? 'grid grid-cols-2 gap-4' : ''">
           <BaseSelect
             v-model="selectedDay"
             label="Jour"
@@ -604,6 +645,7 @@ onMounted(async () => {
             required
           />
           <BaseSelect
+            v-if="form.frequency === 'YEARLY'"
             v-model="selectedMonth"
             label="Mois"
             :options="monthOptions"

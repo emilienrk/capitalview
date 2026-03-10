@@ -2,6 +2,7 @@
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -11,6 +12,7 @@ import type { BankAccountCreate, BankAccountType } from '@/types'
 
 const bank = useBankStore()
 const { formatCurrency, formatDate, formatAccountType } = useFormatters()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const showCreateModal = ref(false)
 const editingId = ref<string | null>(null)
@@ -83,6 +85,19 @@ onMounted(() => {
   <div>
     <PageHeader title="Comptes Bancaires" description="Gérez vos comptes courants et d'épargne">
       <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
         <BaseButton @click="openCreate">+ Nouveau compte</BaseButton>
       </template>
     </PageHeader>
@@ -101,7 +116,7 @@ onMounted(() => {
     <div v-if="bank.summary" class="mb-6 p-4 rounded-card bg-primary/5 border border-primary/10">
       <p class="text-sm text-text-muted dark:text-text-dark-muted">Solde total</p>
       <p class="text-3xl font-bold text-text-main dark:text-text-dark-main">
-        {{ formatCurrency(bank.summary.total_balance) }}
+        {{ maskValue(formatCurrency(bank.summary.total_balance)) }}
       </p>
     </div>
 
@@ -121,7 +136,7 @@ onMounted(() => {
             </div>
           </div>
           <p class="text-xl font-bold text-text-main dark:text-text-dark-main">
-            {{ formatCurrency(account.balance) }}
+            {{ maskValue(formatCurrency(account.balance)) }}
           </p>
         </div>
         <div class="mt-4 flex items-center justify-between">

@@ -5,6 +5,7 @@ import { useBankStore } from '@/stores/bank'
 import { useAssetStore } from '@/stores/asset'
 import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import AssetFormModal from '@/components/AssetFormModal.vue'
 import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
@@ -18,6 +19,7 @@ const bank = useBankStore()
 const asset = useAssetStore()
 const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate, formatDateShort } = useFormatters()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
 
@@ -119,7 +121,23 @@ const groupedAssets = computed(() => {
 
 <template>
   <div>
-    <PageHeader title="Patrimoine" description="Vue d'ensemble de votre patrimoine total" />
+    <PageHeader title="Patrimoine" description="Vue d'ensemble de votre patrimoine total">
+      <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
+      </template>
+    </PageHeader>
 
     <div v-if="dashboard.isLoading" class="flex justify-center py-20">
       <BaseSpinner size="lg" label="Chargement du patrimoine..." />
@@ -132,7 +150,7 @@ const groupedAssets = computed(() => {
       <div class="p-6 rounded-card bg-primary/5 border border-primary/10 text-center">
         <p class="text-sm text-text-muted dark:text-text-dark-muted">Patrimoine total estimé</p>
         <p class="text-4xl font-bold text-text-main dark:text-text-dark-main mt-2">
-          {{ formatCurrency(totalNetWorth()) }}
+          {{ maskValue(formatCurrency(totalNetWorth())) }}
         </p>
       </div>
 
@@ -141,17 +159,17 @@ const groupedAssets = computed(() => {
         <BaseStatCard
           v-if="bankEnabled"
           label="Liquidités"
-          :value="formatCurrency(bank.summary?.total_balance)"
+          :value="maskValue(formatCurrency(bank.summary?.total_balance))"
         />
         <BaseStatCard
           label="Investissements"
-          :value="formatCurrency(dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested)"
+          :value="maskValue(formatCurrency(dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested))"
           :sub-value="formatPercent(dashboard.portfolio?.profit_loss_percentage)"
           :sub-value-class="profitLossClass(dashboard.portfolio?.profit_loss_percentage)"
         />
         <BaseStatCard
           label="Biens personnels"
-          :value="formatCurrency(asset.summary?.total_estimated_value)"
+          :value="maskValue(formatCurrency(asset.summary?.total_estimated_value))"
           :sub-value="asset.summary?.asset_count ? `${asset.summary.asset_count} bien(s)` : undefined"
         />
       </div>
@@ -169,7 +187,7 @@ const groupedAssets = computed(() => {
               <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ formatAccountType(account.account_type) }}</p>
             </div>
             <div class="text-right">
-              <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(account.current_value ?? account.total_invested) }}</p>
+              <p class="font-semibold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(account.current_value ?? account.total_invested)) }}</p>
               <p :class="['text-xs font-medium', profitLossClass(account.profit_loss)]">
                 {{ formatPercent(account.profit_loss_percentage) }}
               </p>

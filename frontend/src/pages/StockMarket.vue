@@ -3,6 +3,7 @@ import { onMounted, ref, reactive, computed } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -15,6 +16,7 @@ import type { StockAccountCreate, StockTransactionCreate, StockAccountType, Tran
 const stocks = useStocksStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
 const { displayCurrency, usdToEurRate, setCurrency, fetchRate } = useCurrencyToggle()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 // ── State ────────────────────────────────────────────────────
 const showAccountModal = ref(false)
@@ -474,6 +476,19 @@ onMounted(() => {
   <div>
     <PageHeader title="Bourse" description="PEA, PEA-PME et Comptes-Titres">
       <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
         <BaseButton @click="openCreateAccount">+ Nouveau compte</BaseButton>
       </template>
     </PageHeader>
@@ -565,16 +580,16 @@ onMounted(() => {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatCurrency(selectedAccountSummary.total_invested) }}</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.total_invested)) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Valeur actuelle</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ formatCurrency(selectedAccountSummary.current_value) }}</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.current_value)) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
               <p :class="['text-lg font-bold', profitLossClass(selectedAccountSummary.profit_loss)]">
-                {{ formatCurrency(selectedAccountSummary.profit_loss) }}
+                {{ maskValue(formatCurrency(selectedAccountSummary.profit_loss)) }}
               </p>
             </div>
             <div>
@@ -654,12 +669,12 @@ onMounted(() => {
                     </td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatPru(pos.average_buy_price, pos.currency) }}</td>
-                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>
+                    <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ maskValue(formatCurrency(pos.total_invested)) }}</td>
                     <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatPosPrice(pos.current_price, pos.currency) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatPosPrice(pos.current_value, pos.currency) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ maskValue(formatPosPrice(pos.current_value, pos.currency)) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <span :class="['font-medium', profitLossClass(posProfitLossEur(pos))]">
-                        {{ formatCurrency(posProfitLossEur(pos)) }}
+                        {{ maskValue(formatCurrency(posProfitLossEur(pos))) }}
                       </span>
                       <span :class="['block text-xs', profitLossClass(posProfitLossPctEur(pos))]">
                         {{ formatPercent(posProfitLossPctEur(pos)) }}
@@ -704,7 +719,7 @@ onMounted(() => {
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.exchange || '-' }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ formatCurrency(tx.amount * tx.price_per_unit) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.amount * tx.price_per_unit)) }}</td>
                                     <td class="px-4 py-2.5 text-right">
                                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

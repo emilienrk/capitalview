@@ -10,7 +10,6 @@ const Cashflow = () => import('@/pages/Cashflow.vue')
 const BankAccounts = () => import('@/pages/BankAccounts.vue')
 const Wealth = () => import('@/pages/Wealth.vue')
 const Crypto = () => import('@/pages/Crypto.vue')
-const OtherInvestments = () => import('@/pages/OtherInvestments.vue')
 const Notes = () => import('@/pages/Notes.vue')
 const Settings = () => import('@/pages/Settings.vue')
 const Register = () => import('@/pages/Register.vue')
@@ -74,12 +73,6 @@ const routes = [
     path: '/crypto',
     name: 'crypto',
     component: Crypto,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/other-investments',
-    name: 'other-investments',
-    component: OtherInvestments,
     meta: { requiresAuth: true },
   },
   {

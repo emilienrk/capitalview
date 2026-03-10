@@ -4,6 +4,7 @@ import { useCryptoStore } from '@/stores/crypto'
 import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -25,6 +26,7 @@ const crypto = useCryptoStore()
 const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate, displayCurrency, usdToEurRate, toggleCurrency } = useCurrencyToggle()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const isSingleMode = computed(
   () =>
@@ -44,6 +46,10 @@ function formatAmount(value: number | string | null | undefined): string {
     return formatCurrency(n / usdToEurRate.value, 'USD')
   }
   return formatEur(value)
+}
+
+function maskAmount(value: number | string | null | undefined): string {
+  return maskValue(formatAmount(value))
 }
 
 type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
@@ -729,6 +735,19 @@ onMounted(async () => {
   <div>
     <PageHeader title="Crypto" :description="isSingleMode ? 'Patrimoine global crypto-monnaies' : 'Portefeuilles et transactions crypto-monnaies'">
       <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
         <!-- Currency toggle -->
         <BaseButton
           variant="outline"
@@ -800,16 +819,16 @@ onMounted(async () => {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
             <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">Investi</p>
-            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
+            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ maskAmount(crypto.currentAccount.total_invested) }}</p>
           </div>
           <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
             <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">Valeur actuelle</p>
-            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.current_value) }}</p>
+            <p class="text-xl font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ maskAmount(crypto.currentAccount.current_value) }}</p>
           </div>
           <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
             <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1.5">P/L</p>
             <p :class="['text-xl font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss)]">
-              {{ formatAmount(crypto.currentAccount.profit_loss) }}
+              {{ maskAmount(crypto.currentAccount.profit_loss) }}
             </p>
           </div>
           <div class="rounded-secondary bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border p-4">
@@ -865,9 +884,9 @@ onMounted(async () => {
                       </td>
                       <td class="px-4 py-3 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
                       <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                      <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                      <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : maskAmount(pos.total_invested) }}</td>
                       <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
-                      <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</td>
+                      <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ maskAmount(pos.current_value) }}</td>
                       <td class="px-4 py-3 text-right">
                         <span :class="['font-semibold', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
                       </td>
@@ -898,7 +917,7 @@ onMounted(async () => {
                     </div>
                     <div class="text-right">
                       <p class="text-text-muted dark:text-text-dark-muted">Valeur</p>
-                      <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</p>
+                      <p class="font-semibold text-text-main dark:text-text-dark-main">{{ maskAmount(pos.current_value) }}</p>
                     </div>
                     <div>
                       <p class="text-text-muted dark:text-text-dark-muted">PRU</p>
@@ -906,7 +925,7 @@ onMounted(async () => {
                     </div>
                     <div class="text-right">
                       <p class="text-text-muted dark:text-text-dark-muted">Investi</p>
-                      <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</p>
+                      <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : maskAmount(pos.total_invested) }}</p>
                     </div>
                   </div>
                 </div>
@@ -1147,16 +1166,16 @@ onMounted(async () => {
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
               <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
                 <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">Investi</p>
-                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.total_invested) }}</p>
+                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ maskAmount(crypto.currentAccount.total_invested) }}</p>
               </div>
               <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
                 <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">Valeur actuelle</p>
-                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ formatAmount(crypto.currentAccount.current_value) }}</p>
+                <p class="text-lg font-bold text-text-main dark:text-text-dark-main tabular-nums">{{ maskAmount(crypto.currentAccount.current_value) }}</p>
               </div>
               <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
                 <p class="text-[11px] font-medium uppercase tracking-wider text-text-muted dark:text-text-dark-muted mb-1">P/L</p>
                 <p :class="['text-lg font-bold tabular-nums', profitLossClass(crypto.currentAccount.profit_loss)]">
-                  {{ formatAmount(crypto.currentAccount.profit_loss) }}
+                  {{ maskAmount(crypto.currentAccount.profit_loss) }}
                 </p>
               </div>
               <div class="rounded-secondary bg-background-subtle dark:bg-background-dark-subtle p-3.5">
@@ -1211,9 +1230,9 @@ onMounted(async () => {
                         </td>
                         <td class="px-4 py-3 text-right font-mono text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 6) }}</td>
                         <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.average_buy_price) }}</td>
-                        <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</td>
+                        <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : maskAmount(pos.total_invested) }}</td>
                         <td class="px-4 py-3 text-right text-text-muted dark:text-text-dark-muted">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.current_price) }}</td>
-                        <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</td>
+                        <td class="px-4 py-3 text-right font-semibold text-text-main dark:text-text-dark-main">{{ maskAmount(pos.current_value) }}</td>
                         <td class="px-4 py-3 text-right">
                           <span :class="['font-semibold', profitLossClass(pos.profit_loss)]">{{ formatPercent(pos.profit_loss_percentage) }}</span>
                         </td>
@@ -1244,7 +1263,7 @@ onMounted(async () => {
                       </div>
                       <div class="text-right">
                         <p class="text-text-muted dark:text-text-dark-muted">Valeur</p>
-                        <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatAmount(pos.current_value) }}</p>
+                        <p class="font-semibold text-text-main dark:text-text-dark-main">{{ maskAmount(pos.current_value) }}</p>
                       </div>
                       <div>
                         <p class="text-text-muted dark:text-text-dark-muted">PRU</p>
@@ -1252,7 +1271,7 @@ onMounted(async () => {
                       </div>
                       <div class="text-right">
                         <p class="text-text-muted dark:text-text-dark-muted">Investi</p>
-                        <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : formatAmount(pos.total_invested) }}</p>
+                        <p class="text-text-body dark:text-text-dark-body">{{ isFiatSymbol(pos.symbol) ? '—' : maskAmount(pos.total_invested) }}</p>
                       </div>
                     </div>
                   </div>

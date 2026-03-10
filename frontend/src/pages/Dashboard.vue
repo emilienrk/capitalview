@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
+import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton } from '@/components'
 
@@ -11,6 +12,7 @@ const auth = useAuthStore()
 const dashboard = useDashboardStore()
 const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass, formatAccountType } = useFormatters()
+const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
 const cashflowEnabled = computed(() => settingsStore.settings?.cashflow_module_enabled ?? true)
@@ -38,7 +40,25 @@ onMounted(() => {
     <PageHeader
       title="Dashboard"
       :description="`Bienvenue ${auth.user?.username ?? ''} — Vue d'ensemble de votre patrimoine`"
-    />
+    >
+      <template #actions>
+        <button
+          @click="togglePrivacyMode"
+          :title="privacyMode ? 'Afficher les valeurs' : 'Masquer les valeurs'"
+          class="w-9 h-9 flex items-center justify-center rounded-button border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-muted dark:text-text-dark-muted hover:text-primary dark:hover:text-primary transition-colors"
+        >
+          <!-- Eye icon (visible) -->
+          <svg v-if="!privacyMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <!-- Eye-off icon (hidden) -->
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Error -->
     <BaseAlert v-if="dashboard.error" variant="danger" dismissible @dismiss="dashboard.error = null" class="mb-6">
@@ -66,7 +86,7 @@ onMounted(() => {
           <BaseStatCard
             v-if="bankEnabled"
             label="Solde bancaire"
-            :value="formatCurrency(dashboard.bankAccounts?.total_balance)"
+            :value="maskValue(formatCurrency(dashboard.bankAccounts?.total_balance))"
           >
             <template #icon>
               <div class="w-10 h-10 rounded-primary bg-info/10 flex items-center justify-center">
@@ -79,7 +99,7 @@ onMounted(() => {
 
           <BaseStatCard
             label="Portfolio investi"
-            :value="formatCurrency(dashboard.portfolio?.total_invested)"
+            :value="maskValue(formatCurrency(dashboard.portfolio?.total_invested))"
           >
             <template #icon>
               <div class="w-10 h-10 rounded-primary bg-primary/10 flex items-center justify-center">
@@ -92,7 +112,7 @@ onMounted(() => {
 
           <BaseStatCard
             label="Valeur actuelle"
-            :value="formatCurrency(dashboard.portfolio?.current_value)"
+            :value="maskValue(formatCurrency(dashboard.portfolio?.current_value))"
             :sub-value="formatPercent(dashboard.portfolio?.profit_loss_percentage)"
             :sub-value-class="profitLossClass(dashboard.portfolio?.profit_loss_percentage)"
           >
@@ -108,7 +128,7 @@ onMounted(() => {
           <BaseStatCard
             v-if="cashflowEnabled"
             label="Épargne mensuelle"
-            :value="formatCurrency(dashboard.cashflowBalance?.monthly_balance)"
+            :value="maskValue(formatCurrency(dashboard.cashflowBalance?.monthly_balance))"
             :sub-value="dashboard.cashflowBalance?.savings_rate != null ? `Taux ${formatPercent(dashboard.cashflowBalance.savings_rate)}` : undefined"
             sub-value-class="text-text-muted dark:text-text-dark-muted"
           >
@@ -160,13 +180,13 @@ onMounted(() => {
                 <div>
                   <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Bourse</p>
                   <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                    Investi : {{ formatCurrency(dashboard.statistics.distribution.stock_invested) }}
+                    Investi : {{ maskValue(formatCurrency(dashboard.statistics.distribution.stock_invested)) }}
                   </p>
                 </div>
               </div>
               <div class="text-right">
                 <p class="font-bold text-text-main dark:text-text-dark-main">
-                  {{ formatCurrency(dashboard.statistics.distribution.stock_current_value) }}
+                  {{ maskValue(formatCurrency(dashboard.statistics.distribution.stock_current_value)) }}
                 </p>
                 <p class="text-sm font-medium text-primary">
                   {{ dashboard.statistics.distribution.stock_percentage != null ? `${Number(dashboard.statistics.distribution.stock_percentage).toFixed(2)} %` : '—' }}
@@ -181,13 +201,13 @@ onMounted(() => {
                 <div>
                   <p class="text-sm font-medium text-text-main dark:text-text-dark-main">Crypto</p>
                   <p class="text-xs text-text-muted dark:text-text-dark-muted">
-                    Investi : {{ formatCurrency(dashboard.statistics.distribution.crypto_invested) }}
+                    Investi : {{ maskValue(formatCurrency(dashboard.statistics.distribution.crypto_invested)) }}
                   </p>
                 </div>
               </div>
               <div class="text-right">
                 <p class="font-bold text-text-main dark:text-text-dark-main">
-                  {{ formatCurrency(dashboard.statistics.distribution.crypto_current_value) }}
+                  {{ maskValue(formatCurrency(dashboard.statistics.distribution.crypto_current_value)) }}
                 </p>
                 <p class="text-sm font-medium text-warning">
                   {{ dashboard.statistics.distribution.crypto_percentage != null ? `${Number(dashboard.statistics.distribution.crypto_percentage).toFixed(2)} %` : '—' }}
@@ -238,7 +258,7 @@ onMounted(() => {
               </div>
               <div class="text-right">
                 <p class="font-bold text-text-main dark:text-text-dark-main">
-                  {{ formatCurrency(dashboard.statistics.wealth.cash) }}
+                  {{ maskValue(formatCurrency(dashboard.statistics.wealth.cash)) }}
                 </p>
                 <p class="text-sm font-medium text-info">
                   {{ dashboard.statistics.wealth.cash_percentage != null ? `${Number(dashboard.statistics.wealth.cash_percentage).toFixed(2)} %` : '—' }}
@@ -254,7 +274,7 @@ onMounted(() => {
               </div>
               <div class="text-right">
                 <p class="font-bold text-text-main dark:text-text-dark-main">
-                  {{ formatCurrency(dashboard.statistics.wealth.investments) }}
+                  {{ maskValue(formatCurrency(dashboard.statistics.wealth.investments)) }}
                 </p>
                 <p class="text-sm font-medium text-success">
                   {{ dashboard.statistics.wealth.investments_percentage != null ? `${Number(dashboard.statistics.wealth.investments_percentage).toFixed(2)} %` : '—' }}
@@ -270,7 +290,7 @@ onMounted(() => {
               </div>
               <div class="text-right">
                 <p class="font-bold text-text-main dark:text-text-dark-main">
-                  {{ formatCurrency(dashboard.statistics.wealth.assets) }}
+                  {{ maskValue(formatCurrency(dashboard.statistics.wealth.assets)) }}
                 </p>
                 <p class="text-sm font-medium text-secondary">
                   {{ dashboard.statistics.wealth.assets_percentage != null ? `${Number(dashboard.statistics.wealth.assets_percentage).toFixed(2)} %` : '—' }}
@@ -282,7 +302,7 @@ onMounted(() => {
             <div class="pt-3 border-t border-surface-border dark:border-surface-dark-border flex items-center justify-between">
               <p class="text-sm font-semibold text-text-main dark:text-text-dark-main">Patrimoine total</p>
               <p class="text-lg font-bold text-text-main dark:text-text-dark-main">
-                {{ formatCurrency(dashboard.statistics.wealth.total_wealth) }}
+                {{ maskValue(formatCurrency(dashboard.statistics.wealth.total_wealth)) }}
               </p>
             </div>
           </div>
@@ -325,7 +345,7 @@ onMounted(() => {
                   <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ formatAccountType(account.account_type) }}</p>
                 </div>
                 <div class="text-right">
-                  <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(account.current_value) }}</p>
+                  <p class="font-semibold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(account.current_value)) }}</p>
                   <p :class="['text-xs font-medium', profitLossClass(account.profit_loss)]">
                     {{ formatCurrency(account.profit_loss) }} ({{ formatPercent(account.profit_loss_percentage) }})
                   </p>
@@ -351,7 +371,7 @@ onMounted(() => {
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatNumber(pos.total_amount, 4) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.average_buy_price) }}</td>
                       <td class="px-4 py-2.5 text-right text-text-body dark:text-text-dark-body">{{ formatCurrency(pos.total_invested) }}</td>
-                      <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ formatCurrency(pos.current_value) }}</td>
+                      <td class="px-4 py-2.5 text-right font-medium text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(pos.current_value)) }}</td>
                       <td class="px-4 py-2.5 text-right">
                         <span :class="['font-medium', profitLossClass(pos.profit_loss)]">
                           {{ formatPercent(pos.profit_loss_percentage) }}
