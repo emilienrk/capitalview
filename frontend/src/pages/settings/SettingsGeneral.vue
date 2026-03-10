@@ -6,7 +6,7 @@ import { BaseCard } from '@/components'
 
 const auth = useAuthStore()
 const { isDark, toggleDarkMode } = useDarkMode()
-const { formatDateTime } = useFormatters()
+const { formatDateTime, formatDate } = useFormatters()
 </script>
 
 <template>
@@ -47,7 +47,7 @@ const { formatDateTime } = useFormatters()
           <div>
             <p class="text-xs text-text-muted dark:text-text-dark-muted">Membre depuis</p>
             <p class="text-sm font-medium text-text-main dark:text-text-dark-main">
-              {{ formatDateTime(auth.user?.created_at) }}
+              {{ formatDate(auth.user?.created_at) }}
             </p>
           </div>
         </div>

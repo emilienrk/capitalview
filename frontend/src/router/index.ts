@@ -24,6 +24,10 @@ const routes = [
     meta: { requiresAuth: false, layout: 'blank' },
   },
   {
+    path: '/landing',
+    redirect: '/',
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: Dashboard,

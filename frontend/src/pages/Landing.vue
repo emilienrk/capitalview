@@ -101,7 +101,8 @@ const highlights = [
 
     <!-- Nav -->
     <nav
-      class="fixed top-0 w-full z-50 px-6 py-4 transition-all duration-300"
+      class="fixed top-0 w-full z-50 px-6 pb-4 transition-all duration-300"
+      style="padding-top: max(1rem, env(safe-area-inset-top));"
       :class="{ 'bg-background/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-surface-border dark:border-surface-dark-border': showNavLogo }"
     >
       <div class="max-w-6xl mx-auto w-full flex justify-between items-center">
@@ -408,11 +409,6 @@ const highlights = [
 
             <!-- Step 4a & 4b: Two branches -->
             <div class="relative grid md:grid-cols-2 gap-4 ml-12 md:ml-16 pl-5">
-              <!-- Branch connector dots -->
-              <div class="absolute -left-6 md:-left-8 top-0 flex flex-col items-center gap-1">
-                <div class="w-3 h-3 rounded-full bg-primary"></div>
-                <div class="w-px h-full bg-transparent"></div>
-              </div>
 
               <!-- AES-256-GCM -->
               <div class="p-5 rounded-card bg-surface dark:bg-surface-dark border border-info/30 shadow-soft">
@@ -464,40 +460,28 @@ const highlights = [
             <!-- Login -->
             <div class="relative p-5 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border text-center">
               <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-sm">1</div>
-              <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3 mt-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
-              </div>
-              <p class="font-bold text-sm mb-1">Connexion</p>
+              <p class="font-bold text-sm mb-1 mt-2">Connexion</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Mot de passe + sel → dérivation de la Master Key</p>
             </div>
 
             <!-- In memory -->
             <div class="relative p-5 rounded-card bg-surface dark:bg-surface-dark border border-success/30 text-center">
               <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-success text-white text-xs font-bold flex items-center justify-center shadow-sm">2</div>
-              <div class="w-10 h-10 rounded-full bg-success/10 text-success flex items-center justify-center mx-auto mb-3 mt-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-              </div>
-              <p class="font-bold text-sm mb-1">En mémoire</p>
+              <p class="font-bold text-sm mb-1 mt-2">En mémoire</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Cookie <span class="tooltip">HttpOnly<span class="tooltip-text">Flag de cookie qui interdit l'accès depuis JavaScript (document.cookie). Protège contre les attaques XSS — seul le navigateur peut envoyer le cookie au serveur.</span></span> sécurisé. Jamais en localStorage</p>
             </div>
 
             <!-- Usage -->
             <div class="relative p-5 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border text-center">
               <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-info text-white text-xs font-bold flex items-center justify-center shadow-sm">3</div>
-              <div class="w-10 h-10 rounded-full bg-info/10 text-info flex items-center justify-center mx-auto mb-3 mt-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              </div>
-              <p class="font-bold text-sm mb-1">Utilisation</p>
+              <p class="font-bold text-sm mb-1 mt-2">Utilisation</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Chiffrement / déchiffrement à la volée à chaque requête</p>
             </div>
 
             <!-- Logout -->
             <div class="relative p-5 rounded-card bg-surface dark:bg-surface-dark border border-danger/30 text-center">
               <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-danger text-white text-xs font-bold flex items-center justify-center shadow-sm">4</div>
-              <div class="w-10 h-10 rounded-full bg-danger/10 text-danger flex items-center justify-center mx-auto mb-3 mt-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              </div>
-              <p class="font-bold text-sm mb-1">Déconnexion</p>
+              <p class="font-bold text-sm mb-1 mt-2 ">Déconnexion</p>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Cookie supprimé. La clé n'existe plus nulle part</p>
             </div>
           </div>
