@@ -275,7 +275,9 @@ onMounted(async () => {
   <div>
     <PageHeader title="Flux de trésorerie" description="Gérez vos revenus et dépenses récurrents et ponctuels">
       <template #actions>
-        <BaseButton @click="openCreate()">+ Nouveau flux</BaseButton>
+        <BaseButton @click="openCreate()">
+          +<span class="hidden sm:inline">&nbsp;Nouveau flux</span>
+        </BaseButton>
       </template>
     </PageHeader>
 

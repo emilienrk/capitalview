@@ -72,7 +72,7 @@ onMounted(() => {
   <div>
     <PageHeader title="Notes" description="Stratégies, idées d'investissement et notes personnelles">
       <template #actions>
-        <BaseButton @click="openCreate">+ Nouvelle note</BaseButton>
+        <BaseButton @click="openCreate">+<span class="hidden sm:inline">&nbsp; Nouvelle note</span></BaseButton>
       </template>
     </PageHeader>
 

@@ -85,7 +85,9 @@ onMounted(() => {
   <div>
     <PageHeader title="Comptes Bancaires" description="Gérez vos comptes courants et d'épargne">
       <template #actions>
-        <BaseButton @click="openCreate">+ Nouveau compte</BaseButton>
+        <BaseButton @click="openCreate">
+          +<span class="hidden sm:inline">&nbsp; Nouveau compte</span>
+        </BaseButton>
       </template>
     </PageHeader>
 

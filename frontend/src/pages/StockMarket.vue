@@ -476,7 +476,7 @@ onMounted(() => {
   <div>
     <PageHeader title="Bourse" description="PEA, PEA-PME et Comptes-Titres">
       <template #actions>
-        <BaseButton @click="openCreateAccount">+ Nouveau compte</BaseButton>
+        <BaseButton @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau compte</span></BaseButton>
       </template>
     </PageHeader>
 
@@ -542,7 +542,7 @@ onMounted(() => {
           </div>
           <div class="flex items-center gap-2 shrink-0 self-start">
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
-              + Transaction
+              +<span class="hidden sm:inline">&nbsp; Transaction</span>
             </BaseButton>
             <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

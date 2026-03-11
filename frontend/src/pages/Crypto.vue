@@ -748,7 +748,7 @@ onMounted(async () => {
         <template v-if="isSingleMode && selectedAccountId">
           <!-- Import dropdown -->
           <div class="relative">
-            <BaseButton variant="outline" size="sm" @click.stop="showImportDropdown = !showImportDropdown">
+            <BaseButton variant="outline" @click.stop="showImportDropdown = !showImportDropdown">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
@@ -781,10 +781,10 @@ onMounted(async () => {
               </button>
             </div>
           </div>
-          <BaseButton @click="openAddTransaction(selectedAccountId!)">+ Transaction</BaseButton>
+          <BaseButton @click="openAddTransaction(selectedAccountId!)">+<span class="hidden sm:inline">&nbsp;transaction</span></BaseButton>
         </template>
         <!-- MULTI mode: account creation -->
-        <BaseButton v-else-if="!isSingleMode" @click="openCreateAccount">+ Nouveau portefeuille</BaseButton>
+        <BaseButton v-else-if="!isSingleMode" @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau portefeuille</span></BaseButton>
       </template>
     </PageHeader>
 
@@ -1105,7 +1105,7 @@ onMounted(async () => {
                 + Transaction
               </BaseButton>
               <div class="relative">
-                <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
+                <BaseButton variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
