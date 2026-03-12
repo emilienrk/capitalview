@@ -36,6 +36,7 @@ const accountForm = reactive<StockAccountCreate>({
   name: '',
   account_type: 'CTO' as StockAccountType,
   institution_name: '',
+  identifier: '',
 })
 
 const txForm = reactive<StockTransactionCreate>({
@@ -222,6 +223,7 @@ function openCreateAccount(): void {
   // Default to CTO, or PEA if no PEA exists yet
   accountForm.account_type = hasPea.value ? 'CTO' : 'PEA'
   accountForm.institution_name = ''
+  accountForm.identifier = ''
   showAccountModal.value = true
 }
 
@@ -230,6 +232,7 @@ function openEditAccount(account: any): void {
   accountForm.name = account.name
   accountForm.account_type = account.account_type
   accountForm.institution_name = account.institution_name || ''
+  accountForm.identifier = account.identifier || ''
   showAccountModal.value = true
 }
 
@@ -776,6 +779,7 @@ onMounted(() => {
           required
         />
         <BaseInput v-model="accountForm.institution_name!" label="Courtier / Banque" placeholder="Nom du courtier" />
+        <BaseInput v-model="accountForm.identifier!" label="Identifiant" placeholder="Numéro de compte" />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">
