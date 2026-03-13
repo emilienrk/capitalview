@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { FileText, User } from 'lucide-vue-next'
+
 import { useAuthStore } from '@/stores/auth'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useFormatters } from '@/composables/useFormatters'
@@ -16,7 +18,7 @@ const { formatDateTime, formatDate } = useFormatters()
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+            <User class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Compte</h3>
         </div>
@@ -59,7 +61,7 @@ const { formatDateTime, formatDate } = useFormatters()
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" /></svg>
+            <FileText class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Apparence</h3>
         </div>

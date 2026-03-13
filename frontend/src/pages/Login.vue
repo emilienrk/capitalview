@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertCircle, ArrowRight, LoaderCircle, Lock, User } from 'lucide-vue-next'
+
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
@@ -51,7 +53,7 @@ async function handleLogin() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <User class="w-5 h-5" />
             </span>
             <input
               id="username"
@@ -70,7 +72,7 @@ async function handleLogin() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <Lock class="w-5 h-5" />
             </span>
             <input
               id="password"
@@ -86,7 +88,7 @@ async function handleLogin() {
         <!-- Feedback Messages -->
         <transition enter-active-class="animate-fade-in" leave-active-class="opacity-0 transition-opacity">
           <div v-if="error" class="flex items-center gap-3 p-4 bg-danger/10 border border-danger/20 text-danger text-sm rounded-input">
-            <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+            <AlertCircle class="w-5 h-5 shrink-0" />
             {{ error }}
           </div>
         </transition>
@@ -98,15 +100,12 @@ async function handleLogin() {
           class="group relative w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-content font-bold py-4 rounded-button transition-all shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
         >
           <span v-if="isLoading" class="flex items-center justify-center gap-2">
-            <svg class="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <LoaderCircle class="animate-spin h-5 w-5 text-current" />
             Connexion en cours...
           </span>
           <span v-else class="flex items-center justify-center gap-2">
             Se connecter
-            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </span>
         </button>
       </form>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { List, Lock, User } from 'lucide-vue-next'
+
 import { onMounted, ref, computed } from 'vue'
 import { useCommunityStore } from '@/stores/community'
 import { useAuthStore } from '@/stores/auth'
@@ -105,7 +107,7 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+            <User class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Profil communautaire</h3>
         </div>
@@ -164,7 +166,7 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
             <div v-if="communityActive" class="flex items-center justify-between pt-2">
               <div>
                 <p class="font-medium text-text-main dark:text-text-dark-main flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                  <Lock class="w-4 h-4" stroke-width="2" />
                   Compte privé
                 </p>
                 <p class="text-sm text-text-muted dark:text-text-dark-muted">
@@ -247,7 +249,7 @@ const totalSelected = computed(() => selectedStockIsins.value.size + selectedCry
         <template #header>
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" /></svg>
+              <List class="w-4 h-4 text-primary" stroke-width="2" />
             </div>
             <div>
               <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Positions partagées</h3>

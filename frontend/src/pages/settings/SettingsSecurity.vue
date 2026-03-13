@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Lock } from 'lucide-vue-next'
+
 import { ref } from 'vue'
 import { BaseCard, BaseButton, BaseInput, BaseAlert } from '@/components'
 
@@ -43,7 +45,7 @@ function handlePasswordChange(): void {
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+            <Lock class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Sécurité</h3>
         </div>

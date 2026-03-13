@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Calendar, Check, ChevronRight, Heart, Lock, Pencil, Search, Settings, ShieldCheck, Trash2, Users } from 'lucide-vue-next'
+
 import { onMounted, ref, watch, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useCommunityStore } from '@/stores/community'
@@ -246,9 +248,7 @@ const profilePicks = computed(() => {
     >
       <template #actions>
         <BaseButton variant="outline" size="sm" @click="openMyPicks">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-          </svg>
+          <Heart class="w-4 h-4" stroke-width="2" />
           Ma watchlist
           <span
             v-if="communityStore.myPicks.length > 0"
@@ -259,10 +259,7 @@ const profilePicks = computed(() => {
         </BaseButton>
         <RouterLink :to="{ path: '/settings', query: { tab: 'communaute' } }">
           <BaseButton variant="outline" size="sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-            </svg>
+            <Settings class="w-4 h-4" stroke-width="2" />
             <span class="hidden sm:inline">Configurer mon profil</span>
           </BaseButton>
         </RouterLink>
@@ -280,9 +277,7 @@ const profilePicks = computed(() => {
           @click="closeMyPicks"
           class="mb-4 text-sm text-primary hover:underline flex items-center gap-1"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
+          <Check class="w-4 h-4" stroke-width="2" />
           Retour
         </button>
 
@@ -290,9 +285,7 @@ const profilePicks = computed(() => {
           <template #header>
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-danger" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                </svg>
+                <ShieldCheck class="w-5 h-5 text-danger" />
                 <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Watchlist</h3>
                 <span
                   v-if="communityStore.myPicks.length > 0"
@@ -310,9 +303,7 @@ const profilePicks = computed(() => {
           <BaseSpinner v-if="communityStore.isLoadingPicks" class="mx-auto my-8" />
 
           <div v-else-if="communityStore.myPicks.length === 0" class="text-center py-8">
-            <svg class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-            </svg>
+            <Heart class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" stroke-width="1.5" />
             <p class="text-text-muted dark:text-text-dark-muted font-medium">Aucun élément dans la watchlist</p>
             <p class="text-sm text-text-muted dark:text-text-dark-muted mt-1">
               Ajoutez des actions ou cryptos que vous surveillez.
@@ -341,18 +332,14 @@ const profilePicks = computed(() => {
                     class="p-1 text-text-muted dark:text-text-dark-muted hover:text-primary transition-colors"
                     title="Modifier"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                    </svg>
+                    <Pencil class="w-4 h-4" stroke-width="2" />
                   </button>
                   <button
                     @click="handleDeletePick(pick.id)"
                     class="p-1 text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors"
                     title="Supprimer"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
+                    <Trash2 class="w-4 h-4" stroke-width="2" />
                   </button>
                 </div>
               </div>
@@ -373,9 +360,7 @@ const profilePicks = computed(() => {
           @click="closeProfile"
           class="mb-4 text-sm text-primary hover:underline flex items-center gap-1"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
+          <Check class="w-4 h-4" stroke-width="2" />
           Retour
         </button>
 
@@ -394,7 +379,7 @@ const profilePicks = computed(() => {
                       {{ communityStore.viewedProfile.display_name || communityStore.viewedProfile.username }}
                     </h3>
                     <BaseBadge v-if="communityStore.viewedProfile.is_private" variant="secondary" size="sm">
-                      <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                      <Lock class="w-3 h-3 inline mr-0.5" stroke-width="2" />
                       Privé
                     </BaseBadge>
                   </div>
@@ -434,9 +419,7 @@ const profilePicks = computed(() => {
             v-if="communityStore.viewedProfile.is_private && !communityStore.viewedProfile.is_mutual && !isOwnProfile(communityStore.viewedProfile.username)"
             class="text-center py-8"
           >
-            <svg class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
+            <Lock class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" stroke-width="1.5" />
             <p class="text-text-muted dark:text-text-dark-muted font-medium">Compte privé</p>
             <p class="text-sm text-text-muted dark:text-text-dark-muted mt-1">
               Suivez cet utilisateur et attendez qu'il vous suive en retour pour voir ses positions.
@@ -543,9 +526,7 @@ const profilePicks = computed(() => {
 
                 <!-- Member since -->
                 <div v-if="communityStore.viewedProfile.created_at" class="flex items-center gap-2 text-sm text-text-muted dark:text-text-dark-muted">
-                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5" />
-                  </svg>
+                  <Calendar class="w-4 h-4 shrink-0" stroke-width="2" />
                   Membre depuis le {{ new Date(communityStore.viewedProfile.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) }}
                 </div>
               </div>
@@ -561,9 +542,7 @@ const profilePicks = computed(() => {
               </div>
 
               <div v-if="profilePicks.length === 0" class="text-center py-8">
-                <svg class="w-10 h-10 mx-auto text-text-muted dark:text-text-dark-muted mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                </svg>
+                <Heart class="w-10 h-10 mx-auto text-text-muted dark:text-text-dark-muted mb-2" stroke-width="1.5" />
                 <p class="text-text-muted dark:text-text-dark-muted">
                   {{ isViewingOwnProfile ? 'Vous n\'avez pas encore de picks.' : 'Aucun pick pour le moment.' }}
                 </p>
@@ -593,18 +572,14 @@ const profilePicks = computed(() => {
                           class="p-1 text-text-muted dark:text-text-dark-muted hover:text-primary transition-colors"
                           title="Modifier"
                         >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                          </svg>
+                          <Pencil class="w-4 h-4" stroke-width="2" />
                         </button>
                         <button
                           @click="handleDeletePick(pick.id)"
                           class="p-1 text-text-muted dark:text-text-dark-muted hover:text-danger transition-colors"
                           title="Supprimer"
                         >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                          </svg>
+                          <Trash2 class="w-4 h-4" stroke-width="2" />
                         </button>
                       </template>
                     </div>
@@ -634,9 +609,7 @@ const profilePicks = computed(() => {
         <!-- Search bar -->
         <div class="mb-6">
           <div class="relative">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted dark:text-text-dark-muted pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted dark:text-text-dark-muted pointer-events-none" stroke-width="2" />
             <input
               v-model="searchQuery"
               type="text"
@@ -671,7 +644,7 @@ const profilePicks = computed(() => {
                       {{ result.display_name || result.username }}
                     </p>
                     <BaseBadge v-if="result.is_private" variant="secondary" size="sm">
-                      <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                      <Lock class="w-3 h-3 inline" stroke-width="2" />
                     </BaseBadge>
                     <BaseBadge v-if="result.is_mutual" variant="success" size="sm">Mutuel</BaseBadge>
                   </div>
@@ -681,9 +654,7 @@ const profilePicks = computed(() => {
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                   <BaseBadge v-if="result.is_following" variant="info" size="sm">Suivi</BaseBadge>
-                  <svg class="w-5 h-5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                  </svg>
+                  <ChevronRight class="w-5 h-5 text-text-muted dark:text-text-dark-muted" stroke-width="2" />
                 </div>
               </button>
             </div>
@@ -718,9 +689,7 @@ const profilePicks = computed(() => {
           <template v-else-if="communityStore.profiles.length === 0">
             <BaseCard>
               <div class="text-center py-8">
-                <svg class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-                </svg>
+                <Users class="w-12 h-12 mx-auto text-text-muted dark:text-text-dark-muted mb-3" stroke-width="1.5" />
                 <p class="text-text-muted dark:text-text-dark-muted">
                   Aucun profil communautaire public pour le moment.
                 </p>
@@ -757,9 +726,7 @@ const profilePicks = computed(() => {
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                   <BaseBadge v-if="profile.is_following" variant="info" size="sm">Suivi</BaseBadge>
-                  <svg class="w-5 h-5 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                  </svg>
+                  <ChevronRight class="w-5 h-5 text-text-muted dark:text-text-dark-muted" stroke-width="2" />
                 </div>
               </button>
             </div>

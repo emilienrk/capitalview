@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowDown, ArrowUp, Circle, DollarSign, Pencil, Scale, Search, Trash2 } from 'lucide-vue-next'
+
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useCashflowStore } from '@/stores/cashflow'
 import { useFormatters } from '@/composables/useFormatters'
@@ -300,9 +302,7 @@ onMounted(async () => {
       >
         <template #icon>
           <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
-            </svg>
+            <ArrowUp class="w-5 h-5 text-success" />
           </div>
         </template>
       </BaseStatCard>
@@ -314,9 +314,7 @@ onMounted(async () => {
       >
         <template #icon>
           <div class="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-            </svg>
+            <ArrowDown class="w-5 h-5 text-danger" />
           </div>
         </template>
       </BaseStatCard>
@@ -327,9 +325,7 @@ onMounted(async () => {
       >
         <template #icon>
           <div class="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10">
-            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-            </svg>
+            <Scale class="w-5 h-5 text-primary" />
           </div>
         </template>
       </BaseStatCard>
@@ -341,9 +337,7 @@ onMounted(async () => {
       >
         <template #icon>
           <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
+            <Circle class="w-5 h-5 text-primary" />
           </div>
         </template>
       </BaseStatCard>
@@ -430,9 +424,7 @@ onMounted(async () => {
 
         <!-- Search -->
         <div class="relative w-full sm:w-72">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted dark:text-text-dark-muted" />
           <input
             v-model="searchQuery"
             type="text"
@@ -495,14 +487,10 @@ onMounted(async () => {
               <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-1">
                   <BaseButton size="sm" variant="ghost" @click="openEdit(item)">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    <Pencil class="w-4 h-4" />
                   </BaseButton>
                   <BaseButton size="sm" variant="ghost" @click="deleteConfirmId = item.id">
-                    <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Trash2 class="w-4 h-4 text-danger" />
                   </BaseButton>
                 </div>
               </td>
@@ -530,9 +518,7 @@ onMounted(async () => {
       @action="openCreate()"
     >
       <template #icon>
-        <svg class="w-8 h-8 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <DollarSign class="w-8 h-8 text-text-muted dark:text-text-dark-muted" />
       </template>
     </BaseEmptyState>
 

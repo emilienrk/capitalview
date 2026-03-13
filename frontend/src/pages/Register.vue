@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertCircle, ArrowRight, Circle, Eye, EyeOff, LoaderCircle, Lock, Mail, ShieldCheck, User } from 'lucide-vue-next'
+
 import { ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
@@ -104,7 +106,7 @@ async function handleRegister() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <User class="w-5 h-5" />
             </span>
             <input
               id="username"
@@ -130,7 +132,7 @@ async function handleRegister() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              <Mail class="w-5 h-5" />
             </span>
             <input
               id="email"
@@ -151,7 +153,7 @@ async function handleRegister() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <Lock class="w-5 h-5" />
             </span>
             <input
               id="password"
@@ -169,8 +171,8 @@ async function handleRegister() {
               @click="showPassword = !showPassword"
               class="absolute inset-y-0 right-0 pr-4 flex items-center text-text-muted hover:text-text-main dark:hover:text-text-dark-main transition-colors"
             >
-              <svg v-if="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" /></svg>
-              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              <EyeOff v-if="showPassword" class="w-5 h-5" />
+              <Eye v-else class="w-5 h-5" />
             </button>
           </div>
 
@@ -184,8 +186,8 @@ async function handleRegister() {
             </div>
             <ul class="space-y-1 text-xs">
               <li v-for="(check, key) in { 'Au moins 8 caractères': passwordChecks.minLength, 'Une majuscule': passwordChecks.hasUpper, 'Une minuscule': passwordChecks.hasLower, 'Un chiffre': passwordChecks.hasDigit, 'Un caractère spécial': passwordChecks.hasSpecial }" :key="key" class="flex items-center gap-1.5">
-                <svg v-if="check" class="w-3.5 h-3.5 text-success shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                <svg v-else class="w-3.5 h-3.5 text-text-muted/40 dark:text-text-dark-muted/40 shrink-0" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" /></svg>
+                <Circle v-if="check" class="w-3.5 h-3.5 text-success shrink-0" />
+                <Circle v-else class="w-3.5 h-3.5 text-text-muted/40 dark:text-text-dark-muted/40 shrink-0" />
                 <span :class="check ? 'text-success' : 'text-text-muted dark:text-text-dark-muted'">{{ key }}</span>
               </li>
             </ul>
@@ -199,7 +201,7 @@ async function handleRegister() {
           </label>
           <div class="relative group">
             <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-text-muted group-focus-within:text-primary transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+              <ShieldCheck class="w-5 h-5" />
             </span>
             <input
               id="confirmPassword"
@@ -220,7 +222,7 @@ async function handleRegister() {
         <!-- Error message -->
         <transition enter-active-class="animate-fade-in" leave-active-class="opacity-0 transition-opacity">
           <div v-if="error" class="flex items-center gap-3 p-4 bg-danger/10 border border-danger/20 text-danger text-sm rounded-input">
-            <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+            <AlertCircle class="w-5 h-5 shrink-0" />
             {{ error }}
           </div>
         </transition>
@@ -232,15 +234,12 @@ async function handleRegister() {
           class="group relative w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-content font-bold py-4 rounded-button transition-all shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
         >
           <span v-if="isLoading" class="flex items-center justify-center gap-2">
-            <svg class="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <LoaderCircle class="animate-spin h-5 w-5 text-current" />
             Création en cours...
           </span>
           <span v-else class="flex items-center justify-center gap-2">
             Créer mon compte
-            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </span>
         </button>
       </form>

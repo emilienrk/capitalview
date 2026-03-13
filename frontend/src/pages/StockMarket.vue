@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Pencil, TrendingUp, Upload } from 'lucide-vue-next'
+
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
 import { useFormatters } from '@/composables/useFormatters'
@@ -548,15 +550,11 @@ onMounted(() => {
               +<span class="hidden sm:inline">&nbsp; Transaction</span>
             </BaseButton>
             <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+              <Upload class="w-4 h-4" />
               Importer
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
+              <Pencil class="w-4 h-4" />
             </BaseButton>
           </div>
         </div>
@@ -712,9 +710,7 @@ onMounted(() => {
                     <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.amount * tx.price_per_unit)) }}</td>
                                     <td class="px-4 py-2.5 text-right">
                                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
+                                        <Pencil class="w-4 h-4" />
                                       </BaseButton>
                                     </td>
                     
@@ -745,9 +741,7 @@ onMounted(() => {
       @action="openCreateAccount"
     >
       <template #icon>
-        <svg class="w-8 h-8 text-text-muted dark:text-text-dark-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
+        <TrendingUp class="w-8 h-8 text-text-muted dark:text-text-dark-muted" />
       </template>
     </BaseEmptyState>
 

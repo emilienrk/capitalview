@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Upload } from 'lucide-vue-next'
+
 import { ref, computed, reactive } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
 import BaseModal from '@/components/BaseModal.vue'
@@ -299,9 +301,7 @@ function handleClose(): void {
       <label
         class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-surface-border dark:border-surface-dark-border rounded-card cursor-pointer hover:border-primary transition-colors"
       >
-        <svg class="w-8 h-8 text-text-muted dark:text-text-dark-muted mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-        </svg>
+        <Upload class="w-8 h-8 text-text-muted dark:text-text-dark-muted mb-2" />
         <span v-if="fileName" class="text-sm font-medium text-text-main dark:text-text-dark-main">{{ fileName }}</span>
         <span v-else class="text-sm text-text-muted dark:text-text-dark-muted">Cliquer pour choisir un fichier .csv</span>
         <input type="file" accept=".csv" class="hidden" @change="onFileSelect" />

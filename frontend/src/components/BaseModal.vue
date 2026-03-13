@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { X } from 'lucide-vue-next'
+
 import { watch } from 'vue'
 
 interface Props {
@@ -75,9 +77,7 @@ function onBackdropClick(): void {
               @click="emit('close')"
               class="p-1.5 rounded-secondary text-text-muted dark:text-text-dark-muted hover:bg-surface-active dark:hover:bg-surface-dark-hover transition-colors"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X class="w-5 h-5" />
             </button>
           </div>
 

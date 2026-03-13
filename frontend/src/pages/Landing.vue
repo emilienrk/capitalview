@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowLeftRight, ArrowUpDown, Bitcoin, Boxes, Building2, Code2, Eye, Info, KeyRound, Layers3, Lock, Moon, Pencil, Search, Server, ShieldCheck, Sun, TrendingUp, X } from 'lucide-vue-next'
+
 import { ref, onMounted } from 'vue'
 
 const isDark = ref(false)
@@ -118,12 +120,8 @@ const highlights = [
             @click="toggleDarkMode"
             class="p-1.5 rounded-full hover:bg-surface/50 dark:hover:bg-surface-dark/50 transition-colors text-text-muted dark:text-text-dark-muted shrink-0"
           >
-            <svg v-if="isDark" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <svg v-else class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
+            <Sun v-if="isDark" class="w-4 h-4 sm:w-5 sm:h-5" />
+            <Moon v-else class="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <router-link
             to="/login"
@@ -207,29 +205,17 @@ const highlights = [
               }"
             >
               <!-- Stock -->
-              <svg v-if="feature.icon === 'stock'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
+              <TrendingUp v-if="feature.icon === 'stock'" class="w-5 h-5" stroke-width="2" />
               <!-- Crypto -->
-              <svg v-else-if="feature.icon === 'crypto'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1m0-9a3.99 3.99 0 012.599 1M12 8a3.99 3.99 0 00-2.599 1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Bitcoin v-else-if="feature.icon === 'crypto'" class="w-5 h-5" stroke-width="2" />
               <!-- Cashflow -->
-              <svg v-else-if="feature.icon === 'cashflow'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h4l3 8 4-16 3 8h4" />
-              </svg>
+              <ArrowUpDown v-else-if="feature.icon === 'cashflow'" class="w-5 h-5" stroke-width="2" />
               <!-- Bank -->
-              <svg v-else-if="feature.icon === 'bank'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v4m4-4v4m4-4v4" />
-              </svg>
+              <Building2 v-else-if="feature.icon === 'bank'" class="w-5 h-5" stroke-width="2" />
               <!-- Asset -->
-              <svg v-else-if="feature.icon === 'asset'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+              <Boxes v-else-if="feature.icon === 'asset'" class="w-5 h-5" stroke-width="2" />
               <!-- Notes -->
-              <svg v-else-if="feature.icon === 'notes'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <Pencil v-else-if="feature.icon === 'notes'" class="w-5 h-5" stroke-width="2" />
             </div>
 
             <h3 class="text-lg font-bold mb-2">{{ feature.title }}</h3>
@@ -253,17 +239,11 @@ const highlights = [
           <div v-for="item in highlights" :key="item.title" class="text-center">
             <div class="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-5">
               <!-- Lock -->
-              <svg v-if="item.icon === 'lock'" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+              <Lock v-if="item.icon === 'lock'" class="w-6 h-6" stroke-width="2" />
               <!-- Layers -->
-              <svg v-else-if="item.icon === 'layers'" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
+              <Layers3 v-else-if="item.icon === 'layers'" class="w-6 h-6" stroke-width="2" />
               <!-- Code -->
-              <svg v-else-if="item.icon === 'code'" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
+              <Code2 v-else-if="item.icon === 'code'" class="w-6 h-6" stroke-width="2" />
             </div>
             <h3 class="text-lg font-bold mb-2">{{ item.title }}</h3>
             <p class="text-sm text-text-muted dark:text-text-dark-muted leading-relaxed">{{ item.description }}</p>
@@ -279,7 +259,7 @@ const highlights = [
         <!-- Header -->
         <div class="text-center mb-20">
           <div class="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-success/10 text-success border border-success/20 text-sm font-semibold tracking-wide uppercase">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+            <ShieldCheck class="w-4 h-4" stroke-width="2" />
             Architecture <span class="tooltip">Zero-Knowledge<span class="tooltip-text">Modèle où le serveur ne possède jamais la clé de déchiffrement. Il manipule des données qu'il ne peut pas lire.</span></span>
           </div>
           <h2 class="text-3xl md:text-4xl font-bold mb-4">Comment vos données sont protégées</h2>
@@ -298,7 +278,7 @@ const highlights = [
             <div class="p-6 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border shadow-soft">
               <div class="flex items-center gap-2 mb-5">
                 <div class="w-8 h-8 rounded-full bg-success/10 text-success flex items-center justify-center">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  <Eye class="w-4 h-4" stroke-width="2" />
                 </div>
                 <p class="font-bold text-sm">Ce que <span class="text-success">vous</span> voyez</p>
               </div>
@@ -322,7 +302,7 @@ const highlights = [
             <div class="p-6 rounded-card bg-surface dark:bg-surface-dark border border-danger/20 shadow-soft">
               <div class="flex items-center gap-2 mb-5">
                 <div class="w-8 h-8 rounded-full bg-danger/10 text-danger flex items-center justify-center">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" /></svg>
+                  <Server class="w-4 h-4" stroke-width="2" />
                 </div>
                 <p class="font-bold text-sm">Ce que le <span class="text-danger">serveur</span> stocke</p>
               </div>
@@ -347,7 +327,7 @@ const highlights = [
           <div class="mt-8 max-w-4xl mx-auto p-5 rounded-card bg-surface dark:bg-surface-dark border border-warning/20 shadow-soft">
             <div class="flex gap-4">
               <div class="w-10 h-10 rounded-full bg-warning/10 text-warning flex items-center justify-center shrink-0 mt-0.5">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <Info class="w-5 h-5" stroke-width="2" />
               </div>
               <div>
                 <p class="font-bold text-sm mb-1.5">Aucun lien possible entre les données</p>
@@ -371,7 +351,7 @@ const highlights = [
             <!-- Step 1: Password input -->
             <div class="relative flex items-start gap-5 mb-8">
               <div class="relative z-10 w-12 h-12 md:w-16 md:h-16 rounded-full bg-surface dark:bg-surface-dark border-2 border-primary flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                <KeyRound class="w-5 h-5 md:w-6 md:h-6 text-primary" stroke-width="2" />
               </div>
               <div class="pt-1 md:pt-3">
                 <p class="font-bold mb-0.5">Mot de passe + <span class="tooltip">Sel unique<span class="tooltip-text">Valeur aléatoire de 16 octets, générée à l'inscription et propre à chaque utilisateur. Garantit que deux mots de passe identiques produisent des clés différentes.</span></span></p>
@@ -396,7 +376,7 @@ const highlights = [
             <!-- Step 3: HKDF -->
             <div class="relative flex items-start gap-5 mb-8">
               <div class="relative z-10 w-12 h-12 md:w-16 md:h-16 rounded-full bg-surface dark:bg-surface-dark border-2 border-primary flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                <ArrowLeftRight class="w-5 h-5 md:w-6 md:h-6 text-primary" stroke-width="2" />
               </div>
               <div class="pt-1 md:pt-3">
                 <div class="flex items-center gap-2 mb-0.5">
@@ -414,7 +394,7 @@ const highlights = [
               <div class="p-5 rounded-card bg-surface dark:bg-surface-dark border border-info/30 shadow-soft">
                 <div class="flex items-center gap-2 mb-3">
                   <div class="w-8 h-8 rounded-secondary bg-info/10 text-info flex items-center justify-center shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    <Lock class="w-4 h-4" stroke-width="2" />
                   </div>
                   <div>
                     <p class="font-bold text-sm"><span class="tooltip">AES-256-GCM<span class="tooltip-text">Advanced Encryption Standard avec clé de 256 bits en mode Galois/Counter. Chiffrement authentifié (AEAD) qui garantit à la fois la confidentialité et l'intégrité des données.</span></span></p>
@@ -433,7 +413,7 @@ const highlights = [
               <div class="p-5 rounded-card bg-surface dark:bg-surface-dark border border-warning/30 shadow-soft">
                 <div class="flex items-center gap-2 mb-3">
                   <div class="w-8 h-8 rounded-secondary bg-warning/10 text-warning flex items-center justify-center shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <Search class="w-4 h-4" stroke-width="2" />
                   </div>
                   <div>
                     <p class="font-bold text-sm"><span class="tooltip">HMAC-SHA256<span class="tooltip-text">Hash-based Message Authentication Code avec SHA-256 (RFC 2104). Produit une empreinte déterministe mais irréversible — on ne peut pas retrouver la donnée d'origine à partir du hash.</span></span></p>
@@ -496,7 +476,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm"><span class="tooltip">Rainbow tables<span class="tooltip-text">Tables précalculées contenant des millions de correspondances mot de passe → hash. Permettent de retrouver un mot de passe en quelques secondes si aucun sel n'est utilisé.</span></span></p>
               </div>
@@ -506,7 +486,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm"><span class="tooltip">Brute-force GPU<span class="tooltip-text">Attaque par force brute utilisant des cartes graphiques capables de tester des milliards de combinaisons par seconde en parallèle.</span></span></p>
               </div>
@@ -516,7 +496,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm"><span class="tooltip">Rejeu (Replay)<span class="tooltip-text">Attaque où un intermédiaire intercepte un message chiffré valide et le renvoie au serveur pour reproduire une action. Le nonce unique empêche la réutilisation.</span></span></p>
               </div>
@@ -526,7 +506,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm">Falsification</p>
               </div>
@@ -536,7 +516,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm">Fuite serveur</p>
               </div>
@@ -546,7 +526,7 @@ const highlights = [
             <div class="p-4 rounded-card bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border">
               <div class="flex items-center gap-2 mb-2">
                 <div class="w-6 h-6 rounded-full bg-danger/10 text-danger flex items-center justify-center shrink-0">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <X class="w-3 h-3" stroke-width="2.5" />
                 </div>
                 <p class="font-bold text-sm"><span class="tooltip">Timing attacks<span class="tooltip-text">Attaque qui mesure le temps de réponse du serveur pour déduire des informations. Par exemple, une comparaison de hash plus longue peut indiquer que les premiers caractères correspondent.</span></span></p>
               </div>

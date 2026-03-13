@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Database, LayoutGrid } from 'lucide-vue-next'
+
 import { onMounted, ref } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { BaseCard, BaseButton, BaseInput, BaseAlert, BaseSkeleton } from '@/components'
@@ -71,7 +73,7 @@ async function saveCryptoSettings(): Promise<void> {
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+            <LayoutGrid class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Modules d'affichage</h3>
         </div>
@@ -134,7 +136,7 @@ async function saveCryptoSettings(): Promise<void> {
       <template #header>
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-secondary bg-primary/10 flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
+            <Database class="w-4 h-4 text-primary" stroke-width="2" />
           </div>
           <h3 class="text-lg font-semibold text-text-main dark:text-text-dark-main">Module Crypto</h3>
         </div>

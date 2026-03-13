@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Check, Circle, Download, X } from 'lucide-vue-next'
+
 import { ref, computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import BaseButton from './BaseButton.vue'
@@ -310,9 +312,7 @@ function downloadTemplate(): void {
             @click="downloadTemplate"
             class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
+            <Download class="w-3.5 h-3.5" />
             Modèle
           </button>
         </div>
@@ -342,19 +342,7 @@ function downloadTemplate(): void {
         />
 
         <div v-if="!fileName" class="border-2 border-dashed border-surface-border dark:border-surface-dark-border rounded-card p-8 text-center">
-          <svg
-            class="w-12 h-12 mx-auto mb-4 text-text-muted dark:text-text-dark-muted"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
+          <Circle class="w-12 h-12 mx-auto mb-4 text-text-muted dark:text-text-dark-muted" />
           <p class="text-sm text-text-body dark:text-text-dark-body mb-3">
             Glissez un fichier CSV ici ou
           </p>
@@ -366,22 +354,13 @@ function downloadTemplate(): void {
         <div v-else class="space-y-3">
           <div class="flex items-center justify-between p-4 bg-background-subtle dark:bg-surface-dark-hover rounded-secondary">
             <div class="flex items-center gap-3">
-              <svg class="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+              <Circle class="w-8 h-8 text-success" />
               <div>
                 <p class="font-medium text-text-main dark:text-text-dark-main">
                   {{ fileName }}
                 </p>
                 <p v-if="parsedTransactions.length > 0" class="text-sm text-success flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check class="w-4 h-4" />
                   {{ parsedTransactions.length }} transaction(s) détectée(s)
                 </p>
               </div>
@@ -390,9 +369,7 @@ function downloadTemplate(): void {
               @click="resetFile"
               class="p-2 rounded-secondary text-text-muted dark:text-text-dark-muted hover:bg-surface-active dark:hover:bg-surface-dark-hover transition-colors"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X class="w-5 h-5" />
             </button>
           </div>
         </div>

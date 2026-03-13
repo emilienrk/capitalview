@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertCircle, ArrowLeftRight, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Pencil, Plus, Upload } from 'lucide-vue-next'
+
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
 import { useSettingsStore } from '@/stores/settings'
@@ -748,14 +750,10 @@ onMounted(async () => {
         <template v-if="isSingleMode && selectedAccountId">
           <!-- Import dropdown -->
           <div class="relative">
-            <BaseButton variant="outline" @click.stop="showImportDropdown = !showImportDropdown">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+            <BaseButton variant="outline" size="sm" @click.stop="showImportDropdown = !showImportDropdown">
+              <Upload class="w-4 h-4" />
               <span class="hidden sm:inline">Importer</span>
-              <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown class="w-3 h-3 ml-1" />
             </BaseButton>
             <!-- Overlay to close on outside click -->
             <div v-if="showImportDropdown" class="fixed inset-0 z-40" @click="showImportDropdown = false" />
@@ -765,23 +763,19 @@ onMounted(async () => {
                 class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
                 @click.stop="openCsvImport(selectedAccountId!); showImportDropdown = false"
               >
-                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <BarChart3 class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
                 CSV générique
               </button>
               <button
                 class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
                 @click.stop="openBinanceImport(selectedAccountId!); showImportDropdown = false"
               >
-                <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <Circle class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
                 Binance CSV
               </button>
             </div>
           </div>
-          <BaseButton @click="openAddTransaction(selectedAccountId!)">+<span class="hidden sm:inline">&nbsp;transaction</span></BaseButton>
+          <BaseButton size="sm" @click="openAddTransaction(selectedAccountId!)">+<span class="hidden sm:inline">&nbsp;transaction</span></BaseButton>
         </template>
         <!-- MULTI mode: account creation -->
         <BaseButton v-else-if="!isSingleMode" @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau portefeuille</span></BaseButton>
@@ -982,10 +976,7 @@ onMounted(async () => {
                             v-if="rowTooltip(tx)"
                             class="relative group/tip cursor-help"
                           >
-                            <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <circle cx="12" cy="12" r="10" stroke-width="2" />
-                              <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-                            </svg>
+                            <AlertCircle class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" />
                             <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
                               {{ rowTooltip(tx) }}
                             </span>
@@ -1001,9 +992,7 @@ onMounted(async () => {
                       </td>
                       <td class="px-4 py-3 text-right">
                         <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                          <Pencil class="w-4 h-4" />
                         </BaseButton>
                       </td>
                     </tr>
@@ -1040,9 +1029,7 @@ onMounted(async () => {
                       <span class="font-semibold text-sm text-text-main dark:text-text-dark-main truncate">{{ tx.symbol }}</span>
                     </div>
                     <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      <Pencil class="w-4 h-4" />
                     </BaseButton>
                   </div>
                   <div class="flex items-center justify-between text-xs">
@@ -1105,14 +1092,10 @@ onMounted(async () => {
                 + Transaction
               </BaseButton>
               <div class="relative">
-                <BaseButton variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
+                <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
+                  <Upload class="w-4 h-4" />
                   <span class="hidden sm:inline">Importer</span>
-                  <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown class="w-3 h-3 ml-1" />
                 </BaseButton>
                 <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
                 <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
@@ -1120,26 +1103,20 @@ onMounted(async () => {
                     class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
                     @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
                   >
-                    <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <BarChart3 class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
                     CSV générique
                   </button>
                   <button
                     class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
                     @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
                   >
-                    <svg class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Circle class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
                     Binance CSV
                   </button>
                 </div>
               </div>
               <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
+                <Pencil class="w-4 h-4" />
               </BaseButton>
             </div>
           </div>
@@ -1328,10 +1305,7 @@ onMounted(async () => {
                               v-if="rowTooltip(tx)"
                               class="relative group/tip cursor-help"
                             >
-                              <svg class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" stroke-width="2" />
-                                <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-                              </svg>
+                              <AlertCircle class="w-3.5 h-3.5 text-text-muted/50 dark:text-text-dark-muted/50" />
                               <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[11px] leading-snug text-primary-content bg-text-main dark:bg-text-dark-main rounded-secondary shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
                                 {{ rowTooltip(tx) }}
                               </span>
@@ -1347,9 +1321,7 @@ onMounted(async () => {
                         </td>
                         <td class="px-4 py-3 text-right">
                           <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                            <Pencil class="w-4 h-4" />
                           </BaseButton>
                         </td>
                       </tr>
@@ -1386,9 +1358,7 @@ onMounted(async () => {
                         <span class="font-semibold text-sm text-text-main dark:text-text-dark-main truncate">{{ tx.symbol }}</span>
                       </div>
                       <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
+                        <Pencil class="w-4 h-4" />
                       </BaseButton>
                     </div>
                     <div class="flex items-center justify-between text-xs">
@@ -1470,10 +1440,7 @@ onMounted(async () => {
         <div>
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
           <p v-if="editingGroupUuid" class="mt-1.5 text-xs text-info dark:text-info flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke-width="2" />
-              <path d="M12 16v-4m0-4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-            </svg>
+            <AlertCircle class="w-3.5 h-3.5 shrink-0" />
             Modifier la date mettra aussi à jour les transactions liées du même groupe.
           </p>
         </div>
@@ -1521,10 +1488,7 @@ onMounted(async () => {
                 v-if="txTypeDescriptions[txForm.type]"
                 class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-background-subtle dark:bg-background-dark-subtle border border-surface-border dark:border-surface-dark-border"
               >
-                <svg class="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                </svg>
+                <Circle class="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                 <span class="text-xs text-text-muted dark:text-text-dark-muted leading-relaxed">{{ txTypeDescriptions[txForm.type] }}</span>
               </div>
             </Transition>
@@ -1576,18 +1540,12 @@ onMounted(async () => {
           />
 
           <div v-if="txForm.type === 'EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
-            <svg class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke-width="2"/>
-              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-            </svg>
+            <Circle class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />
             <span class="text-xs text-info leading-relaxed">Sortie imposable — la contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.</span>
           </div>
 
           <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-warning/5 dark:bg-warning/10 border border-warning/20">
-            <svg class="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke-width="2"/>
-              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-            </svg>
+            <Circle class="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />
             <span class="text-xs text-warning leading-relaxed">Sortie non-imposable — aucun euro crédité, valeur de cession nulle. En cas de réception d’euros, utiliser <strong>Sortie imposable</strong>.</span>
           </div>
 
@@ -1642,10 +1600,7 @@ onMounted(async () => {
             v-if="txForm.type === 'TRANSFER_TO_ACCOUNT'"
             class="flex items-start gap-2 px-3 py-2.5 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20"
           >
-            <svg class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke-width="2"/>
-              <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-            </svg>
+            <Circle class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />
             <span class="text-xs text-info leading-relaxed">
               L'ancre EUR du compte crédité sera calculée automatiquement : <strong>Quantité × PRU actuel du compte débité</strong>. Le coût de revient se transfère à l'identique, sans événement fiscal.
             </span>
@@ -1663,9 +1618,7 @@ onMounted(async () => {
 
           <div class="flex items-center gap-3 px-4 py-3 rounded-card bg-primary/5 dark:bg-primary/10 border border-primary/15">
             <div class="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus class="w-4 h-4 text-primary" />
             </div>
             <div class="min-w-0">
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Reçu</p>
@@ -1770,19 +1723,13 @@ onMounted(async () => {
             </div>
 
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-              </svg>
+              <Circle class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" />
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU est calculé sur le montant brut.</span>
             </div>
 
             <template v-else-if="feeMode === 'included'">
               <div class="flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                </svg>
+                <Circle class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" />
                 <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Les frais sont inclus dans le montant. Le PRU intègre la totalité.</span>
               </div>
             </template>
@@ -1841,9 +1788,7 @@ onMounted(async () => {
                 >
                   <div v-if="feeConversionDisplay" class="flex items-center gap-2 pl-0.5">
                     <div class="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
-                      <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                      </svg>
+                      <ArrowLeftRight class="w-3 h-3 text-primary" />
                     </div>
                     <span class="text-xs text-text-muted dark:text-text-dark-muted">
                       ≈ <span class="font-semibold text-primary">{{ feeConversionDisplay }}</span>
@@ -1907,9 +1852,7 @@ onMounted(async () => {
                   v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
                   class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
                 >
-                  <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check class="w-3.5 h-3.5 text-info shrink-0" />
                   <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits du solde.</p>
                 </div>
               </Transition>
@@ -1942,10 +1885,7 @@ onMounted(async () => {
             </div>
 
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-              </svg>
+              <Circle class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" />
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais de réseau. Le solde est débité uniquement du montant transféré.</span>
             </div>
 
@@ -1974,9 +1914,7 @@ onMounted(async () => {
                     v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
                     class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
                   >
-                    <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Check class="w-3.5 h-3.5 text-info shrink-0" />
                     <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits du solde du compte source.</p>
                   </div>
                 </Transition>
@@ -2020,19 +1958,13 @@ onMounted(async () => {
             </div>
 
             <div v-if="feeMode === 'none'" class="flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-              </svg>
+              <Circle class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" />
               <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Aucun frais comptabilisé. Le PRU reste calculé sur la cotation précédente.</span>
             </div>
 
             <template v-else-if="feeMode === 'included'">
               <div class="flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                  <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                </svg>
+                <Circle class="w-3.5 h-3.5 text-text-muted dark:text-text-dark-muted shrink-0" />
                 <span class="text-[11px] text-text-muted dark:text-text-dark-muted leading-relaxed">Frais inclus dans le taux de change. Une ligne FEE sera créée pour débiter le solde.</span>
               </div>
               <div class="grid grid-cols-2 gap-3">
@@ -2056,9 +1988,7 @@ onMounted(async () => {
                   v-if="txForm.fee_symbol && txForm.fee_amount && Number(txForm.fee_amount) > 0"
                   class="rounded-secondary bg-info/10 border border-info/20 px-3 py-2 flex items-center gap-2"
                 >
-                  <svg class="w-3.5 h-3.5 text-info shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check class="w-3.5 h-3.5 text-info shrink-0" />
                   <p class="text-xs text-info">{{ txForm.fee_amount }} {{ txForm.fee_symbol }} seront déduits de ton solde. PRU inchangé.</p>
                 </div>
               </Transition>
@@ -2121,9 +2051,7 @@ onMounted(async () => {
                 >
                   <div v-if="feeConversionDisplay" class="flex items-center gap-2 pl-0.5">
                     <div class="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
-                      <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                      </svg>
+                      <ArrowLeftRight class="w-3 h-3 text-primary" />
                     </div>
                     <span class="text-xs text-text-muted dark:text-text-dark-muted">
                       ≈ <span class="font-semibold text-primary">{{ feeConversionDisplay }}</span>
@@ -2192,9 +2120,7 @@ onMounted(async () => {
             <div>
               <BaseButton v-if="wizardStep > 1" variant="ghost" @click="prevWizardStep">
                 <span class="flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                  </svg>
+                  <ChevronLeft class="w-4 h-4" />
                   Retour
                 </span>
               </BaseButton>
@@ -2204,9 +2130,7 @@ onMounted(async () => {
               <template v-if="isLastStep">
                 <BaseButton :loading="crypto.isLoading" @click="handleSubmitTransaction">
                   <span class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Check class="w-4 h-4" />
                     Confirmer
                   </span>
                 </BaseButton>
@@ -2214,9 +2138,7 @@ onMounted(async () => {
               <BaseButton v-else @click="nextWizardStep">
                 <span class="flex items-center gap-1">
                   Continuer
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <ChevronRight class="w-4 h-4" />
                 </span>
               </BaseButton>
             </div>
