@@ -697,10 +697,13 @@ async function fetchAccountTransactions(id: string): Promise<void> {
 async function selectAccount(id: string): Promise<void> {
   selectedAccountId.value = id
   activeDetailTab.value = 'positions'
+  // First load: fast cached data from DB
   await Promise.all([
-    crypto.fetchAccount(id),
+    crypto.fetchAccount(id, true),
     fetchAccountTransactions(id)
   ])
+  // Then refresh in background with live market data
+  crypto.refreshAccount(id)
 }
 
 async function handleDeleteAccount(id: string): Promise<void> {

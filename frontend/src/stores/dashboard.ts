@@ -16,6 +16,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const statistics = ref<DashboardStatisticsResponse | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const _liveFetchSeq = ref(0)
 
   async function fetchAll(settings?: UserSettingsResponse | null) {
     isLoading.value = true
@@ -25,8 +26,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const cashflowEnabled = settings?.cashflow_module_enabled ?? true
 
     try {
-      const requests: Promise<unknown>[] = [
-        apiClient.get<PortfolioResponse>('/dashboard/portfolio'),
+      // First load: portfolio from DB (fast) + other endpoints in parallel
+      const fastRequests: Promise<unknown>[] = [
+        apiClient.get<PortfolioResponse>('/dashboard/portfolio?db_only=true'),
         bankEnabled
           ? apiClient.get<BankSummaryResponse>('/bank/accounts')
           : Promise.resolve(null),
@@ -36,7 +38,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics'),
       ]
 
-      const [portfolioData, bankData, cashflowData, statsData] = await Promise.all(requests)
+      const [portfolioData, bankData, cashflowData, statsData] = await Promise.all(fastRequests)
 
       portfolio.value = portfolioData as PortfolioResponse
       bankAccounts.value = bankEnabled ? (bankData as BankSummaryResponse) : null
@@ -47,6 +49,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     } finally {
       isLoading.value = false
     }
+
+    // Then refresh portfolio in background with live market data
+    const seq = ++_liveFetchSeq.value
+    apiClient.get<PortfolioResponse>('/dashboard/portfolio')
+      .then(data => { if (seq === _liveFetchSeq.value) portfolio.value = data })
+      .catch(() => { /* keep cached data on error */ })
   }
 
   function reset() {

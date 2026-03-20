@@ -32,6 +32,7 @@ export const useCryptoStore = defineStore('crypto', () => {
   const transactions = ref<TransactionResponse[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const _liveFetchSeq = ref(0)
 
 
   async function searchAssets(query: string): Promise<AssetSearchResult[]> {
@@ -67,15 +68,26 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
   }
 
-  async function fetchAccount(id: string): Promise<void> {
+  async function fetchAccount(id: string, dbOnly: boolean = false): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
-      currentAccount.value = await apiClient.get<AccountSummaryResponse>(`/crypto/accounts/${id}`)
+      const params = dbOnly ? '?db_only=true' : ''
+      currentAccount.value = await apiClient.get<AccountSummaryResponse>(`/crypto/accounts/${id}${params}`)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement du compte'
     } finally {
       isLoading.value = false
+    }
+  }
+
+  async function refreshAccount(id: string): Promise<void> {
+    const seq = ++_liveFetchSeq.value
+    try {
+      const data = await apiClient.get<AccountSummaryResponse>(`/crypto/accounts/${id}`)
+      if (seq === _liveFetchSeq.value) currentAccount.value = data
+    } catch {
+      // keep cached data on error
     }
   }
 
@@ -337,6 +349,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     getAssetsInfo,
     fetchAccounts,
     fetchAccount,
+    refreshAccount,
     fetchDefaultAccount,
     createAccount,
     updateAccount,

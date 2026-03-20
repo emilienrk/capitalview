@@ -374,10 +374,13 @@ async function selectAccount(id: string): Promise<void> {
   }
   selectedAccountId.value = id
   activeDetailTab.value = 'positions'
+  // First load: fast cached data from DB
   await Promise.all([
-    stocks.fetchAccount(id),
+    stocks.fetchAccount(id, true),
     fetchAccountTransactions(id)
   ])
+  // Then refresh in background with live market data
+  stocks.refreshAccount(id)
 }
 
 function confirmDeleteAccount(account: { id: string; name: string }): void {
