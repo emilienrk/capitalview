@@ -35,7 +35,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         cashflowEnabled
           ? apiClient.get<CashflowBalanceResponse>('/cashflow/me/balance')
           : Promise.resolve(null),
-        apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics'),
+        apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics?db_only=true'),
       ]
 
       const [portfolioData, bankData, cashflowData, statsData] = await Promise.all(fastRequests)
@@ -50,10 +50,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
       isLoading.value = false
     }
 
-    // Then refresh portfolio in background with live market data
+    // Then refresh portfolio + statistics in background with live market data
     const seq = ++_liveFetchSeq.value
-    apiClient.get<PortfolioResponse>('/dashboard/portfolio')
-      .then(data => { if (seq === _liveFetchSeq.value) portfolio.value = data })
+    Promise.all([
+      apiClient.get<PortfolioResponse>('/dashboard/portfolio'),
+      apiClient.get<DashboardStatisticsResponse>('/dashboard/statistics'),
+    ])
+      .then(([portfolioData, statsData]) => {
+        if (seq === _liveFetchSeq.value) {
+          portfolio.value = portfolioData as PortfolioResponse
+          statistics.value = statsData as DashboardStatisticsResponse
+        }
+      })
       .catch(() => { /* keep cached data on error */ })
   }
 
