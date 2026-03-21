@@ -55,8 +55,6 @@ const sizeClasses: Record<ButtonSize, string> = {
       props.block ? 'w-full' : '',
     ]"
   >
-    <!-- Loading spinner -->
-    <LoaderCircle v-if="props.loading" class="animate-spin h-4 w-4" />
     <slot />
   </button>
 </template>
