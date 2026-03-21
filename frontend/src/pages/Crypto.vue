@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeftRight, BarChart3, Check, ChevronDown, ChevronLeft
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
 import { useSettingsStore } from '@/stores/settings'
+import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
@@ -26,6 +27,7 @@ import type {
 
 const crypto = useCryptoStore()
 const settingsStore = useSettingsStore()
+const bank = useBankStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate, displayCurrency, usdToEurRate, toggleCurrency } = useCurrencyToggle()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
@@ -76,6 +78,20 @@ const editingGroupUuid = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
 /** Non-blocking balance warning shown after a transaction is created. */
 const txWarning = ref<string | null>(null)
+
+// Bank deduction state for FIAT_DEPOSIT
+const deductFromBank = ref(true)
+const selectedBankAccountId = ref<string | null>(null)
+
+/** Sorted bank accounts: CHECKING first, then others */
+const sortedBankAccounts = computed(() => {
+  const accounts = bank.summary?.accounts ?? []
+  return [...accounts].sort((a, b) => {
+    if (a.account_type === 'CHECKING') return -1
+    if (b.account_type === 'CHECKING') return 1
+    return 0
+  })
+})
 
 const searchResults = ref<AssetSearchResult[]>([])
 const isSearching = ref(false)
@@ -129,7 +145,7 @@ const isLastStep = computed(() =>
   wizardStep.value === 3 || wizardVisibleSteps.value === 1
 )
 
-watch(() => txForm.type, (newType) => {
+watch(() => txForm.type, async (newType) => {
   wizardStep.value = 1
   feeMode.value = 'none'
   feeInputMode.value = 'eur'
@@ -144,6 +160,12 @@ watch(() => txForm.type, (newType) => {
     txForm.symbol = 'EUR'
     searchQuery.value = ''
     searchResults.value = []
+    // Pre-load bank accounts for the deduction option
+    if (newType === 'FIAT_DEPOSIT' || newType === 'FIAT_WITHDRAW') {
+      deductFromBank.value = true
+      await bank.fetchAccounts()
+      selectedBankAccountId.value = sortedBankAccounts.value[0]?.id ?? null
+    }
   } else if (txForm.symbol === 'EUR') {
     txForm.symbol = ''
   }
@@ -667,6 +689,33 @@ async function handleSubmitTransaction(): Promise<void> {
   }
 
   if (success) {
+    // For FIAT_DEPOSIT: deduct from bank. For FIAT_WITHDRAW: credit bank.
+    if ((txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW') && deductFromBank.value && selectedBankAccountId.value) {
+      const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
+      if (bankAcc) {
+        if (txForm.type === 'FIAT_DEPOSIT') {
+          if (Number(bankAcc.balance) < Number(txForm.amount)) {
+            const ok = confirm(
+              `Le solde du compte « ${bankAcc.name} » (${formatCurrency(bankAcc.balance)}) est insuffisant. Déduire quand même ?`
+            )
+            if (ok) {
+              await bank.updateAccount(selectedBankAccountId.value, {
+                balance: Number(bankAcc.balance) - Number(txForm.amount),
+              })
+            }
+          } else {
+            await bank.updateAccount(selectedBankAccountId.value, {
+              balance: Number(bankAcc.balance) - Number(txForm.amount),
+            })
+          }
+        } else {
+          // FIAT_WITHDRAW: add the amount to the bank account
+          await bank.updateAccount(selectedBankAccountId.value, {
+            balance: Number(bankAcc.balance) + Number(txForm.amount),
+          })
+        }
+      }
+    }
     showTxModal.value = false
     if (selectedAccountId.value) {
       await Promise.all([
@@ -1610,6 +1659,40 @@ onMounted(async () => {
           </div>
 
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
+
+          <!-- Bank account option — FIAT_DEPOSIT deducts, FIAT_WITHDRAW credits -->
+          <div v-if="txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW'" class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                v-model="deductFromBank"
+                class="h-4 w-4 rounded accent-primary"
+              />
+              <span class="text-sm font-medium text-text-main dark:text-text-dark-main">
+                {{ txForm.type === 'FIAT_DEPOSIT' ? 'Déduire de mon compte bancaire' : 'Créditer mon compte bancaire' }}
+              </span>
+            </label>
+
+            <div v-if="deductFromBank && sortedBankAccounts.length" class="space-y-2">
+              <label class="block text-xs text-text-muted dark:text-text-dark-muted">{{ txForm.type === 'FIAT_DEPOSIT' ? 'Compte source' : 'Compte de destination' }}</label>
+              <select
+                v-model="selectedBankAccountId"
+                class="w-full px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option
+                  v-for="acc in sortedBankAccounts"
+                  :key="acc.id"
+                  :value="acc.id"
+                >
+                  {{ acc.name }} — {{ formatCurrency(acc.balance) }}
+                </option>
+              </select>
+            </div>
+
+            <p v-if="deductFromBank && !sortedBankAccounts.length" class="text-xs text-text-muted dark:text-text-dark-muted">
+              Aucun compte bancaire configuré.
+            </p>
+          </div>
         </div>
 
         <div v-else-if="wizardStep === 2 && showQuoteStep" class="space-y-5">
@@ -2131,7 +2214,7 @@ onMounted(async () => {
             <div class="flex gap-2">
               <BaseButton variant="ghost" @click="showTxModal = false">Annuler</BaseButton>
               <template v-if="isLastStep">
-                <BaseButton :loading="crypto.isLoading" @click="handleSubmitTransaction">
+                <BaseButton :loading="crypto.isLoading || bank.isLoading" @click="handleSubmitTransaction">
                   <span class="flex items-center gap-1.5">
                     <Check class="w-4 h-4" />
                     Confirmer
