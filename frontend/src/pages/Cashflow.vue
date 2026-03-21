@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Circle, DollarSign, Pencil, Scale, Search, Trash2 }
 
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useCashflowStore } from '@/stores/cashflow'
+import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
@@ -13,6 +14,7 @@ import {
 import type { CashflowCreate, CashflowResponse, FlowType, Frequency } from '@/types'
 
 const cashflow = useCashflowStore()
+const bank = useBankStore()
 const { formatCurrency } = useFormatters()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
@@ -30,7 +32,16 @@ const form = reactive<CashflowCreate>({
   amount: 0,
   frequency: 'MONTHLY' as Frequency,
   transaction_date: new Date().toISOString().split('T')[0] as string,
+  bank_account_id: undefined,
 })
+
+const bankAccountOptions = computed(() => [
+  { label: 'Aucun compte lié', value: '' },
+  ...(bank.summary?.accounts ?? []).map(a => ({
+    label: a.institution_name ? `${a.name} (${a.institution_name})` : a.name,
+    value: a.id,
+  })),
+])
 
 const existingCategories = computed(() => {
   const categories = new Set(cashflow.cashflows.map(c => c.category))
@@ -169,6 +180,7 @@ function resetForm(): void {
   form.amount = 0
   form.frequency = 'MONTHLY'
   form.transaction_date = new Date().toISOString().split('T')[0] as string
+  form.bank_account_id = undefined
   amountInput.value = ''
   selectedDay.value = new Date().getDate()
   selectedMonth.value = new Date().getMonth() + 1
@@ -208,6 +220,7 @@ function openEdit(item: CashflowResponse): void {
   form.amount = Number(item.amount)
   form.frequency = item.frequency
   form.transaction_date = item.transaction_date
+  form.bank_account_id = item.bank_account_id ?? undefined
   amountInput.value = String(Number(item.amount))
   const d = new Date(item.transaction_date)
   selectedDay.value = d.getDate()
@@ -250,6 +263,7 @@ async function handleSubmit(): Promise<void> {
       amount: parsedAmount,
       frequency: form.frequency,
       transaction_date: dateStr,
+      bank_account_id: form.bank_account_id || undefined,
     })
   } else {
     await cashflow.createCashflow({
@@ -257,6 +271,7 @@ async function handleSubmit(): Promise<void> {
       category: form.category.toLowerCase(),
       amount: parsedAmount,
       transaction_date: dateStr,
+      bank_account_id: form.bank_account_id || undefined,
     })
   }
   showFormModal.value = false
@@ -270,7 +285,7 @@ async function handleDelete(id: string): Promise<void> {
 }
 
 onMounted(async () => {
-  await Promise.all([cashflow.fetchAll(), cashflow.fetchBalance()])
+  await Promise.all([cashflow.fetchAll(), cashflow.fetchBalance(), bank.fetchAccounts()])
   hasFetchedOnce.value = true
 })
 </script>
@@ -624,6 +639,12 @@ onMounted(async () => {
             required
           />
         </div>
+        <BaseSelect
+          v-if="bankAccountOptions.length > 1"
+          v-model="form.bank_account_id"
+          label="Compte bancaire lié"
+          :options="bankAccountOptions"
+        />
       </form>
       <template #footer>
         <BaseButton variant="ghost" @click="showFormModal = false">Annuler</BaseButton>

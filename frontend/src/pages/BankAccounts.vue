@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Pencil } from 'lucide-vue-next'
+import { Pencil, RefreshCw } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useBankStore } from '@/stores/bank'
@@ -131,7 +131,13 @@ onMounted(async () => {
           </p>
         </div>
         <div class="mt-4 flex items-center justify-between">
-          <p class="text-xs text-text-muted dark:text-text-dark-muted">Mis à jour {{ formatDate(account.updated_at) }}</p>
+          <div class="flex flex-col gap-0.5">
+            <p class="text-xs text-text-muted dark:text-text-dark-muted">Mis à jour {{ formatDate(account.updated_at) }}</p>
+            <p v-if="account.balance_updated_at" class="flex items-center gap-1 text-xs text-success">
+              <RefreshCw class="w-3 h-3" />
+              Sync cashflow {{ formatDate(account.balance_updated_at) }}
+            </p>
+          </div>
           <div class="flex gap-2">
             <BaseButton size="sm" variant="ghost" @click="openEdit(account)">
               <Pencil class="w-4 h-4" />

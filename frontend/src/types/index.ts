@@ -65,6 +65,7 @@ export interface BankAccountResponse {
   identifier: string | null
   created_at: string
   updated_at: string
+  balance_updated_at: string | null
 }
 
 export interface BankSummaryResponse {
@@ -84,6 +85,7 @@ export interface CashflowCreate {
   amount: number
   frequency: Frequency
   transaction_date: string
+  bank_account_id?: string
 }
 
 export interface CashflowUpdate {
@@ -93,6 +95,7 @@ export interface CashflowUpdate {
   amount?: number
   frequency?: Frequency
   transaction_date?: string
+  bank_account_id?: string
 }
 
 export interface CashflowResponse {
@@ -106,6 +109,7 @@ export interface CashflowResponse {
   monthly_amount: number
   created_at: string
   updated_at: string
+  bank_account_id: string | null
 }
 
 export interface CashflowCategoryResponse {
