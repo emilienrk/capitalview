@@ -29,6 +29,7 @@ const showDeleteModal = ref(false)
 const showCsvImportModal = ref(false)
 const showDepositModal = ref(false)
 const depositAccountId = ref<string | null>(null)
+const editingDepositId = ref<string | null>(null)
 const deductFromBank = ref(true)
 const selectedBankAccountId = ref<string | null>(null)
 const csvImportAccountId = ref<string | null>(null)
@@ -303,6 +304,7 @@ function openCsvImport(accountId: string): void {
 
 async function openDeposit(accountId: string): Promise<void> {
   depositAccountId.value = accountId
+  editingDepositId.value = null
   depositForm.amount = 0
   depositForm.executed_at = new Date().toISOString().slice(0, 16)
   depositForm.notes = ''
@@ -314,9 +316,39 @@ async function openDeposit(accountId: string): Promise<void> {
   showDepositModal.value = true
 }
 
+function openEditDeposit(tx: TransactionResponse): void {
+  depositAccountId.value = selectedAccountId.value
+  editingDepositId.value = tx.id
+  depositForm.amount = tx.amount
+  depositForm.executed_at = tx.executed_at.slice(0, 16)
+  depositForm.notes = tx.notes ?? ''
+  // Don't deduct from bank: the deduction already happened at creation
+  deductFromBank.value = false
+  showDepositModal.value = true
+}
+
 async function handleSubmitDeposit(): Promise<void> {
   if (depositForm.amount <= 0) {
     alert('Le montant doit être strictement positif.')
+    return
+  }
+
+  // Editing an existing deposit
+  if (editingDepositId.value) {
+    const result = await stocks.updateTransaction(editingDepositId.value, {
+      amount: depositForm.amount,
+      executed_at: depositForm.executed_at,
+      notes: depositForm.notes || undefined,
+    })
+    if (result) {
+      showDepositModal.value = false
+      if (selectedAccountId.value) {
+        await Promise.all([
+          stocks.fetchAccount(selectedAccountId.value),
+          fetchAccountTransactions(selectedAccountId.value),
+        ])
+      }
+    }
     return
   }
 
@@ -506,6 +538,13 @@ const ISIN_LIKE_RE = /^[A-Za-z]{2}[A-Za-z0-9]{3,}$/
 
 let assetSearchTimeout: ReturnType<typeof setTimeout> | null = null
 async function handleAssetInput(value: string): Promise<void> {
+  // Cancel any pending API search immediately, before any early return
+  if (assetSearchTimeout) {
+    clearTimeout(assetSearchTimeout)
+    assetSearchTimeout = null
+  }
+  isAssetSearching.value = false
+
   assetQuery.value = value
   assetError.value = null
 
@@ -726,14 +765,6 @@ onMounted(() => {
 
           <!-- Positions table -->
           <div v-if="activeDetailTab === 'positions'">
-            <!-- EUR cash position banner -->
-            <div v-if="eurPosition" class="mb-3 flex items-center justify-between px-4 py-2.5 rounded-card bg-info/10 dark:bg-info/15 border border-info/20">
-              <div class="flex items-center gap-2">
-                <Banknote class="w-4 h-4 text-info" />
-                <span class="text-sm font-medium text-info">Liquidités disponibles</span>
-              </div>
-              <span class="text-sm font-bold text-info">{{ maskValue(formatCurrency(eurPosition.current_value)) }}</span>
-            </div>
             <div v-if="sortedPositions.length" class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
@@ -802,7 +833,7 @@ onMounted(() => {
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
                     <td class="px-4 py-2.5">
                       <BaseBadge :variant="tx.isin === 'EUR' ? 'info' : (tx.type === 'BUY' || tx.type === 'DEPOSIT' ? 'success' : tx.type === 'SELL' ? 'danger' : 'info')">
-                        {{ tx.isin === 'EUR' ? 'Dépôt €' : tx.type }}
+                        {{ tx.type }}
                       </BaseBadge>
                     </td>
                     <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol || '-' }}</td>
@@ -813,6 +844,9 @@ onMounted(() => {
                     <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.isin === 'EUR' ? tx.amount : tx.amount * tx.price_per_unit)) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <BaseButton v-if="tx.isin !== 'EUR'" size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                        <Pencil class="w-4 h-4" />
+                      </BaseButton>
+                      <BaseButton v-else-if="tx.type === 'DEPOSIT'" size="sm" variant="ghost" @click="openEditDeposit(tx)">
                         <Pencil class="w-4 h-4" />
                       </BaseButton>
                     </td>
@@ -1005,7 +1039,7 @@ onMounted(() => {
     />
 
     <!-- ── EUR Deposit Modal ──────────────────────────── -->
-    <BaseModal :open="showDepositModal" title="Déposer des euros" @close="showDepositModal = false">
+    <BaseModal :open="showDepositModal" :title="editingDepositId ? 'Modifier le dépôt' : 'Déposer des euros'" @close="showDepositModal = false">
       <form @submit.prevent="handleSubmitDeposit" class="space-y-4">
         <BaseInput
           v-model="depositForm.amount"
@@ -1028,8 +1062,8 @@ onMounted(() => {
           placeholder="Optionnel"
         />
 
-        <!-- Bank deduction option -->
-        <div class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
+        <!-- Bank deduction option (only for new deposits) -->
+        <div v-if="!editingDepositId" class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
           <label class="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -1065,7 +1099,7 @@ onMounted(() => {
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
           <BaseButton variant="ghost" @click="showDepositModal = false">Annuler</BaseButton>
-          <BaseButton :loading="stocks.isLoading || bank.isLoading" @click="handleSubmitDeposit">Valider le dépôt</BaseButton>
+          <BaseButton :loading="stocks.isLoading || bank.isLoading" @click="handleSubmitDeposit">{{ editingDepositId ? 'Enregistrer' : 'Valider le dépôt' }}</BaseButton>
         </div>
       </template>
     </BaseModal>

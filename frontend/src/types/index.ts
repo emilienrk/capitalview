@@ -493,6 +493,7 @@ export interface TransactionResponse {
   price_per_unit: number
   fees: number
   executed_at: string
+  notes: string | null
   currency: string
   total_cost: number
   fees_percentage: number
