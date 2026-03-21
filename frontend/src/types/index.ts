@@ -505,8 +505,9 @@ export interface TransactionResponse {
 
 export interface PositionResponse {
   symbol: string
-  exchange: string | null
   name: string | null
+  isin: string | null
+  exchange: string | null
   total_amount: number
   average_buy_price: number
   total_invested: number

@@ -6,7 +6,7 @@ export interface SelectOption {
 }
 
 interface Props {
-  modelValue: string | number
+  modelValue: string | number | undefined
   label?: string
   options: SelectOption[]
   placeholder?: string
@@ -23,12 +23,13 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
+  'update:modelValue': [value: string | number | undefined]
 }>()
 
 function onChange(event: Event): void {
   const target = event.target as HTMLSelectElement
-  emit('update:modelValue', target.value)
+  const value = target.value
+  emit('update:modelValue', value === '' ? undefined : value)
 }
 </script>
 
