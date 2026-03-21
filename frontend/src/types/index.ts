@@ -244,6 +244,12 @@ export interface StockBulkImportResponse {
   transactions: StockTransactionBasicResponse[]
 }
 
+export interface EurDepositCreate {
+  amount: number
+  executed_at: string
+  notes?: string
+}
+
 // ─── Crypto ──────────────────────────────────────────────────
 
 export type CryptoTransactionType =

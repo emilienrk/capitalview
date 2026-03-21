@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Pencil, TrendingUp, Upload } from 'lucide-vue-next'
+import { Pencil, TrendingUp, Upload, Banknote } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
@@ -12,7 +12,7 @@ import {
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
 import CsvImportModal from '@/components/CsvImportModal.vue'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse } from '@/types'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse, EurDepositCreate } from '@/types'
 
 
 const stocks = useStocksStore()
@@ -25,6 +25,8 @@ const showAccountModal = ref(false)
 const showTxModal = ref(false)
 const showDeleteModal = ref(false)
 const showCsvImportModal = ref(false)
+const showDepositModal = ref(false)
+const depositAccountId = ref<string | null>(null)
 const csvImportAccountId = ref<string | null>(null)
 const deleteTarget = ref<{ type: 'account' | 'transaction'; id: string; label: string } | null>(null)
 const selectedAccountId = ref<string | null>(null)
@@ -51,6 +53,12 @@ const txForm = reactive<StockTransactionCreate>({
   price_per_unit: 0,
   fees: 0,
   executed_at: new Date().toISOString().slice(0, 16),
+})
+
+const depositForm = reactive<EurDepositCreate>({
+  amount: 0,
+  executed_at: new Date().toISOString().slice(0, 16),
+  notes: '',
 })
 
 // ── Unified asset search ─────────────────────────────────────
@@ -210,12 +218,17 @@ const sortedTransactions = computed(() => {
   )
 })
 
-/** Positions sorted by total invested (descending) — most invested asset first. */
+/** EUR cash position (isin='EUR') from account summary, if any. */
+const eurPosition = computed(() =>
+  selectedAccountSummary.value?.positions?.find(p => p.isin === 'EUR') ?? null
+)
+
+/** Positions sorted by total invested (descending) — EUR cash excluded, shown separately. */
 const sortedPositions = computed(() => {
   if (!selectedAccountSummary.value?.positions) return []
-  return [...selectedAccountSummary.value.positions].sort(
-    (a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0)
-  )
+  return [...selectedAccountSummary.value.positions]
+    .filter(p => p.isin !== 'EUR')
+    .sort((a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0))
 })
 
 // ── Actions ──────────────────────────────────────────────────
@@ -271,6 +284,35 @@ function openAddTransaction(accountId: string): void {
 function openCsvImport(accountId: string): void {
   csvImportAccountId.value = accountId
   showCsvImportModal.value = true
+}
+
+function openDeposit(accountId: string): void {
+  depositAccountId.value = accountId
+  depositForm.amount = 0
+  depositForm.executed_at = new Date().toISOString().slice(0, 16)
+  depositForm.notes = ''
+  showDepositModal.value = true
+}
+
+async function handleSubmitDeposit(): Promise<void> {
+  if (depositForm.amount <= 0) {
+    alert('Le montant doit être strictement positif.')
+    return
+  }
+  const result = await stocks.depositEur(depositAccountId.value!, {
+    amount: depositForm.amount,
+    executed_at: depositForm.executed_at,
+    notes: depositForm.notes || undefined,
+  })
+  if (result) {
+    showDepositModal.value = false
+    if (selectedAccountId.value) {
+      await Promise.all([
+        stocks.fetchAccount(selectedAccountId.value),
+        fetchAccountTransactions(selectedAccountId.value),
+      ])
+    }
+  }
 }
 
 async function handleCsvImport(transactions: StockTransactionBulkCreate[]): Promise<boolean> {
@@ -552,6 +594,9 @@ onMounted(() => {
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
               +<span class="hidden sm:inline">&nbsp; Transaction</span>
             </BaseButton>
+            <BaseButton size="sm" variant="outline" @click.stop="openDeposit(account.id)" title="Déposer des euros">
+              <Banknote class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Déposer</span>
+            </BaseButton>
             <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
               <Upload class="w-4 h-4" />
               Importer
@@ -568,10 +613,14 @@ onMounted(() => {
           class="mt-6 pt-6 border-t border-surface-border dark:border-surface-dark-border"
         >
           <!-- Account summary stats -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div :class="['grid gap-4 mb-6', eurPosition ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4']">
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
               <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.total_invested)) }}</p>
+            </div>
+            <div v-if="eurPosition">
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">Euros</p>
+              <p class="text-lg font-bold text-info">{{ maskValue(formatCurrency(eurPosition.current_value)) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Valeur actuelle</p>
@@ -635,7 +684,15 @@ onMounted(() => {
 
           <!-- Positions table -->
           <div v-if="activeDetailTab === 'positions'">
-            <div v-if="selectedAccountSummary.positions?.length" class="overflow-x-auto">
+            <!-- EUR cash position banner -->
+            <div v-if="eurPosition" class="mb-3 flex items-center justify-between px-4 py-2.5 rounded-card bg-info/10 dark:bg-info/15 border border-info/20">
+              <div class="flex items-center gap-2">
+                <Banknote class="w-4 h-4 text-info" />
+                <span class="text-sm font-medium text-info">Liquidités disponibles</span>
+              </div>
+              <span class="text-sm font-bold text-info">{{ maskValue(formatCurrency(eurPosition.current_value)) }}</span>
+            </div>
+            <div v-if="sortedPositions.length" class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-left text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider border-b border-surface-border dark:border-surface-dark-border">
@@ -698,25 +755,25 @@ onMounted(() => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-border dark:divide-surface-dark-border">
-                  <tr v-for="tx in sortedTransactions" :key="tx.id" class="hover:bg-surface-hover dark:hover:bg-surface-dark-hover transition-colors">
+                  <tr v-for="tx in sortedTransactions" :key="tx.id"
+                    :class="['transition-colors', tx.isin === 'EUR' ? 'bg-info/5 dark:bg-info/10' : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover']">
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</td>
                     <td class="px-4 py-2.5">
-                      <BaseBadge :variant="tx.type === 'BUY' || tx.type === 'DEPOSIT' ? 'success' : tx.type === 'SELL' ? 'danger' : 'info'">
-                        {{ tx.type }}
+                      <BaseBadge :variant="tx.isin === 'EUR' ? 'info' : (tx.type === 'BUY' || tx.type === 'DEPOSIT' ? 'success' : tx.type === 'SELL' ? 'danger' : 'info')">
+                        {{ tx.isin === 'EUR' ? 'Dépôt €' : tx.type }}
                       </BaseBadge>
                     </td>
-                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
-                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.isin || '-' }}</td>
-                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.exchange || '-' }}</td>
-                    <td class="px-4 py-2.5 text-right font-mono">{{ formatNumber(tx.amount, 4) }}</td>
-                    <td class="px-4 py-2.5 text-right">{{ formatCurrency(tx.price_per_unit) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.amount * tx.price_per_unit)) }}</td>
-                                    <td class="px-4 py-2.5 text-right">
-                                      <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
-                                        <Pencil class="w-4 h-4" />
-                                      </BaseButton>
-                                    </td>
-                    
+                    <td class="px-4 py-2.5 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol || '-' }}</td>
+                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.isin === 'EUR' ? '—' : (tx.isin || '-') }}</td>
+                    <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.exchange || '—' }}</td>
+                    <td class="px-4 py-2.5 text-right font-mono">{{ tx.isin === 'EUR' ? '—' : formatNumber(tx.amount, 4) }}</td>
+                    <td class="px-4 py-2.5 text-right">{{ tx.isin === 'EUR' ? '—' : formatCurrency(tx.price_per_unit) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.isin === 'EUR' ? tx.amount : tx.amount * tx.price_per_unit)) }}</td>
+                    <td class="px-4 py-2.5 text-right">
+                      <BaseButton v-if="tx.isin !== 'EUR'" size="sm" variant="ghost" @click="openEditTransaction(tx)">
+                        <Pencil class="w-4 h-4" />
+                      </BaseButton>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -904,5 +961,37 @@ onMounted(() => {
       :on-import="handleCsvImport"
       @close="showCsvImportModal = false"
     />
+
+    <!-- ── EUR Deposit Modal ──────────────────────────── -->
+    <BaseModal :open="showDepositModal" title="Déposer des euros" @close="showDepositModal = false">
+      <form @submit.prevent="handleSubmitDeposit" class="space-y-4">
+        <BaseInput
+          v-model="depositForm.amount"
+          label="Montant (€)"
+          type="number"
+          step="any"
+          min="0.01"
+          placeholder="0.00"
+          required
+        />
+        <BaseInput
+          v-model="depositForm.executed_at"
+          label="Date du dépôt"
+          type="datetime-local"
+          required
+        />
+        <BaseInput
+          v-model="depositForm.notes!"
+          label="Notes"
+          placeholder="Optionnel"
+        />
+      </form>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <BaseButton variant="ghost" @click="showDepositModal = false">Annuler</BaseButton>
+          <BaseButton :loading="stocks.isLoading" @click="handleSubmitDeposit">Valider le dépôt</BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>

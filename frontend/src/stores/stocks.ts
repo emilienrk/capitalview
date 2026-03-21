@@ -14,6 +14,7 @@ import type {
   TransactionResponse,
   AssetSearchResult,
   AssetInfoResponse,
+  EurDepositCreate,
 } from '@/types'
 
 export const useStocksStore = defineStore('stocks', () => {
@@ -204,6 +205,19 @@ export const useStocksStore = defineStore('stocks', () => {
     }
   }
 
+  async function depositEur(accountId: string, data: EurDepositCreate): Promise<TransactionResponse | null> {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await apiClient.post<TransactionResponse>(`/stocks/accounts/${accountId}/deposit`, data)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du d\u00e9p\u00f4t'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function reset(): void {
     accounts.value = []
     currentAccount.value = null
@@ -229,6 +243,7 @@ export const useStocksStore = defineStore('stocks', () => {
     updateTransaction,
     deleteTransaction,
     bulkImportTransactions,
+    depositEur,
     searchAssets,
     getAssetsInfo,
     reset,
