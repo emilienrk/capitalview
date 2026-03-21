@@ -1097,9 +1097,15 @@ onMounted(() => {
         </div>
       </form>
       <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <BaseButton variant="ghost" @click="showDepositModal = false">Annuler</BaseButton>
-          <BaseButton :loading="stocks.isLoading || bank.isLoading" @click="handleSubmitDeposit">{{ editingDepositId ? 'Enregistrer' : 'Valider le dépôt' }}</BaseButton>
+        <div class="flex justify-between w-full">
+          <BaseButton v-if="editingDepositId" variant="danger" @click="deleteTransaction(editingDepositId)">
+            Supprimer
+          </BaseButton>
+          <div v-else></div>
+          <div class="flex gap-2">
+            <BaseButton variant="ghost" @click="showDepositModal = false">Annuler</BaseButton>
+            <BaseButton :loading="stocks.isLoading || bank.isLoading" @click="handleSubmitDeposit">{{ editingDepositId ? 'Enregistrer' : 'Valider le dépôt' }}</BaseButton>
+          </div>
         </div>
       </template>
     </BaseModal>
