@@ -8,7 +8,7 @@ import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
-  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge,
+  BaseAlert, BaseEmptyState, BaseBadge,
 } from '@/components'
 import type { BankAccountCreate, BankAccountType } from '@/types'
 
@@ -18,6 +18,7 @@ const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const showCreateModal = ref(false)
 const editingId = ref<string | null>(null)
+const hasFetchedOnce = ref(false)
 
 const form = reactive<BankAccountCreate>({
   name: '',
@@ -81,8 +82,9 @@ async function handleDelete(id: string): Promise<void> {
   }
 }
 
-onMounted(() => {
-  bank.fetchAccounts()
+onMounted(async () => {
+  await bank.fetchAccounts()
+  hasFetchedOnce.value = true
 })
 </script>
 
@@ -95,11 +97,6 @@ onMounted(() => {
         </BaseButton>
       </template>
     </PageHeader>
-
-    <!-- Loading -->
-    <div v-if="bank.isLoading && !bank.summary" class="flex justify-center py-20">
-      <BaseSpinner size="lg" label="Chargement..." />
-    </div>
 
     <!-- Error -->
     <BaseAlert v-if="bank.error" variant="danger" dismissible @dismiss="bank.error = null" class="mb-6">
@@ -145,7 +142,7 @@ onMounted(() => {
     </div>
 
     <BaseEmptyState
-      v-else-if="!bank.isLoading"
+      v-else-if="hasFetchedOnce && !bank.isLoading"
       title="Aucun compte"
       description="Ajoutez votre premier compte bancaire pour commencer le suivi"
       action-label="Ajouter un compte"

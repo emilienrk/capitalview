@@ -8,7 +8,7 @@ import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
-  BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
+  BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
 import type { CashflowCreate, CashflowResponse, FlowType, Frequency } from '@/types'
 
@@ -21,6 +21,7 @@ const editingId = ref<string | null>(null)
 const activeTab = ref<'all' | 'inflows' | 'outflows'>('all')
 const searchQuery = ref('')
 const deleteConfirmId = ref<string | null>(null)
+const hasFetchedOnce = ref(false)
 
 const form = reactive<CashflowCreate>({
   name: '',
@@ -270,6 +271,7 @@ async function handleDelete(id: string): Promise<void> {
 
 onMounted(async () => {
   await Promise.all([cashflow.fetchAll(), cashflow.fetchBalance()])
+  hasFetchedOnce.value = true
 })
 </script>
 
@@ -282,11 +284,6 @@ onMounted(async () => {
         </BaseButton>
       </template>
     </PageHeader>
-
-    <!-- Loading -->
-    <div v-if="cashflow.isLoading && !cashflow.cashflows.length" class="flex justify-center py-20">
-      <BaseSpinner size="lg" label="Chargement..." />
-    </div>
 
     <!-- Error -->
     <BaseAlert v-if="cashflow.error" variant="danger" dismissible @dismiss="cashflow.error = null" class="mb-6">
@@ -511,7 +508,7 @@ onMounted(async () => {
 
     <!-- Empty state -->
     <BaseEmptyState
-      v-else-if="!cashflow.isLoading && !cashflow.cashflows.length"
+      v-else-if="hasFetchedOnce && !cashflow.isLoading && !cashflow.cashflows.length"
       title="Aucun flux de trésorerie"
       description="Commencez par ajouter vos revenus et dépenses pour suivre votre cash flow"
       action-label="Ajouter un flux"
@@ -524,7 +521,7 @@ onMounted(async () => {
 
     <!-- Empty filtered results -->
     <BaseEmptyState
-      v-else-if="!cashflow.isLoading && cashflow.cashflows.length && !filteredCashflows.length"
+      v-else-if="hasFetchedOnce && !cashflow.isLoading && cashflow.cashflows.length && !filteredCashflows.length"
       title="Aucun résultat"
       description="Aucun flux ne correspond à votre recherche"
     >

@@ -12,7 +12,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import AssetFormModal from '@/components/AssetFormModal.vue'
 import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
 import {
-  BaseCard, BaseSpinner, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton, BaseModal, BaseInput,
+  BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton, BaseModal, BaseInput,
 } from '@/components'
 import type { AssetCreate, AssetUpdate, AssetResponse } from '@/types'
 
@@ -136,13 +136,9 @@ const groupedAssets = computed(() => {
       </template>
     </PageHeader>
 
-    <div v-if="dashboard.isLoading" class="flex justify-center py-20">
-      <BaseSpinner size="lg" label="Chargement du patrimoine..." />
-    </div>
-
     <BaseAlert v-if="dashboard.error" variant="danger" class="mb-6">{{ dashboard.error }}</BaseAlert>
 
-    <div v-else class="space-y-8">
+    <div class="space-y-8">
       <!-- Net Worth -->
       <div class="p-6 rounded-card bg-primary/5 border border-primary/10 text-center">
         <p class="text-sm text-text-muted dark:text-text-dark-muted">Patrimoine total estimé</p>
@@ -211,17 +207,12 @@ const groupedAssets = computed(() => {
           </div>
         </template>
 
-        <!-- Loading -->
-        <div v-if="asset.isLoading && !asset.summary" class="flex justify-center py-8">
-          <BaseSpinner size="md" />
-        </div>
-
         <!-- Error -->
         <BaseAlert v-if="asset.error" variant="danger" class="mb-4">{{ asset.error }}</BaseAlert>
 
         <!-- Empty state -->
         <BaseEmptyState
-          v-if="!asset.isLoading && (!asset.summary || asset.summary.asset_count === 0)"
+          v-if="asset.summary && asset.summary.asset_count === 0"
           title="Aucun bien enregistré"
           description="Ajoutez vos possessions pour les inclure dans votre patrimoine"
           action-label="Ajouter un bien"
@@ -229,7 +220,7 @@ const groupedAssets = computed(() => {
         />
 
         <!-- Assets grouped by category -->
-        <div v-else class="space-y-6">
+        <div v-else-if="asset.summary" class="space-y-6">
           <!-- Category summary pills -->
           <div v-if="asset.summary && asset.summary.categories.length > 1" class="flex flex-wrap gap-2">
             <span
