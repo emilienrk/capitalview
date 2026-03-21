@@ -3,6 +3,7 @@ import { Pencil, TrendingUp, Upload, Banknote } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
+import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
@@ -16,6 +17,7 @@ import type { StockAccountCreate, StockTransactionCreate, StockAccountType, Tran
 
 
 const stocks = useStocksStore()
+const bank = useBankStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
 const { displayCurrency, usdToEurRate, setCurrency, fetchRate } = useCurrencyToggle()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
@@ -27,6 +29,8 @@ const showDeleteModal = ref(false)
 const showCsvImportModal = ref(false)
 const showDepositModal = ref(false)
 const depositAccountId = ref<string | null>(null)
+const deductFromBank = ref(true)
+const selectedBankAccountId = ref<string | null>(null)
 const csvImportAccountId = ref<string | null>(null)
 const deleteTarget = ref<{ type: 'account' | 'transaction'; id: string; label: string } | null>(null)
 const selectedAccountId = ref<string | null>(null)
@@ -59,6 +63,16 @@ const depositForm = reactive<EurDepositCreate>({
   amount: 0,
   executed_at: new Date().toISOString().slice(0, 16),
   notes: '',
+})
+
+/** Sorted bank accounts: CHECKING first, then others */
+const sortedBankAccounts = computed(() => {
+  const accounts = bank.summary?.accounts ?? []
+  return [...accounts].sort((a, b) => {
+    if (a.account_type === 'CHECKING') return -1
+    if (b.account_type === 'CHECKING') return 1
+    return 0
+  })
 })
 
 // ── Unified asset search ─────────────────────────────────────
@@ -132,6 +146,7 @@ const selectedAccountSummary = computed(() => stocks.currentAccount)
 const knownAssetOptions = computed((): AssetOption[] => {
   const seen = new Map<string, AssetOption>()
   for (const tx of stocks.transactions) {
+    if (tx.isin === 'EUR') continue  // EUR cash is not a tradable asset
     const key = tx.isin || `${tx.symbol}__${tx.exchange ?? ''}`
     if (!seen.has(key)) {
       seen.set(key, {
@@ -286,11 +301,16 @@ function openCsvImport(accountId: string): void {
   showCsvImportModal.value = true
 }
 
-function openDeposit(accountId: string): void {
+async function openDeposit(accountId: string): Promise<void> {
   depositAccountId.value = accountId
   depositForm.amount = 0
   depositForm.executed_at = new Date().toISOString().slice(0, 16)
   depositForm.notes = ''
+  deductFromBank.value = true
+  // Fetch bank accounts to pre-select
+  await bank.fetchAccounts()
+  const first = sortedBankAccounts.value[0]
+  selectedBankAccountId.value = first?.id ?? null
   showDepositModal.value = true
 }
 
@@ -299,12 +319,33 @@ async function handleSubmitDeposit(): Promise<void> {
     alert('Le montant doit être strictement positif.')
     return
   }
+
+  // Check if selected bank account has enough balance
+  if (deductFromBank.value && selectedBankAccountId.value) {
+    const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
+    if (bankAcc && Number(bankAcc.balance) < Number(depositForm.amount)) {
+      const ok = confirm(
+        `Le solde du compte « ${bankAcc.name} » (${formatCurrency(bankAcc.balance)}) est insuffisant. Continuer quand même ?`
+      )
+      if (!ok) return
+    }
+  }
+
   const result = await stocks.depositEur(depositAccountId.value!, {
     amount: depositForm.amount,
     executed_at: depositForm.executed_at,
     notes: depositForm.notes || undefined,
   })
   if (result) {
+    // Deduct from bank account if requested
+    if (deductFromBank.value && selectedBankAccountId.value) {
+      const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
+      if (bankAcc) {
+        await bank.updateAccount(selectedBankAccountId.value, {
+          balance: Number(bankAcc.balance) - Number(depositForm.amount),
+        })
+      }
+    }
     showDepositModal.value = false
     if (selectedAccountId.value) {
       await Promise.all([
@@ -499,8 +540,9 @@ async function handleAssetInput(value: string): Promise<void> {
   assetSearchTimeout = setTimeout(async () => {
     try {
       const apiRaw: AssetSearchResult[] = await stocks.searchAssets(value)
-      // Deduplicate: skip API results already covered by known assets
+      // Deduplicate: skip API results already covered by known assets or EUR
       const apiExtra: AssetOption[] = apiRaw
+        .filter(r => r.isin !== 'EUR' && r.symbol !== 'EUR')
         .filter(r => !knownMatches.some(k =>
           (r.isin && r.isin === k.isin) || r.symbol === k.symbol
         ))
@@ -985,11 +1027,45 @@ onMounted(() => {
           label="Notes"
           placeholder="Optionnel"
         />
+
+        <!-- Bank deduction option -->
+        <div class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="deductFromBank"
+              class="h-4 w-4 rounded accent-primary"
+            />
+            <span class="text-sm font-medium text-text-main dark:text-text-dark-main">
+              Déduire de mon compte bancaire
+            </span>
+          </label>
+
+          <div v-if="deductFromBank && sortedBankAccounts.length" class="space-y-2">
+            <label class="block text-xs text-text-muted dark:text-text-dark-muted">Compte source</label>
+            <select
+              v-model="selectedBankAccountId"
+              class="w-full px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option
+                v-for="acc in sortedBankAccounts"
+                :key="acc.id"
+                :value="acc.id"
+              >
+                {{ acc.name }} — {{ formatCurrency(acc.balance) }}
+              </option>
+            </select>
+          </div>
+
+          <p v-if="deductFromBank && !sortedBankAccounts.length" class="text-xs text-text-muted dark:text-text-dark-muted">
+            Aucun compte bancaire configuré.
+          </p>
+        </div>
       </form>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
           <BaseButton variant="ghost" @click="showDepositModal = false">Annuler</BaseButton>
-          <BaseButton :loading="stocks.isLoading" @click="handleSubmitDeposit">Valider le dépôt</BaseButton>
+          <BaseButton :loading="stocks.isLoading || bank.isLoading" @click="handleSubmitDeposit">Valider le dépôt</BaseButton>
         </div>
       </template>
     </BaseModal>
