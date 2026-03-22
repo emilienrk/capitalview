@@ -4,17 +4,21 @@ import { CreditCard, DollarSign, Eye, EyeOff, TrendingUp, WalletCards } from 'lu
 import { onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useWealthHistoryStore } from '@/stores/wealthHistory'
 import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
+import { useDarkMode } from '@/composables/useDarkMode'
 import PageHeader from '@/components/PageHeader.vue'
-import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton } from '@/components'
+import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton, WealthHistoryChart } from '@/components'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
+const historyStore = useWealthHistoryStore()
 const settingsStore = useSettingsStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass, formatAccountType } = useFormatters()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
+const { isDark } = useDarkMode()
 
 const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
 const cashflowEnabled = computed(() => settingsStore.settings?.cashflow_module_enabled ?? true)
@@ -33,6 +37,7 @@ const kpiColsClass = computed(() => {
 onMounted(() => {
   if (auth.isAuthenticated) {
     dashboard.fetchAll(settingsStore.settings)
+    historyStore.fetchHistory()
   }
 })
 </script>
@@ -299,8 +304,29 @@ onMounted(() => {
         </BaseCard>
       </div>
 
-      <!-- ── Investment Portfolio ────────────────────────── -->
-      <BaseCard title="Portfolio d'investissement" subtitle="Actions et crypto-monnaies">
+      <!-- ── Wealth History Chart ───────────────────────── -->
+      <BaseCard title="Évolution du patrimoine" subtitle="Historique journalier de la valeur globale">
+        <div v-if="historyStore.isLoading" class="h-72 flex items-center justify-center">
+          <BaseSkeleton variant="rect" width="100%" height="18rem" />
+        </div>
+        <BaseAlert v-else-if="historyStore.error" variant="danger">
+          {{ historyStore.error }}
+        </BaseAlert>
+        <WealthHistoryChart
+          v-else-if="historyStore.hasMeaningfulHistory"
+          :history="historyStore.history"
+          :is-dark="isDark"
+          :bank-enabled="bankEnabled"
+          :wealth-enabled="wealthEnabled"
+        />
+        <BaseEmptyState
+          v-else
+          title="Pas encore assez de données"
+          description="L'historique s'affichera après 7 jours de suivi quotidien"
+        />
+      </BaseCard>
+
+      <!-- ── Investment Portfolio ────────────────────────── -->      <BaseCard title="Portfolio d'investissement" subtitle="Actions et crypto-monnaies">
         <!-- Skeleton -->
         <div v-if="dashboard.isLoading" class="space-y-4">
           <div class="rounded-secondary border border-surface-border dark:border-surface-dark-border overflow-hidden">

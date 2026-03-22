@@ -785,3 +785,14 @@ export interface PickResponse {
   created_at: string
   updated_at: string
 }
+
+// ─── Dashboard History ────────────────────────────────────────
+
+export interface GlobalHistorySnapshotResponse {
+  snapshot_date: string
+  total_wealth: number
+  stock_value: number
+  crypto_value: number
+  bank_value: number
+  assets_value: number
+}

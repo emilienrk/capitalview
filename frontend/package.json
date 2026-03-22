@@ -11,9 +11,11 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "echarts": "^6.0.0",
     "lucide-vue-next": "^0.577.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.26",
+    "vue-echarts": "^8.0.1",
     "vue-router": "^4.6.4",
     "vuedraggable": "^4.1.0"
   },
