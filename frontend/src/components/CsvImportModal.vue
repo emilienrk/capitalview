@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Circle, Download, X } from 'lucide-vue-next'
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import BaseButton from './BaseButton.vue'
 import BaseAlert from './BaseAlert.vue'
@@ -12,6 +12,7 @@ interface Props {
   accountId: string
   assetType: 'stocks' | 'crypto'
   onImport: (transactions: any[]) => Promise<boolean>
+  accounts?: { id: string; name: string; account_type?: string }[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -20,7 +21,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   close: []
+  'update:accountId': [id: string]
 }>()
+
+const localAccountId = ref(props.accountId)
+watch(() => props.accountId, (v) => { localAccountId.value = v })
+watch(localAccountId, (v) => emit('update:accountId', v))
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = ref<string | null>(null)
@@ -302,6 +308,19 @@ function downloadTemplate(): void {
 <template>
   <BaseModal :open="props.open" title="Importer des transactions (CSV)" size="lg" @close="handleClose">
     <div class="space-y-6">
+      <!-- Account selector (when accounts provided) -->
+      <div v-if="props.accounts && props.accounts.length >= 1">
+        <label class="block text-xs font-medium text-text-muted dark:text-text-dark-muted mb-1">Compte</label>
+        <select
+          v-model="localAccountId"
+          class="w-full px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        >
+          <option v-for="acc in props.accounts" :key="acc.id" :value="acc.id">
+            {{ acc.name }}{{ acc.account_type ? ' — ' + acc.account_type : '' }}
+          </option>
+        </select>
+      </div>
+
       <!-- Instructions -->
       <div class="bg-background-subtle dark:bg-background-dark-subtle p-4 rounded-secondary">
         <div class="flex items-center justify-between mb-3">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Upload } from 'lucide-vue-next'
 
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
 import BaseModal from '@/components/BaseModal.vue'
 import BaseButton from '@/components/BaseButton.vue'
@@ -16,15 +16,21 @@ import type {
 interface Props {
   open: boolean
   accountId: string
+  accounts?: { id: string; name: string }[]
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   imported: []
+  'update:accountId': [id: string]
 }>()
 
 const crypto = useCryptoStore()
+
+const localAccountId = ref(props.accountId)
+watch(() => props.accountId, (v) => { localAccountId.value = v })
+watch(localAccountId, (v) => emit('update:accountId', v))
 
 // ── State ────────────────────────────────────────────────────
 
@@ -202,11 +208,11 @@ function toggleExclude(groupIndex: number): void {
 // ── Confirm import ───────────────────────────────────────────
 
 async function confirmImport(): Promise<void> {
-  if (!props.accountId) return
+  if (!localAccountId.value) return
   isLoading.value = true
   error.value = null
   try {
-    const result = await crypto.confirmBinanceImport(props.accountId, activeGroups.value)
+    const result = await crypto.confirmBinanceImport(localAccountId.value, activeGroups.value)
     if (result) {
       importResult.importedCount = result.imported_count
       importResult.groupsCount = result.groups_count
@@ -293,6 +299,19 @@ function handleClose(): void {
   <BaseModal :open="props.open" :title="modalTitle" size="lg" @close="handleClose">
     <!-- ── STEP 1: Upload ──────────────────────────────── -->
     <template v-if="step === 'upload'">
+      <!-- Account selector -->
+      <div v-if="props.accounts && props.accounts.length >= 1" class="mb-4">
+        <label class="block text-xs font-medium text-text-muted dark:text-text-dark-muted mb-1">Compte</label>
+        <select
+          v-model="localAccountId"
+          class="w-full px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        >
+          <option v-for="acc in props.accounts" :key="acc.id" :value="acc.id">
+            {{ acc.name }}
+          </option>
+        </select>
+      </div>
+
       <p class="text-sm text-text-body dark:text-text-dark-body mb-4">
         Sélectionnez un fichier CSV exporté depuis Binance.
         Le format attendu&nbsp;: <code class="text-xs bg-surface-active dark:bg-surface-dark-hover px-1 py-0.5 rounded-badge">User_ID, UTC_Time, Account, Operation, Coin, Change, Remark</code>

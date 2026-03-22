@@ -393,13 +393,13 @@ function openAddTransaction(accountId: string): void {
   showTxModal.value = true
 }
 
-function openCsvImport(accountId: string): void {
-  csvImportAccountId.value = accountId
+function openCsvImport(accountId?: string): void {
+  csvImportAccountId.value = accountId ?? crypto.accounts[0]?.id ?? null
   showCsvImportModal.value = true
 }
 
-function openBinanceImport(accountId: string): void {
-  binanceImportAccountId.value = accountId
+function openBinanceImport(accountId?: string): void {
+  binanceImportAccountId.value = accountId ?? crypto.accounts[0]?.id ?? null
   showBinanceImportModal.value = true
 }
 
@@ -832,8 +832,34 @@ onMounted(async () => {
           </div>
           <BaseButton size="sm" @click="openAddTransaction(selectedAccountId!)">+<span class="hidden sm:inline">&nbsp;transaction</span></BaseButton>
         </template>
-        <!-- MULTI mode: account creation -->
-        <BaseButton v-else-if="!isSingleMode" @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau portefeuille</span></BaseButton>
+        <!-- MULTI mode: import + account creation -->
+        <template v-else-if="!isSingleMode">
+          <div class="relative" v-if="crypto.accounts.length">
+            <BaseButton variant="outline" @click.stop="showImportDropdown = !showImportDropdown">
+              <Upload class="w-4 h-4" />
+              <span class="hidden sm:inline">Importer</span>
+              <ChevronDown class="w-3 h-3 ml-1" />
+            </BaseButton>
+            <div v-if="showImportDropdown" class="fixed inset-0 z-40" @click="showImportDropdown = false" />
+            <div v-if="showImportDropdown" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openCsvImport(); showImportDropdown = false"
+              >
+                <BarChart3 class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
+                CSV générique
+              </button>
+              <button
+                class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
+                @click.stop="openBinanceImport(); showImportDropdown = false"
+              >
+                <Circle class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
+                Binance CSV
+              </button>
+            </div>
+          </div>
+          <BaseButton @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau portefeuille</span></BaseButton>
+        </template>
       </template>
     </PageHeader>
 
@@ -1146,30 +1172,6 @@ onMounted(async () => {
               <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
                 + Transaction
               </BaseButton>
-              <div class="relative">
-                <BaseButton size="sm" variant="outline" @click.stop="importDropdownAccountId = importDropdownAccountId === account.id ? null : account.id">
-                  <Upload class="w-4 h-4" />
-                  <span class="hidden sm:inline">Importer</span>
-                  <ChevronDown class="w-3 h-3 ml-1" />
-                </BaseButton>
-                <div v-if="importDropdownAccountId === account.id" class="fixed inset-0 z-40" @click="importDropdownAccountId = null" />
-                <div v-if="importDropdownAccountId === account.id" class="absolute right-0 top-full mt-1 z-50 bg-surface dark:bg-surface-dark border border-surface-border dark:border-surface-dark-border rounded-primary shadow-card min-w-45 overflow-hidden">
-                  <button
-                    class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
-                    @click.stop="openCsvImport(account.id); importDropdownAccountId = null"
-                  >
-                    <BarChart3 class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
-                    CSV générique
-                  </button>
-                  <button
-                    class="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-text-body dark:text-text-dark-body hover:bg-background-subtle dark:hover:bg-background-dark-subtle transition-colors"
-                    @click.stop="openBinanceImport(account.id); importDropdownAccountId = null"
-                  >
-                    <Circle class="w-4 h-4 text-text-muted dark:text-text-dark-muted shrink-0" />
-                    Binance CSV
-                  </button>
-                </div>
-              </div>
               <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
                 <Pencil class="w-4 h-4" />
               </BaseButton>
@@ -2242,7 +2244,9 @@ onMounted(async () => {
       :open="showCsvImportModal"
       :account-id="csvImportAccountId || ''"
       asset-type="crypto"
+      :accounts="crypto.accounts"
       :on-import="handleCsvImport"
+      @update:account-id="id => csvImportAccountId = id"
       @close="showCsvImportModal = false"
     />
 
@@ -2250,6 +2254,8 @@ onMounted(async () => {
     <BinanceImportModal
       :open="showBinanceImportModal"
       :account-id="binanceImportAccountId || ''"
+      :accounts="crypto.accounts"
+      @update:account-id="id => binanceImportAccountId = id"
       @close="showBinanceImportModal = false"
       @imported="handleBinanceImported"
     />

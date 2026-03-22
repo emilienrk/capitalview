@@ -29,6 +29,7 @@ const showDeleteModal = ref(false)
 const showCsvImportModal = ref(false)
 const showDepositModal = ref(false)
 const depositAccountId = ref<string | null>(null)
+const depositStockAccountId = ref<string | null>(null)
 const editingDepositId = ref<string | null>(null)
 const deductFromBank = ref(true)
 const selectedBankAccountId = ref<string | null>(null)
@@ -377,13 +378,14 @@ function openAddTransaction(accountId: string): void {
   showTxModal.value = true
 }
 
-function openCsvImport(accountId: string): void {
-  csvImportAccountId.value = accountId
+function openCsvImport(accountId?: string): void {
+  csvImportAccountId.value = accountId ?? stocks.accounts[0]?.id ?? null
   showCsvImportModal.value = true
 }
 
-async function openDeposit(accountId: string): Promise<void> {
-  depositAccountId.value = accountId
+async function openDeposit(accountId?: string): Promise<void> {
+  depositAccountId.value = accountId ?? null
+  depositStockAccountId.value = accountId ?? stocks.accounts[0]?.id ?? null
   editingDepositId.value = null
   depositForm.amount = 0
   depositForm.executed_at = new Date().toISOString().slice(0, 16)
@@ -443,7 +445,9 @@ async function handleSubmitDeposit(): Promise<void> {
     }
   }
 
-  const result = await stocks.depositEur(depositAccountId.value!, {
+  // Use stock account selector if opened from header (no pre-set account)
+  const targetStockAccountId = depositStockAccountId.value ?? depositAccountId.value
+  const result = await stocks.depositEur(targetStockAccountId!, {
     amount: depositForm.amount,
     executed_at: depositForm.executed_at,
     notes: depositForm.notes || undefined,
@@ -464,6 +468,8 @@ async function handleSubmitDeposit(): Promise<void> {
         stocks.fetchAccount(selectedAccountId.value),
         fetchAccountTransactions(selectedAccountId.value),
       ])
+    } else if (targetStockAccountId) {
+      await stocks.fetchAccounts()
     }
   }
 }
@@ -720,6 +726,12 @@ onMounted(() => {
   <div>
     <PageHeader title="Bourse" description="PEA, PEA-PME et Comptes-Titres">
       <template #actions>
+        <BaseButton variant="outline" @click="openDeposit()" :disabled="!stocks.accounts.length">
+          <Banknote class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Déposer</span>
+        </BaseButton>
+        <BaseButton variant="outline" @click="openCsvImport()" :disabled="!stocks.accounts.length">
+          <Upload class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Importer</span>
+        </BaseButton>
         <BaseButton @click="openCreateAccount">+<span class="hidden sm:inline">&nbsp; Nouveau compte</span></BaseButton>
       </template>
     </PageHeader>
@@ -787,13 +799,6 @@ onMounted(() => {
           <div class="flex items-center gap-2 shrink-0 self-start">
             <BaseButton size="sm" variant="outline" @click.stop="openAddTransaction(account.id)">
               +<span class="hidden sm:inline">&nbsp; Transaction</span>
-            </BaseButton>
-            <BaseButton size="sm" variant="outline" @click.stop="openDeposit(account.id)" title="Déposer des euros">
-              <Banknote class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Déposer</span>
-            </BaseButton>
-            <BaseButton size="sm" variant="outline" @click.stop="openCsvImport(account.id)" title="Importer CSV">
-              <Upload class="w-4 h-4" />
-              Importer
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click.stop="openEditAccount(account)">
               <Pencil class="w-4 h-4" />
@@ -1193,13 +1198,28 @@ onMounted(() => {
       :open="showCsvImportModal"
       :account-id="csvImportAccountId || ''"
       asset-type="stocks"
+      :accounts="stocks.accounts"
       :on-import="handleCsvImport"
+      @update:account-id="id => csvImportAccountId = id"
       @close="showCsvImportModal = false"
     />
 
     <!-- ── EUR Deposit Modal ──────────────────────────── -->
     <BaseModal :open="showDepositModal" :title="editingDepositId ? 'Modifier le dépôt' : 'Déposer des euros'" @close="showDepositModal = false">
       <form @submit.prevent="handleSubmitDeposit" class="space-y-4">
+        <!-- Stock account selector (only for new deposits) -->
+        <div v-if="!editingDepositId">
+          <label class="block text-xs font-medium text-text-muted dark:text-text-dark-muted mb-1">Compte de bourse</label>
+          <select
+            v-model="depositStockAccountId"
+            class="w-full px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            required
+          >
+            <option v-for="acc in stocks.accounts" :key="acc.id" :value="acc.id">
+              {{ acc.name }} — {{ acc.account_type }}
+            </option>
+          </select>
+        </div>
         <BaseInput
           v-model="depositForm.amount"
           label="Montant (€)"

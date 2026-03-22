@@ -83,6 +83,25 @@ export const useBankStore = defineStore('bank', () => {
     }
   }
 
+  async function importHistory(
+    accountId: string,
+    entries: { snapshot_date: string; value: number }[],
+    overwrite = false,
+  ): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+    try {
+      await apiClient.post(`/bank/accounts/${accountId}/history/import`, { entries, overwrite })
+      await fetchAccounts()
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Erreur lors de l'import"
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function reset(): void {
     summary.value = null
     currentAccount.value = null
@@ -99,6 +118,7 @@ export const useBankStore = defineStore('bank', () => {
     createAccount,
     updateAccount,
     deleteAccount,
+    importHistory,
     reset,
   }
 })

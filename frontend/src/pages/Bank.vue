@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Pencil, RefreshCw } from 'lucide-vue-next'
+import { Pencil, RefreshCw, Upload } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed } from 'vue'
 import { useBankStore } from '@/stores/bank'
@@ -10,6 +10,7 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseAlert, BaseEmptyState, BaseBadge,
 } from '@/components'
+import BankHistoryImportModal from '@/components/imports/BankHistoryImportModal.vue'
 import type { BankAccountCreate, BankAccountType } from '@/types'
 
 const bank = useBankStore()
@@ -17,6 +18,7 @@ const { formatCurrency, formatDate, formatAccountType } = useFormatters()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const showCreateModal = ref(false)
+const showHistoryImportModal = ref(false)
 const editingId = ref<string | null>(null)
 const hasFetchedOnce = ref(false)
 
@@ -95,6 +97,9 @@ onMounted(async () => {
   <div>
     <PageHeader title="Comptes Bancaires" description="Gérez vos comptes courants et d'épargne">
       <template #actions>
+        <BaseButton variant="outline" @click="showHistoryImportModal = true" :disabled="!bank.summary?.accounts?.length">
+          <Upload class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Importer</span>
+        </BaseButton>
         <BaseButton @click="openCreate">
           +<span class="hidden sm:inline">&nbsp; Nouveau compte</span>
         </BaseButton>
@@ -156,6 +161,15 @@ onMounted(async () => {
       description="Ajoutez votre premier compte bancaire pour commencer le suivi"
       action-label="Ajouter un compte"
       @action="openCreate"
+    />
+
+    <!-- History Import Modal -->
+    <BankHistoryImportModal
+      v-if="bank.summary?.accounts?.length"
+      :open="showHistoryImportModal"
+      :accounts="bank.summary.accounts"
+      @close="showHistoryImportModal = false"
+      @imported="showHistoryImportModal = false"
     />
 
     <!-- Create/Edit Modal -->
