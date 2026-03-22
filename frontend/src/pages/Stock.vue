@@ -64,6 +64,7 @@ const txForm = reactive<StockTransactionCreate>({
 
 const depositForm = reactive<EurDepositCreate>({
   amount: 0,
+  fees: 0,
   executed_at: new Date().toISOString().slice(0, 16),
   notes: '',
 })
@@ -388,6 +389,7 @@ async function openDeposit(accountId?: string): Promise<void> {
   depositStockAccountId.value = accountId ?? stocks.accounts[0]?.id ?? null
   editingDepositId.value = null
   depositForm.amount = 0
+  depositForm.fees = 0
   depositForm.executed_at = new Date().toISOString().slice(0, 16)
   depositForm.notes = ''
   deductFromBank.value = true
@@ -402,6 +404,7 @@ function openEditDeposit(tx: TransactionResponse): void {
   depositAccountId.value = selectedAccountId.value
   editingDepositId.value = tx.id
   depositForm.amount = tx.amount
+  depositForm.fees = Number(tx.fees ?? 0)
   depositForm.executed_at = tx.executed_at.slice(0, 16)
   depositForm.notes = tx.notes ?? ''
   // Don't deduct from bank: the deduction already happened at creation
@@ -415,10 +418,25 @@ async function handleSubmitDeposit(): Promise<void> {
     return
   }
 
+  if (depositForm.fees < 0) {
+    alert('Les frais doivent être positifs ou nuls.')
+    return
+  }
+
+  const grossAmount = Number(depositForm.amount)
+  const feesAmount = Number(depositForm.fees || 0)
+  const netAmountPreview = grossAmount - feesAmount
+
+  if (netAmountPreview <= 0) {
+    alert('Le montant net (montant - frais) doit être strictement positif.')
+    return
+  }
+
   // Editing an existing deposit
   if (editingDepositId.value) {
     const result = await stocks.updateTransaction(editingDepositId.value, {
-      amount: depositForm.amount,
+      amount: grossAmount,
+      fees: feesAmount,
       executed_at: depositForm.executed_at,
       notes: depositForm.notes || undefined,
     })
@@ -437,7 +455,7 @@ async function handleSubmitDeposit(): Promise<void> {
   // Check if selected bank account has enough balance
   if (deductFromBank.value && selectedBankAccountId.value) {
     const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
-    if (bankAcc && Number(bankAcc.balance) < Number(depositForm.amount)) {
+    if (bankAcc && Number(bankAcc.balance) < grossAmount) {
       const ok = confirm(
         `Le solde du compte « ${bankAcc.name} » (${formatCurrency(bankAcc.balance)}) est insuffisant. Continuer quand même ?`
       )
@@ -448,7 +466,8 @@ async function handleSubmitDeposit(): Promise<void> {
   // Use stock account selector if opened from header (no pre-set account)
   const targetStockAccountId = depositStockAccountId.value ?? depositAccountId.value
   const result = await stocks.depositEur(targetStockAccountId!, {
-    amount: depositForm.amount,
+    amount: grossAmount,
+    fees: feesAmount,
     executed_at: depositForm.executed_at,
     notes: depositForm.notes || undefined,
   })
@@ -458,7 +477,7 @@ async function handleSubmitDeposit(): Promise<void> {
       const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
       if (bankAcc) {
         await bank.updateAccount(selectedBankAccountId.value, {
-          balance: Number(bankAcc.balance) - Number(depositForm.amount),
+          balance: Number(bankAcc.balance) - grossAmount,
         })
       }
     }
@@ -615,6 +634,8 @@ async function handleDelete(): Promise<void> {
 
   if (deleteTarget.value.type === 'account') {
     await stocks.deleteAccount(deleteTarget.value.id)
+    showAccountModal.value = false
+    editingAccountId.value = null
     if (selectedAccountId.value === deleteTarget.value.id) {
       selectedAccountId.value = null
       stocks.currentAccount = null
@@ -638,6 +659,21 @@ function badgeVariant(type: string): 'primary' | 'info' | 'warning' {
   if (type === 'PEA') return 'primary'
   if (type === 'PEA_PME') return 'warning'
   return 'info'
+}
+
+function transactionDisplayedTotal(tx: TransactionResponse): number {
+  if (tx.isin === 'EUR') {
+    if (tx.type === 'DEPOSIT') return Number(tx.amount) - Number(tx.fees ?? 0)
+    return Number(tx.amount)
+  }
+
+  const base = Number(tx.amount) * Number(tx.price_per_unit)
+  const fees = Number(tx.fees ?? 0)
+
+  if (tx.type === 'BUY') return base + fees
+  if (tx.type === 'SELL' || tx.type === 'DIVIDEND') return base - fees
+
+  return base
 }
 
 // ISIN-like detection: 2 letters + at least 3 alphanumeric, no spaces
@@ -959,7 +995,7 @@ onMounted(() => {
                     <td class="px-4 py-2.5 text-text-muted dark:text-text-dark-muted text-xs">{{ tx.exchange || '—' }}</td>
                     <td class="px-4 py-2.5 text-right font-mono">{{ tx.isin === 'EUR' ? '—' : formatNumber(tx.amount, 4) }}</td>
                     <td class="px-4 py-2.5 text-right">{{ tx.isin === 'EUR' ? '—' : formatCurrency(tx.price_per_unit) }}</td>
-                    <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(tx.isin === 'EUR' ? tx.amount : tx.amount * tx.price_per_unit)) }}</td>
+                    <td class="px-4 py-2.5 text-right font-medium">{{ maskValue(formatCurrency(transactionDisplayedTotal(tx))) }}</td>
                     <td class="px-4 py-2.5 text-right">
                       <BaseButton v-if="tx.isin !== 'EUR'" size="sm" variant="ghost" @click="openEditTransaction(tx)">
                         <Pencil class="w-4 h-4" />
@@ -1229,6 +1265,17 @@ onMounted(() => {
           placeholder="0.00"
           required
         />
+        <BaseInput
+          v-model="depositForm.fees"
+          label="Frais (€)"
+          type="number"
+          step="any"
+          min="0"
+          placeholder="0.00"
+        />
+        <p class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
+          Montant crédité en bourse : montant - frais.
+        </p>
         <BaseInput
           v-model="depositForm.executed_at"
           label="Date du dépôt"

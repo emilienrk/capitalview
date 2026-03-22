@@ -256,6 +256,7 @@ export interface StockBulkImportResponse {
 
 export interface EurDepositCreate {
   amount: number
+  fees: number
   executed_at: string
   notes?: string
 }

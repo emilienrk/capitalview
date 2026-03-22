@@ -46,7 +46,7 @@ const csvTemplate = computed(() => {
 
 const csvExample = computed(() => {
   if (props.assetType === 'stocks') {
-    return 'US0378331005,BUY,10,150.50,2.99,2026-01-15T10:30:00,Premier achat\nUS88160R1014,SELL,5,250.00,1.50,2026-01-20T14:00:00,'
+    return 'US0378331005,BUY,10,150.50,2.99,2026-01-15T10:30:00,Premier achat\nUS88160R1014,SELL,5,250.00,1.50,2026-01-20T14:00:00,\n,DEPOSIT,1000,,2.50,2026-01-22T09:00:00,Dépôt net de frais'
   }
   return (
     'BTC,BUY,0.1,3000,EUR,3000,,,,2026-01-15T10:30:00,,Premier achat\n' +
@@ -178,7 +178,7 @@ function validateTransaction(transaction: any): void {
   if (transaction.fee_symbol) transaction.fee_symbol = String(transaction.fee_symbol).trim().toUpperCase()
 
   const requiredFields = props.assetType === 'stocks'
-    ? ['isin', 'type', 'amount', 'price_per_unit', 'executed_at']
+    ? ['type', 'amount', 'executed_at']
     : ['symbol', 'type', 'amount', 'executed_at']
 
   for (const field of requiredFields) {
@@ -188,21 +188,40 @@ function validateTransaction(transaction: any): void {
   }
 
   if (props.assetType === 'stocks') {
-    if (transaction.isin.length !== 12) {
-      throw new Error('Format ISIN invalide (doit faire 12 caractères)')
-    }
-
     const validTypes = ['BUY', 'SELL', 'DEPOSIT', 'DIVIDEND']
     if (!validTypes.includes(transaction.type)) {
       throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
     }
 
-    if (isNaN(transaction.price_per_unit) || transaction.price_per_unit < 0) {
-      throw new Error('Prix invalide (doit être >= 0)')
-    }
-
     if (transaction.fees !== undefined && (isNaN(transaction.fees) || transaction.fees < 0)) {
       throw new Error('Frais invalides')
+    }
+
+    if (transaction.type === 'DEPOSIT') {
+      if (transaction.isin && transaction.isin !== 'EUR') {
+        throw new Error('Pour un dépôt, ISIN doit être vide ou EUR')
+      }
+
+      const grossAmount = Number(transaction.amount)
+      const fees = Number(transaction.fees || 0)
+      const netAmount = grossAmount - fees
+      if (netAmount <= 0) {
+        throw new Error('Pour un dépôt, le montant doit être supérieur aux frais')
+      }
+
+      // Normalize deposit to EUR source of truth and store only the net value.
+      transaction.isin = 'EUR'
+      transaction.price_per_unit = 1
+      transaction.amount = netAmount
+      transaction.fees = 0
+    } else {
+      if (!transaction.isin || transaction.isin.length !== 12) {
+        throw new Error('Format ISIN invalide (doit faire 12 caractères)')
+      }
+
+      if (isNaN(transaction.price_per_unit) || transaction.price_per_unit < 0) {
+        throw new Error('Prix invalide (doit être >= 0)')
+      }
     }
   } else {
     const validTypes = [
