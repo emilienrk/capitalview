@@ -37,10 +37,17 @@ const form = reactive<CashflowCreate>({
 
 const bankAccountOptions = computed(() => [
   { label: 'Aucun compte lié', value: '' },
-  ...(bank.summary?.accounts ?? []).map(a => ({
-    label: a.institution_name ? `${a.name} (${a.institution_name})` : a.name,
-    value: a.id,
-  })),
+  ...(bank.summary?.accounts ?? [])
+    .slice()
+    .sort((a, b) => {
+      if (a.account_type === 'CHECKING' && b.account_type !== 'CHECKING') return -1
+      if (b.account_type === 'CHECKING' && a.account_type !== 'CHECKING') return 1
+      return 0
+    })
+    .map(a => ({
+      label: a.institution_name ? `${a.name} (${a.institution_name})` : a.name,
+      value: a.id,
+    })),
 ])
 
 const existingCategories = computed(() => {

@@ -548,6 +548,7 @@ async function deleteTransaction(id: string): Promise<void> {
   if (confirm('Supprimer cette transaction ?')) {
     await stocks.deleteTransaction(id)
     showTxModal.value = false
+    showDepositModal.value = false
     if (selectedAccountId.value) {
       await Promise.all([
         stocks.fetchAccount(selectedAccountId.value),
