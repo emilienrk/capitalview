@@ -5,9 +5,9 @@ import Landing from '@/pages/Landing.vue'
 import Login from '@/pages/Login.vue'
 
 const Dashboard = () => import('@/pages/Dashboard.vue')
-const StockMarket = () => import('@/pages/StockMarket.vue')
+const Stock = () => import('@/pages/Stock.vue')
 const Cashflow = () => import('@/pages/Cashflow.vue')
-const BankAccounts = () => import('@/pages/BankAccounts.vue')
+const Bank = () => import('@/pages/Bank.vue')
 const Wealth = () => import('@/pages/Wealth.vue')
 const Crypto = () => import('@/pages/Crypto.vue')
 const Notes = () => import('@/pages/Notes.vue')
@@ -45,9 +45,9 @@ const routes = [
     meta: { requiresAuth: false, layout: 'blank' },
   },
   {
-    path: '/bank-accounts',
-    name: 'bank-accounts',
-    component: BankAccounts,
+    path: '/bank',
+    name: 'bank',
+    component: Bank,
     meta: { requiresAuth: true },
   },
   {
@@ -57,9 +57,9 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/stock-market',
-    name: 'stock-market',
-    component: StockMarket,
+    path: '/stock',
+    name: 'stock',
+    component: Stock,
     meta: { requiresAuth: true },
   },
 

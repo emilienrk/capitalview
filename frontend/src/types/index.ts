@@ -526,6 +526,7 @@ export interface AccountSummaryResponse {
   account_name: string
   account_type: string
   total_invested: number
+  total_deposits: number
   total_fees: number
   currency: string
   current_value: number | null

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Pencil, TrendingUp, Upload, Banknote } from 'lucide-vue-next'
 
-import { onMounted, ref, reactive, computed } from 'vue'
+import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
 import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
@@ -90,11 +90,13 @@ const isAssetSearching = ref(false)
 const assetError = ref<string | null>(null)
 const showExchange = ref(false)
 
+// ── Dividend mode ────────────────────────────────────────────
+const dividendMode = ref<'cash' | 'shares'>('cash')
+
 // ── Options ──────────────────────────────────────────────────
 const txTypeOptions = [
   { label: 'Achat', value: 'BUY' },
   { label: 'Vente', value: 'SELL' },
-  { label: 'Dépôt', value: 'DEPOSIT' },
   { label: 'Dividende', value: 'DIVIDEND' },
 ]
 
@@ -247,6 +249,64 @@ const sortedPositions = computed(() => {
     .sort((a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0))
 })
 
+/** Asset options restricted to positions the user currently holds (for SELL and DIVIDEND). */
+const ownedAssetOptions = computed((): AssetOption[] => {
+  if (!selectedAccountSummary.value?.positions) return []
+  return selectedAccountSummary.value.positions
+    .filter(p => p.isin !== 'EUR' && Number(p.total_amount) > 0)
+    .map(p => ({
+      symbol: p.symbol ?? '',
+      isin: p.isin ?? null,
+      name: p.name ?? null,
+      exchange: p.exchange ?? null,
+      _source: 'known' as const,
+    }))
+    .sort((a, b) => (a.name ?? a.symbol).localeCompare(b.name ?? b.symbol))
+})
+
+/** Maximum quantity available for the currently selected asset when selling. */
+const sellMaxAmount = computed((): number | null => {
+  if (txForm.type !== 'SELL' || !txForm.isin) return null
+  const pos = selectedAccountSummary.value?.positions?.find(p => p.isin === txForm.isin)
+  return pos ? Number(pos.total_amount) : null
+})
+
+/** Dynamic label for the amount field based on transaction type. */
+const txAmountLabel = computed(() => {
+  if (txForm.type === 'DIVIDEND') {
+    return dividendMode.value === 'shares' ? 'Nb actions reçues' : 'Nb actions portées'
+  }
+  if (txForm.type === 'SELL') return 'Quantité vendue'
+  return 'Quantité'
+})
+
+/** Whether the current form is a shares dividend (DRIP — stored as BUY at €0). */
+const isDividendShares = computed(() => txForm.type === 'DIVIDEND' && dividendMode.value === 'shares')
+
+/** Dynamic label for the price field based on transaction type. */
+const txPriceLabel = computed(() => {
+  if (txForm.type === 'SELL') return 'Prix de vente unitaire (€)'
+  if (txForm.type === 'DIVIDEND') return 'Dividende par action (€)'
+  return 'Prix unitaire (€)'
+})
+
+// When the transaction type changes, update the asset picker scope
+watch(() => txForm.type, (newType) => {
+  if (newType === 'SELL' || newType === 'DIVIDEND') {
+    // Restrict to owned positions
+    assetOptions.value = ownedAssetOptions.value
+    // If the currently selected asset is not in owned positions, clear it
+    if (txForm.isin && !ownedAssetOptions.value.some(a => a.isin === txForm.isin)) {
+      txForm.isin = ''
+      txForm.symbol = ''
+      assetQuery.value = ''
+    }
+  } else {
+    assetOptions.value = knownAssetOptions.value
+  }
+  dividendMode.value = 'cash'
+})
+
 // ── Actions ──────────────────────────────────────────────────
 function openCreateAccount(): void {
   editingAccountId.value = null
@@ -294,6 +354,7 @@ function openAddTransaction(accountId: string): void {
   assetOptions.value = knownAssetOptions.value
   assetError.value = null
   showExchange.value = false
+  dividendMode.value = 'cash'
   showTxModal.value = true
 }
 
@@ -412,14 +473,16 @@ function openEditTransaction(tx: any): void {
   txForm.price_per_unit = tx.price_per_unit
   txForm.fees = tx.fees
   txForm.executed_at = tx.executed_at.slice(0, 16)
-  // Pre-fill unified asset field from known assets or raw tx data
-  const knownMatch = knownAssetOptions.value.find(k =>
+  dividendMode.value = 'cash'
+  // Pre-fill unified asset field
+  const sourcePool = (tx.type === 'SELL' || tx.type === 'DIVIDEND') ? ownedAssetOptions.value : knownAssetOptions.value
+  const knownMatch = sourcePool.find(k =>
     (tx.isin && k.isin === tx.isin) || k.symbol === tx.symbol
   )
   assetQuery.value = knownMatch
     ? formatAssetOption(knownMatch)
     : tx.name ? `${tx.symbol} – ${tx.name}` : tx.symbol
-  assetOptions.value = knownAssetOptions.value
+  assetOptions.value = sourcePool
   assetError.value = null
   showExchange.value = !!tx.exchange
   showTxModal.value = true
@@ -447,7 +510,25 @@ async function handleSubmitTransaction(): Promise<void> {
   }
 
   let result
-  if (editingTxId.value) {
+  if (isDividendShares.value) {
+    // Shares dividend: stored as BUY at €0 — lowers PRU without cash outflow
+    const payload: StockTransactionCreate = {
+      account_id: txForm.account_id,
+      isin: txForm.isin,
+      symbol: txForm.symbol,
+      name: txForm.name,
+      exchange: txForm.exchange,
+      type: 'BUY',
+      amount: txForm.amount,
+      price_per_unit: 0,
+      fees: 0,
+      executed_at: txForm.executed_at,
+      notes: 'Dividende en actions',
+    }
+    result = editingTxId.value
+      ? await stocks.updateTransaction(editingTxId.value, payload)
+      : await stocks.createTransaction(payload)
+  } else if (editingTxId.value) {
     result = await stocks.updateTransaction(editingTxId.value, { ...txForm })
   } else {
     result = await stocks.createTransaction({ ...txForm })
@@ -550,7 +631,19 @@ async function handleAssetInput(value: string): Promise<void> {
 
   const q = value.trim().toLowerCase()
 
-  // Always filter known assets immediately (client-side)
+  // For SELL and DIVIDEND, restrict to positions the user currently holds — no API search
+  if (txForm.type === 'SELL' || txForm.type === 'DIVIDEND') {
+    assetOptions.value = !q
+      ? ownedAssetOptions.value
+      : ownedAssetOptions.value.filter(a =>
+          a.symbol.toLowerCase().includes(q) ||
+          (a.name?.toLowerCase().includes(q) ?? false) ||
+          (a.isin?.toLowerCase().includes(q) ?? false)
+        )
+    return
+  }
+
+  // BUY: filter known assets immediately (client-side)
   const knownMatches: AssetOption[] = !q
     ? knownAssetOptions.value
     : knownAssetOptions.value.filter(a =>
@@ -696,16 +789,16 @@ onMounted(() => {
           <!-- Account summary stats -->
           <div :class="['grid gap-4 mb-6', eurPosition ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4']">
             <div>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">Investi</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.total_invested)) }}</p>
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">Valeur actuelle</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.current_value)) }}</p>
             </div>
             <div v-if="eurPosition">
               <p class="text-xs text-text-muted dark:text-text-dark-muted">Euros</p>
               <p class="text-lg font-bold text-info">{{ maskValue(formatCurrency(eurPosition.current_value)) }}</p>
             </div>
             <div>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">Valeur actuelle</p>
-              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.current_value)) }}</p>
+              <p class="text-xs text-text-muted dark:text-text-dark-muted">Versements</p>
+              <p class="text-lg font-bold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(selectedAccountSummary.total_deposits)) }}</p>
             </div>
             <div>
               <p class="text-xs text-text-muted dark:text-text-dark-muted">P/L</p>
@@ -931,6 +1024,38 @@ onMounted(() => {
     <BaseModal :open="showTxModal" :title="editingTxId ? 'Modifier la transaction' : 'Nouvelle transaction'" @close="showTxModal = false">
       <form @submit.prevent="handleSubmitTransaction" class="space-y-4">
 
+        <!-- Type first so the asset picker scope adapts immediately -->
+        <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
+
+        <!-- ── Dividend mode toggle ── -->
+        <template v-if="txForm.type === 'DIVIDEND'">
+          <div class="inline-flex w-full bg-background-subtle dark:bg-background-dark-subtle rounded-lg p-1">
+            <button
+              type="button"
+              @click="dividendMode = 'cash'"
+              :class="[
+                'flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                dividendMode === 'cash'
+                  ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                  : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >Versement en espèces</button>
+            <button
+              type="button"
+              @click="dividendMode = 'shares'"
+              :class="[
+                'flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                dividendMode === 'shares'
+                  ? 'bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                  : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >En actions (DRIP)</button>
+          </div>
+          <p v-if="isDividendShares" class="text-xs text-text-muted dark:text-text-dark-muted -mt-2">
+            Les actions reçues sont enregistrées comme un achat à 0 € — réduit le PRU moyen sans sortie de cash
+          </p>
+        </template>
+
         <!-- ── Unified asset picker ── -->
         <div>
           <BaseAutocomplete
@@ -938,7 +1063,7 @@ onMounted(() => {
             @update:model-value="handleAssetInput"
             @select="handleSelectUnifiedAsset"
             label="Actif"
-            placeholder="Nom, symbole ou ISIN…"
+            :placeholder="(txForm.type === 'SELL' || txForm.type === 'DIVIDEND') ? 'Choisir parmi vos positions…' : 'Nom, symbole ou ISIN…'"
             :options="assetOptions"
             :display-value="formatAssetOption"
             :loading="isAssetSearching"
@@ -965,6 +1090,9 @@ onMounted(() => {
             </template>
           </BaseAutocomplete>
           <p v-if="assetError" class="text-xs text-danger mt-1">{{ assetError }}</p>
+          <p v-else-if="txForm.type === 'SELL' || txForm.type === 'DIVIDEND'" class="text-xs text-text-muted dark:text-text-dark-muted mt-1">
+            Seules vos positions actuelles sont proposées
+          </p>
           <p v-else class="text-xs text-text-muted dark:text-text-dark-muted mt-1">
             Tapez un nom, un symbole ou un ISIN — les actifs de votre portefeuille apparaissent en premier
           </p>
@@ -994,12 +1122,22 @@ onMounted(() => {
           + Ajouter une place de marché
         </button>
 
-        <BaseSelect v-model="txForm.type" label="Type de transaction" :options="txTypeOptions" required />
-        <div class="grid grid-cols-2 gap-4">
-          <BaseInput v-model="txForm.amount" label="Quantité" type="number" step="any" min="0" required />
-          <BaseInput v-model="txForm.price_per_unit" label="Prix unitaire (€)" type="number" step="any" min="0" required />
+        <div :class="isDividendShares ? '' : 'grid grid-cols-2 gap-4'">
+          <div>
+            <BaseInput v-model="txForm.amount" :label="txAmountLabel" type="number" step="any" min="0" required />
+            <p v-if="txForm.type === 'SELL' && sellMaxAmount !== null" class="text-xs text-text-muted dark:text-text-dark-muted mt-1">
+              Disponible : {{ formatNumber(sellMaxAmount, 4) }} action{{ sellMaxAmount !== 1 ? 's' : '' }}
+            </p>
+          </div>
+          <BaseInput
+            v-if="!isDividendShares"
+            v-model="txForm.price_per_unit"
+            :label="txPriceLabel"
+            type="number" step="any" min="0"
+            required
+          />
         </div>
-        <BaseInput v-model="txForm.fees!" label="Frais (€)" type="number" step="any" min="0" placeholder="0.00" />
+        <BaseInput v-if="!isDividendShares" v-model="txForm.fees!" label="Frais (€)" type="number" step="any" min="0" placeholder="0.00" />
         <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
       </form>
       <template #footer>

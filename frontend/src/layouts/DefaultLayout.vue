@@ -44,7 +44,7 @@ const BASE_NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Compte Bancaire',
-    to: '/bank-accounts',
+    to: '/bank',
     icon: CreditCard,
   },
   {
@@ -54,7 +54,7 @@ const BASE_NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Bourse',
-    to: '/stock-market',
+    to: '/stock',
     icon: TrendingUp,
   },
   {
@@ -91,10 +91,10 @@ const navItems = computed<NavItem[]>(() => {
 
   const items: NavItem[] = [byPath('/dashboard')]
 
-  if (s?.bank_module_enabled ?? true) items.push(byPath('/bank-accounts'))
+  if (s?.bank_module_enabled ?? true) items.push(byPath('/bank'))
   if (s?.cashflow_module_enabled ?? true) items.push(byPath('/cashflow'))
 
-  items.push(byPath('/stock-market'))
+  items.push(byPath('/stock'))
 
   if (s?.crypto_module_enabled) items.push(CRYPTO_NAV_ITEM)
 
