@@ -384,6 +384,7 @@ onMounted(() => {
             :is-dark="isDark"
             :bank-enabled="bankEnabled"
             :wealth-enabled="wealthEnabled"
+            :granularity="historyGranularity"
           />
         </template>
         <BaseEmptyState
