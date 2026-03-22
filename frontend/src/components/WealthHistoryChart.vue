@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -7,18 +7,55 @@ import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  DataZoomComponent,
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { GlobalHistorySnapshotResponse } from '@/types'
 
-use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
+use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent])
 
 const props = defineProps<{
   history: GlobalHistorySnapshotResponse[]
   isDark?: boolean
   bankEnabled?: boolean
   wealthEnabled?: boolean
+  granularity?: 'daily' | 'weekly' | 'monthly' | 'yearly'
 }>()
+
+const chartRef = ref<InstanceType<typeof VChart> | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
+const canRenderChart = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+function syncChartVisibilityAndSize(): void {
+  const container = containerRef.value
+  if (!container) return
+
+  const hasSize = container.clientWidth > 0 && container.clientHeight > 0
+  if (!hasSize) return
+
+  canRenderChart.value = true
+  nextTick(() => {
+    chartRef.value?.resize()
+  })
+}
+
+onMounted(() => {
+  syncChartVisibilityAndSize()
+
+  resizeObserver = new ResizeObserver(() => {
+    syncChartVisibilityAndSize()
+  })
+
+  if (containerRef.value) {
+    resizeObserver.observe(containerRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 
 const COLORS = {
   total:   '#4f46e5', // primary (indigo-600)
@@ -30,6 +67,8 @@ const COLORS = {
 
 const option = computed(() => {
   const dates = props.history.map(s => s.snapshot_date)
+  const isDaily = props.granularity === 'daily'
+  const showDailyPoints = false
 
   const textColor  = props.isDark ? '#94a3b8' : '#6b7280' // slate-400 / gray-500
   const gridColor  = props.isDark ? '#1e293b' : '#f3f4f6' // slate-800 / gray-100
@@ -43,9 +82,11 @@ const option = computed(() => {
       type: 'line',
       stack: 'wealth',
       areaStyle: { opacity: 0.4 },
-      smooth: true,
-      symbol: 'none',
-      lineStyle: { width: 0 },
+      smooth: !isDaily,
+      symbol: showDailyPoints ? 'circle' : 'none',
+      showSymbol: showDailyPoints,
+      symbolSize: 4,
+      lineStyle: { width: isDaily ? 1 : 0 },
       color: COLORS.bank,
       data: props.history.map(s => s.bank_value),
     })
@@ -56,9 +97,11 @@ const option = computed(() => {
     type: 'line',
     stack: 'wealth',
     areaStyle: { opacity: 0.4 },
-    smooth: true,
-    symbol: 'none',
-    lineStyle: { width: 0 },
+    smooth: !isDaily,
+    symbol: showDailyPoints ? 'circle' : 'none',
+    showSymbol: showDailyPoints,
+    symbolSize: 4,
+    lineStyle: { width: isDaily ? 1 : 0 },
     color: COLORS.stock,
     data: props.history.map(s => s.stock_value),
   })
@@ -68,9 +111,11 @@ const option = computed(() => {
     type: 'line',
     stack: 'wealth',
     areaStyle: { opacity: 0.4 },
-    smooth: true,
-    symbol: 'none',
-    lineStyle: { width: 0 },
+    smooth: !isDaily,
+    symbol: showDailyPoints ? 'circle' : 'none',
+    showSymbol: showDailyPoints,
+    symbolSize: 4,
+    lineStyle: { width: isDaily ? 1 : 0 },
     color: COLORS.crypto,
     data: props.history.map(s => s.crypto_value),
   })
@@ -81,9 +126,11 @@ const option = computed(() => {
       type: 'line',
       stack: 'wealth',
       areaStyle: { opacity: 0.4 },
-      smooth: true,
-      symbol: 'none',
-      lineStyle: { width: 0 },
+      smooth: !isDaily,
+      symbol: showDailyPoints ? 'circle' : 'none',
+      showSymbol: showDailyPoints,
+      symbolSize: 4,
+      lineStyle: { width: isDaily ? 1 : 0 },
       color: COLORS.assets,
       data: props.history.map(s => s.assets_value),
     })
@@ -93,13 +140,39 @@ const option = computed(() => {
   series.push({
     name: 'Patrimoine total',
     type: 'line',
-    smooth: true,
-    symbol: 'none',
+    smooth: !isDaily,
+    symbol: showDailyPoints ? 'circle' : 'none',
+    showSymbol: showDailyPoints,
+    symbolSize: 5,
     lineStyle: { width: 2.5, color: COLORS.total },
     color: COLORS.total,
     data: props.history.map(s => s.total_wealth),
     z: 10,
   })
+
+  const xAxisInterval =
+    props.granularity === 'daily'
+      ? (dates.length <= 40 ? 0 : Math.max(0, Math.floor(dates.length / 14) - 1))
+      : Math.max(0, Math.floor(dates.length / 12) - 1)
+
+  const formatXAxisLabel = (val: string): string => {
+    const d = new Date(val)
+    if (Number.isNaN(d.getTime())) return val
+
+    if (props.granularity === 'daily') {
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    }
+    if (props.granularity === 'weekly') {
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    }
+    if (props.granularity === 'monthly') {
+      return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+    }
+    if (props.granularity === 'yearly') {
+      return d.toLocaleDateString('fr-FR', { year: 'numeric' })
+    }
+    return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+  }
 
   return {
     backgroundColor: bgColor,
@@ -129,12 +202,11 @@ const option = computed(() => {
       axisLabel: {
         color: textColor,
         fontSize: 11,
-        formatter: (val: string) => {
-          const d = new Date(val)
-          return `${d.toLocaleString('fr-FR', { month: 'short' })} ${d.getFullYear()}`
-        },
-        // show roughly one label per month to avoid crowding
-        interval: Math.max(0, Math.floor(dates.length / 12) - 1),
+        formatter: (val: string) => formatXAxisLabel(val),
+        // Keep labels readable for dense daily history.
+        interval: xAxisInterval,
+        rotate: isDaily ? 35 : 0,
+        hideOverlap: true,
       },
       splitLine: { show: false },
     },
@@ -174,15 +246,40 @@ const option = computed(() => {
         return `<div style="font-weight:600;margin-bottom:6px">${date}</div>${rows}`
       },
     },
+    dataZoom: dates.length > 30
+      ? [
+          {
+            type: 'inside',
+            start: isDaily ? Math.max(0, 100 - (90 / dates.length) * 100) : 0,
+            end: 100,
+          },
+          {
+            type: 'slider',
+            bottom: 28,
+            height: 14,
+            borderColor: 'transparent',
+            backgroundColor: props.isDark ? '#0b1220' : '#f3f4f6',
+            fillerColor: props.isDark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.18)',
+            handleSize: 12,
+            textStyle: { color: textColor, fontSize: 10 },
+            start: isDaily ? Math.max(0, 100 - (90 / dates.length) * 100) : 0,
+            end: 100,
+          },
+        ]
+      : undefined,
     series,
   }
 })
 </script>
 
 <template>
-  <VChart
-    :option="option"
-    autoresize
-    class="w-full h-72"
-  />
+  <div ref="containerRef" class="w-full h-72">
+    <VChart
+      v-if="canRenderChart"
+      ref="chartRef"
+      :option="option"
+      autoresize
+      class="w-full h-full"
+    />
+  </div>
 </template>

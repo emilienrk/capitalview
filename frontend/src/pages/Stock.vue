@@ -185,11 +185,12 @@ async function handleSelectUnifiedAsset(asset: AssetOption): Promise<void> {
     const selectedSymbol = asset.symbol
     try {
       const info = await stocks.getAssetsInfo([selectedSymbol])
+      const firstInfo = info[0]
       // Guard: don't overwrite if the user already changed the asset
-      if (txForm.symbol === selectedSymbol && info.length > 0 && info[0].isin) {
-        txForm.isin = info[0].isin
+      if (txForm.symbol === selectedSymbol && firstInfo?.isin) {
+        txForm.isin = firstInfo.isin
         // Update the search field to reflect the resolved ISIN
-        assetQuery.value = formatAssetOption({ ...asset, isin: info[0].isin })
+        assetQuery.value = formatAssetOption({ ...asset, isin: firstInfo.isin })
       }
     } catch (e) {
       console.error('[ISIN lookup] error:', e)
