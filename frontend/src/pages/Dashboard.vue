@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CreditCard, DollarSign, Eye, EyeOff, TrendingUp, WalletCards } from 'lucide-vue-next'
 
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useWealthHistoryStore } from '@/stores/wealthHistory'
@@ -11,6 +11,7 @@ import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import { useDarkMode } from '@/composables/useDarkMode'
 import PageHeader from '@/components/PageHeader.vue'
 import { BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseSkeleton, WealthHistoryChart } from '@/components'
+import type { GlobalHistorySnapshotResponse } from '@/types'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
@@ -32,6 +33,53 @@ const kpiColsClass = computed(() => {
     case 3: return 'grid-cols-1 sm:grid-cols-3'
     default: return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
   }
+})
+
+type HistoryGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly'
+const historyGranularity = ref<HistoryGranularity>('daily')
+
+const granularityOptions: Array<{ value: HistoryGranularity; label: string }> = [
+  { value: 'daily', label: 'Jour' },
+  { value: 'weekly', label: 'Semaine' },
+  { value: 'monthly', label: 'Mois' },
+  { value: 'yearly', label: 'Année' },
+]
+
+function getIsoWeekKey(snapshotDate: string): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const weekday = utcDate.getUTCDay() || 7
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - weekday)
+
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))
+  const weekNumber = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`
+}
+
+function getHistoryBucketKey(snapshotDate: string, granularity: HistoryGranularity): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  if (granularity === 'weekly') return getIsoWeekKey(snapshotDate)
+  if (granularity === 'monthly') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  if (granularity === 'yearly') return String(date.getFullYear())
+  return snapshotDate
+}
+
+const chartHistory = computed<GlobalHistorySnapshotResponse[]>(() => {
+  const history = historyStore.history
+  if (historyGranularity.value === 'daily') return history
+
+  // Keep the latest point of each period (end-of-week/month/year value).
+  const byBucket = new Map<string, GlobalHistorySnapshotResponse>()
+  for (const snapshot of history) {
+    const bucketKey = getHistoryBucketKey(snapshot.snapshot_date, historyGranularity.value)
+    byBucket.set(bucketKey, snapshot)
+  }
+
+  return Array.from(byBucket.values())
 })
 
 onMounted(() => {
@@ -312,13 +360,32 @@ onMounted(() => {
         <BaseAlert v-else-if="historyStore.error" variant="danger">
           {{ historyStore.error }}
         </BaseAlert>
-        <WealthHistoryChart
-          v-else-if="historyStore.hasMeaningfulHistory"
-          :history="historyStore.history"
-          :is-dark="isDark"
-          :bank-enabled="bankEnabled"
-          :wealth-enabled="wealthEnabled"
-        />
+        <template v-else-if="historyStore.history.length > 0">
+          <div class="mb-4 flex items-center justify-end">
+            <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+              <button
+                v-for="option in granularityOptions"
+                :key="option.value"
+                type="button"
+                @click="historyGranularity = option.value"
+                :class="[
+                  'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                  historyGranularity === option.value
+                    ? 'bg-primary text-primary-content'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+          <WealthHistoryChart
+            :history="chartHistory"
+            :is-dark="isDark"
+            :bank-enabled="bankEnabled"
+            :wealth-enabled="wealthEnabled"
+          />
+        </template>
         <BaseEmptyState
           v-else
           title="Pas encore assez de données"

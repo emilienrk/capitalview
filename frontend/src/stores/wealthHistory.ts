@@ -20,11 +20,14 @@ export const useWealthHistoryStore = defineStore('wealthHistory', () => {
   // Only show the chart when there's at least 7 days of history — less is not meaningful
   const hasMeaningfulHistory = computed(() => {
     if (history.value.length < 7) return false
-    const firstSnapshot = history.value[0]
-    const lastSnapshot = history.value[history.value.length - 1]
-    if (!firstSnapshot || !lastSnapshot) return false
-    const first = new Date(firstSnapshot.snapshot_date).getTime()
-    const last  = new Date(lastSnapshot.snapshot_date).getTime()
+    const timestamps = history.value
+      .map((snapshot) => new Date(snapshot.snapshot_date).getTime())
+      .filter((timestamp) => Number.isFinite(timestamp))
+
+    if (timestamps.length < 7) return false
+
+    const first = Math.min(...timestamps)
+    const last = Math.max(...timestamps)
     return last - first >= 6 * 24 * 60 * 60 * 1000 // 6 days gap = 7 distinct days
   })
 
@@ -35,7 +38,10 @@ export const useWealthHistoryStore = defineStore('wealthHistory', () => {
     error.value = null
     try {
       const data = await apiClient.get<GlobalHistorySnapshotResponse[]>('/dashboard/history')
-      history.value = data
+      // Normalize to chronological order for charts and date-span checks.
+      history.value = [...data].sort((a, b) =>
+        new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime()
+      )
       _fetchedAt.value = Date.now()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'historique'

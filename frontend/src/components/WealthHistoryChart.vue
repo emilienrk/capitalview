@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -19,6 +19,41 @@ const props = defineProps<{
   bankEnabled?: boolean
   wealthEnabled?: boolean
 }>()
+
+const chartRef = ref<InstanceType<typeof VChart> | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
+const canRenderChart = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+function syncChartVisibilityAndSize(): void {
+  const container = containerRef.value
+  if (!container) return
+
+  const hasSize = container.clientWidth > 0 && container.clientHeight > 0
+  if (!hasSize) return
+
+  canRenderChart.value = true
+  nextTick(() => {
+    chartRef.value?.resize()
+  })
+}
+
+onMounted(() => {
+  syncChartVisibilityAndSize()
+
+  resizeObserver = new ResizeObserver(() => {
+    syncChartVisibilityAndSize()
+  })
+
+  if (containerRef.value) {
+    resizeObserver.observe(containerRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 
 const COLORS = {
   total:   '#4f46e5', // primary (indigo-600)
@@ -180,9 +215,13 @@ const option = computed(() => {
 </script>
 
 <template>
-  <VChart
-    :option="option"
-    autoresize
-    class="w-full h-72"
-  />
+  <div ref="containerRef" class="w-full h-72">
+    <VChart
+      v-if="canRenderChart"
+      ref="chartRef"
+      :option="option"
+      autoresize
+      class="w-full h-full"
+    />
+  </div>
 </template>
