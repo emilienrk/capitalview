@@ -20,8 +20,11 @@ export const useWealthHistoryStore = defineStore('wealthHistory', () => {
   // Only show the chart when there's at least 7 days of history — less is not meaningful
   const hasMeaningfulHistory = computed(() => {
     if (history.value.length < 7) return false
-    const first = new Date(history.value[0].snapshot_date).getTime()
-    const last  = new Date(history.value[history.value.length - 1].snapshot_date).getTime()
+    const firstSnapshot = history.value[0]
+    const lastSnapshot = history.value[history.value.length - 1]
+    if (!firstSnapshot || !lastSnapshot) return false
+    const first = new Date(firstSnapshot.snapshot_date).getTime()
+    const last  = new Date(lastSnapshot.snapshot_date).getTime()
     return last - first >= 6 * 24 * 60 * 60 * 1000 // 6 days gap = 7 distinct days
   })
 
