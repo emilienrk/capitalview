@@ -125,8 +125,8 @@ function parseCSV(text: string): void {
     const row: Record<string, string> = {}
     headers.forEach((h, idx) => { row[h] = values[idx] ?? '' })
 
-    const dateStr = row['snapshot_date']
-    const valueStr = row['value']
+    const dateStr = row['snapshot_date'] ?? ''
+    const valueStr = row['value'] ?? ''
 
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       error.value = `Ligne ${i + 1} : date invalide "${dateStr}" (format attendu: YYYY-MM-DD)`

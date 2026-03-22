@@ -103,6 +103,7 @@ export const useCryptoStore = defineStore('crypto', () => {
           name: currentAccount.value.account_name,
           platform: null,
           public_address: null,
+          opened_at: null,
           created_at: '',
           updated_at: '',
         }]
