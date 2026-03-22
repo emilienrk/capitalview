@@ -166,13 +166,11 @@ const knownAssetOptions = computed((): AssetOption[] => {
 })
 
 function formatAssetOption(opt: AssetOption): string {
-  const parts: string[] = [opt.symbol]
-  if (opt.name) parts.push(opt.name)
-  if (opt.isin) parts.push(`(${opt.isin})`)
-  return parts.join(' – ')
+  if (opt.name) return opt.name + " (" + opt.symbol + ")"
+  else return opt.symbol
 }
 
-function handleSelectUnifiedAsset(asset: AssetOption): void {
+async function handleSelectUnifiedAsset(asset: AssetOption): Promise<void> {
   txForm.symbol = asset.symbol
   txForm.isin = asset.isin ?? ''
   txForm.exchange = asset.exchange ?? ''
@@ -180,6 +178,23 @@ function handleSelectUnifiedAsset(asset: AssetOption): void {
   assetQuery.value = formatAssetOption(asset)
   assetError.value = null
   if (asset.exchange) showExchange.value = true
+
+  // API search results never include ISIN (Yahoo Finance search doesn't return it).
+  // When no ISIN is available, do a follow-up info call to resolve it.
+  if (!asset.isin) {
+    const selectedSymbol = asset.symbol
+    try {
+      const info = await stocks.getAssetsInfo([selectedSymbol])
+      // Guard: don't overwrite if the user already changed the asset
+      if (txForm.symbol === selectedSymbol && info.length > 0 && info[0].isin) {
+        txForm.isin = info[0].isin
+        // Update the search field to reflect the resolved ISIN
+        assetQuery.value = formatAssetOption({ ...asset, isin: info[0].isin })
+      }
+    } catch (e) {
+      console.error('[ISIN lookup] error:', e)
+    }
+  }
 }
 
 /** Show currency toggle only if current account has at least one non-EUR position */
@@ -1078,7 +1093,7 @@ onMounted(() => {
                   <span class="font-medium">{{ item.symbol }}</span>
                   <span v-if="item.name" class="text-text-muted dark:text-text-dark-muted text-xs ml-1.5">{{ item.name }}</span>
                   <span v-if="item.isin" class="text-text-muted dark:text-text-dark-muted text-xs ml-1">({{ item.isin }})</span>
-                </div>
+                </div>  
                 <span
                   :class="[
                     'text-xs shrink-0 px-1.5 py-0.5 rounded-secondary font-medium',
@@ -1104,7 +1119,7 @@ onMounted(() => {
           <BaseInput
             v-model="txForm.isin!"
             label="ISIN"
-            placeholder="Auto-rempli à la sélection"
+            placeholder="Obligatoire"
             required
           />
           <BaseInput
