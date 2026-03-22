@@ -47,6 +47,7 @@ export interface BankAccountCreate {
   institution_name?: string
   identifier?: string
   balance?: number
+  opened_at?: string | null
 }
 
 export interface BankAccountUpdate {
@@ -54,6 +55,7 @@ export interface BankAccountUpdate {
   institution_name?: string
   identifier?: string
   balance?: number
+  opened_at?: string | null
 }
 
 export interface BankAccountResponse {
@@ -63,6 +65,7 @@ export interface BankAccountResponse {
   balance: number
   account_type: BankAccountType
   identifier: string | null
+  opened_at: string | null
   created_at: string
   updated_at: string
   balance_updated_at: string | null
@@ -149,12 +152,14 @@ export interface StockAccountCreate {
   account_type: StockAccountType
   institution_name?: string
   identifier?: string
+  opened_at?: string | null
 }
 
 export interface StockAccountUpdate {
   name?: string
   institution_name?: string
   identifier?: string
+  opened_at?: string | null
 }
 
 export interface StockAccountBasicResponse {
@@ -163,6 +168,7 @@ export interface StockAccountBasicResponse {
   account_type: StockAccountType
   institution_name: string | null
   identifier: string | null
+  opened_at: string | null
   created_at: string
   updated_at: string
 }
@@ -270,12 +276,14 @@ export interface CryptoAccountCreate {
   name: string
   platform?: string
   public_address?: string
+  opened_at?: string | null
 }
 
 export interface CryptoAccountUpdate {
   name?: string
   platform?: string
   public_address?: string
+  opened_at?: string | null
 }
 
 export interface CryptoAccountBasicResponse {
@@ -283,6 +291,7 @@ export interface CryptoAccountBasicResponse {
   name: string
   platform: string | null
   public_address: string | null
+  opened_at: string | null
   created_at: string
   updated_at: string
 }

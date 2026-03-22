@@ -26,6 +26,7 @@ const form = reactive<BankAccountCreate>({
   institution_name: '',
   identifier: '',
   balance: 0,
+  opened_at: null,
 })
 
 const accountTypeOptions = computed(() => {
@@ -53,16 +54,18 @@ function openCreate(): void {
   form.institution_name = ''
   form.identifier = ''
   form.balance = 0
+  form.opened_at = null
   showCreateModal.value = true
 }
 
-function openEdit(account: { id: string; name: string; account_type: BankAccountType; institution_name: string | null; identifier: string | null; balance: number }): void {
+function openEdit(account: { id: string; name: string; account_type: BankAccountType; institution_name: string | null; identifier: string | null; balance: number; opened_at: string | null }): void {
   editingId.value = account.id
   form.name = account.name
   form.account_type = account.account_type
   form.institution_name = account.institution_name ?? ''
   form.identifier = account.identifier ?? ''
   form.balance = account.balance
+  form.opened_at = account.opened_at ?? null
   showCreateModal.value = true
 }
 
@@ -163,6 +166,7 @@ onMounted(async () => {
         <BaseInput v-model="form.institution_name!" label="Banque" placeholder="Nom de la banque" />
         <BaseInput v-model="form.identifier!" label="Identifiant" placeholder="IBAN" />
         <BaseInput v-model="form.balance!" label="Solde" type="number" placeholder="0.00" />
+        <BaseInput v-model="form.opened_at!" label="Date d'ouverture" type="date" />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">

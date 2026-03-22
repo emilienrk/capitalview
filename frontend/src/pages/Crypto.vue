@@ -105,6 +105,7 @@ const accountForm = reactive<CryptoAccountCreate>({
   name: '',
   platform: '',
   public_address: '',
+  opened_at: null,
 })
 
 const txForm = reactive<TxFormData>({
@@ -336,6 +337,7 @@ function openCreateAccount(): void {
   accountForm.name = ''
   accountForm.platform = ''
   accountForm.public_address = ''
+  accountForm.opened_at = null
   showAccountModal.value = true
 }
 
@@ -344,6 +346,7 @@ function openEditAccount(account: any): void {
   accountForm.name = account.name
   accountForm.platform = account.platform || ''
   accountForm.public_address = account.public_address || ''
+  accountForm.opened_at = account.opened_at ?? null
   showAccountModal.value = true
 }
 
@@ -1446,6 +1449,7 @@ onMounted(async () => {
         <BaseInput v-model="accountForm.name" label="Nom" placeholder="Nom du portefeuille" required />
         <BaseInput v-model="accountForm.platform!" label="Nom du wallet" placeholder="Nom du wallet" />
         <BaseInput v-model="accountForm.public_address!" label="Adresse publique" placeholder="Adresse publique" />
+        <BaseInput v-model="accountForm.opened_at!" label="Date d'ouverture" type="date" />
       </form>
       <template #footer>
         <div class="flex justify-between w-full">
