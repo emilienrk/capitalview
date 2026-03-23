@@ -84,6 +84,9 @@ const isValid = computed(() => {
   const hasCat = effectiveCategory.value.trim().length > 0
   const hasPurchase = purchasePrice.value !== '' && purchasePrice.value !== null && Number(purchasePrice.value) >= 0
   const hasEstimated = estimatedValue.value !== '' && estimatedValue.value !== null && Number(estimatedValue.value) >= 0
+  if (isEditing.value) {
+    return hasName && hasCat
+  }
   return hasName && hasCat && (hasPurchase || hasEstimated)
 })
 
@@ -103,12 +106,19 @@ function onSubmit(): void {
     description: description.value.trim() || null,
     category: effectiveCategory.value.trim(),
     purchase_price: pp,
-    estimated_value: ev,
     currency: currency.value,
     acquisition_date: acquisitionDate.value || null,
   }
 
-  emit('save', base)
+  if (isEditing.value) {
+    emit('save', base)
+    return
+  }
+
+  emit('save', {
+    ...base,
+    estimated_value: ev,
+  })
 }
 
 const allCategoryOptions = computed<SelectOption[]>(() => [
@@ -148,7 +158,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
         />
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div :class="['grid grid-cols-1 gap-4', isEditing ? 'sm:grid-cols-1' : 'sm:grid-cols-2']">
         <BaseInput
           v-model="purchasePrice"
           label="Prix d'achat"
@@ -156,6 +166,7 @@ const allCategoryOptions = computed<SelectOption[]>(() => [
           placeholder=""
         />
         <BaseInput
+          v-if="!isEditing"
           v-model="estimatedValue"
           label="Valeur estimée actuelle"
           type="number"

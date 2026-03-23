@@ -2,6 +2,7 @@
 import { Check, Clock3, Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 
 import { onMounted, ref, computed } from 'vue'
+import { apiClient } from '@/api/client'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useBankStore } from '@/stores/bank'
 import { useAssetStore } from '@/stores/asset'
@@ -11,16 +12,17 @@ import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
 import AssetFormModal from '@/components/AssetFormModal.vue'
 import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
+import AssetEvolutionChart from '@/components/AssetEvolutionChart.vue'
 import {
   BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton, BaseModal, BaseInput,
 } from '@/components'
-import type { AssetCreate, AssetUpdate, AssetResponse } from '@/types'
+import type { AssetCreate, AssetUpdate, AssetResponse, AssetHistorySnapshotResponse } from '@/types'
 
 const dashboard = useDashboardStore()
 const bank = useBankStore()
 const asset = useAssetStore()
 const settingsStore = useSettingsStore()
-const { formatCurrency, formatPercent, profitLossClass, formatAccountType, formatDate, formatDateShort } = useFormatters()
+const { formatCurrency, formatPercent, profitLossClass, formatDate, formatDateShort } = useFormatters()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
@@ -40,10 +42,30 @@ const sellingAsset = ref<AssetResponse | null>(null)
 const sellPrice = ref<number | string>('')
 const sellDate = ref<string>(new Date().toISOString().substring(0, 10))
 
+const assetHistory = ref<AssetHistorySnapshotResponse[]>([])
+const isLoadingAssetHistory = ref(false)
+const assetHistoryError = ref<string | null>(null)
+
+async function fetchAssetHistory(): Promise<void> {
+  isLoadingAssetHistory.value = true
+  assetHistoryError.value = null
+  try {
+    const history = await apiClient.get<AssetHistorySnapshotResponse[]>('/assets/history')
+    assetHistory.value = [...history].sort((a, b) =>
+      new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime()
+    )
+  } catch (e) {
+    assetHistoryError.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'evolution des assets'
+  } finally {
+    isLoadingAssetHistory.value = false
+  }
+}
+
 onMounted(async () => {
   const promises: Promise<unknown>[] = [
     dashboard.fetchAll(settingsStore.settings),
     asset.fetchAssets(),
+    fetchAssetHistory(),
   ]
   if (bankEnabled.value) {
     promises.push(bank.fetchAccounts())
@@ -167,27 +189,13 @@ const groupedAssets = computed(() => {
         />
       </div>
 
-      <!-- Account breakdown by type -->
-      <BaseCard title="Répartition par compte">
-        <div v-if="dashboard.portfolio?.accounts?.length" class="space-y-3">
-          <div
-            v-for="account in dashboard.portfolio.accounts"
-            :key="account.account_id"
-            class="flex items-center justify-between py-2 border-b border-surface-border dark:border-surface-dark-border last:border-0"
-          >
-            <div>
-              <p class="font-medium text-text-main dark:text-text-dark-main">{{ account.account_name }}</p>
-              <p class="text-xs text-text-muted dark:text-text-dark-muted">{{ formatAccountType(account.account_type) }}</p>
-            </div>
-            <div class="text-right">
-              <p class="font-semibold text-text-main dark:text-text-dark-main">{{ maskValue(formatCurrency(account.current_value ?? account.total_invested)) }}</p>
-              <p :class="['text-xs font-medium', profitLossClass(account.profit_loss)]">
-                {{ formatPercent(account.profit_loss_percentage) }}
-              </p>
-            </div>
-          </div>
+      <!-- Asset evolution chart -->
+      <BaseCard title="Evolution des assets">
+        <BaseAlert v-if="assetHistoryError" variant="danger" class="mb-4">{{ assetHistoryError }}</BaseAlert>
+        <div v-if="isLoadingAssetHistory" class="h-44 rounded-secondary border border-surface-border dark:border-surface-dark-border flex items-center justify-center text-sm text-text-muted dark:text-text-dark-muted">
+          Chargement de l'evolution...
         </div>
-        <BaseEmptyState v-else title="Aucun investissement" description="Ajoutez des comptes pour visualiser votre répartition" />
+        <AssetEvolutionChart v-else :history="assetHistory" />
       </BaseCard>
 
       <!-- ═══════════════ PERSONAL ASSETS ═══════════════ -->
@@ -258,10 +266,10 @@ const groupedAssets = computed(() => {
                 <div class="flex items-center gap-4 ml-4">
                   <div class="text-right">
                     <p class="font-semibold text-text-main dark:text-text-dark-main">{{ formatCurrency(a.estimated_value) }}</p>
-                    <p class="text-xs text-text-muted dark:text-text-dark-muted inline-flex items-center gap-1 justify-end">
+                    <p v-if="a.last_valuation_date" class="text-xs text-text-muted dark:text-text-dark-muted inline-flex items-center gap-1 justify-end">
                       <RefreshCw class="w-3 h-3 shrink-0" />
-                      <span class="hidden sm:inline">{{ formatDate(a.updated_at) }}</span>
-                      <span class="sm:hidden">{{ formatDateShort(a.updated_at) }}</span>
+                      <span class="hidden sm:inline">{{ formatDate(a.last_valuation_date) }}</span>
+                      <span class="sm:hidden">{{ formatDateShort(a.last_valuation_date) }}</span>
                     </p>
                   </div>
                   <!-- Actions -->

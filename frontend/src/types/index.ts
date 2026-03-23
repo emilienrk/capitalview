@@ -631,6 +631,7 @@ export interface AssetResponse {
   profit_loss: number | null
   sold_price: number | null
   sold_at: string | null
+  last_valuation_date: string | null
   created_at: string
   updated_at: string
 }
@@ -639,6 +640,12 @@ export interface AssetValuationCreate {
   estimated_value: number
   note?: string | null
   valued_at: string
+}
+
+export interface AssetValuationUpdate {
+  estimated_value?: number
+  note?: string | null
+  valued_at?: string
 }
 
 export interface AssetValuationResponse {
@@ -805,4 +812,11 @@ export interface GlobalHistorySnapshotResponse {
   crypto_value: number
   bank_value: number
   assets_value: number
+}
+
+export interface AssetHistorySnapshotResponse {
+  snapshot_date: string
+  total_value: number
+  total_invested: number
+  daily_pnl: number | null
 }

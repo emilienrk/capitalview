@@ -8,6 +8,7 @@ import type {
   AssetUpdate,
   AssetSell,
   AssetValuationCreate,
+  AssetValuationUpdate,
   AssetValuationResponse,
 } from '@/types'
 
@@ -122,6 +123,21 @@ export const useAssetStore = defineStore('asset', () => {
     }
   }
 
+  async function updateValuation(
+    assetId: string,
+    valuationId: string,
+    data: AssetValuationUpdate,
+  ): Promise<AssetValuationResponse | null> {
+    try {
+      const v = await apiClient.put<AssetValuationResponse>(`/assets/${assetId}/valuations/${valuationId}`, data)
+      await fetchValuations(assetId)
+      return v
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors de la mise a jour de la valorisation'
+      return null
+    }
+  }
+
   async function deleteValuation(assetId: string, valuationId: string): Promise<boolean> {
     try {
       await apiClient.delete(`/assets/${assetId}/valuations/${valuationId}`)
@@ -154,6 +170,7 @@ export const useAssetStore = defineStore('asset', () => {
     sellAsset,
     fetchValuations,
     addValuation,
+    updateValuation,
     deleteValuation,
     reset,
   }
