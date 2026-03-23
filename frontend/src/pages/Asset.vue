@@ -14,7 +14,7 @@ import AssetFormModal from '@/components/AssetFormModal.vue'
 import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
 import AssetEvolutionChart from '@/components/AssetEvolutionChart.vue'
 import {
-  BaseCard, BaseAlert, BaseEmptyState, BaseStatCard, BaseButton, BaseModal, BaseInput,
+  BaseCard, BaseAlert, BaseEmptyState, BaseButton, BaseModal, BaseInput,
 } from '@/components'
 import type { AssetCreate, AssetUpdate, AssetResponse, AssetHistorySnapshotResponse } from '@/types'
 
@@ -22,15 +22,10 @@ const dashboard = useDashboardStore()
 const bank = useBankStore()
 const asset = useAssetStore()
 const settingsStore = useSettingsStore()
-const { formatCurrency, formatPercent, profitLossClass, formatDate, formatDateShort } = useFormatters()
+const { formatCurrency, formatDate, formatDateShort } = useFormatters()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
 
 const bankEnabled = computed(() => settingsStore.settings?.bank_module_enabled ?? true)
-
-// 3 cols when bank is shown, 2 when hidden
-const breakdownColsClass = computed(() =>
-  bankEnabled.value ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'
-)
 
 const showAssetModal = ref(false)
 const editingAsset = ref<AssetResponse | null>(null)
@@ -55,7 +50,7 @@ async function fetchAssetHistory(): Promise<void> {
       new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime()
     )
   } catch (e) {
-    assetHistoryError.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'evolution des assets'
+    assetHistoryError.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'evolution des bien'
   } finally {
     isLoadingAssetHistory.value = false
   }
@@ -167,26 +162,6 @@ const groupedAssets = computed(() => {
         <p class="text-4xl font-bold text-text-main dark:text-text-dark-main mt-2">
           {{ maskValue(formatCurrency(totalNetWorth())) }}
         </p>
-      </div>
-
-      <!-- Breakdown -->
-      <div :class="['grid gap-4', breakdownColsClass]">
-        <BaseStatCard
-          v-if="bankEnabled"
-          label="Liquidités"
-          :value="maskValue(formatCurrency(bank.summary?.total_balance))"
-        />
-        <BaseStatCard
-          label="Investissements"
-          :value="maskValue(formatCurrency(dashboard.portfolio?.current_value ?? dashboard.portfolio?.total_invested))"
-          :sub-value="formatPercent(dashboard.portfolio?.profit_loss_percentage)"
-          :sub-value-class="profitLossClass(dashboard.portfolio?.profit_loss_percentage)"
-        />
-        <BaseStatCard
-          label="Biens personnels"
-          :value="maskValue(formatCurrency(asset.summary?.total_estimated_value))"
-          :sub-value="asset.summary?.asset_count ? `${asset.summary.asset_count} bien(s)` : undefined"
-        />
       </div>
 
       <!-- Asset evolution chart -->
