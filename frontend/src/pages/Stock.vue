@@ -12,7 +12,7 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
-import CsvImportModal from '@/components/CsvImportModal.vue'
+import CsvImportModal from '@/components/modals/CsvImportModal.vue'
 import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse, EurDepositCreate } from '@/types'
 
 

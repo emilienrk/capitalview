@@ -12,7 +12,7 @@ import {
   BaseAlert, BaseEmptyState, BaseBadge, BaseSkeleton,
 } from '@/components'
 import BankHistoryImportModal from '@/components/imports/BankHistoryImportModal.vue'
-import BankHistoryChart from '@/components/BankHistoryChart.vue'
+import BankHistoryChart from '@/components/charts/BankHistoryChart.vue'
 import type { AccountHistorySnapshotResponse, BankAccountCreate, BankAccountType } from '@/types'
 
 const bank = useBankStore()

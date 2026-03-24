@@ -10,9 +10,9 @@ import { useSettingsStore } from '@/stores/settings'
 import { useFormatters } from '@/composables/useFormatters'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
 import PageHeader from '@/components/PageHeader.vue'
-import AssetFormModal from '@/components/AssetFormModal.vue'
-import AssetHistoryModal from '@/components/AssetHistoryModal.vue'
-import AssetEvolutionChart from '@/components/AssetEvolutionChart.vue'
+import AssetFormModal from '@/components/modals/AssetFormModal.vue'
+import AssetHistoryModal from '@/components/modals/AssetHistoryModal.vue'
+import AssetEvolutionChart from '@/components/charts/AssetEvolutionChart.vue'
 import {
   BaseCard, BaseAlert, BaseEmptyState, BaseButton, BaseModal, BaseInput,
 } from '@/components'

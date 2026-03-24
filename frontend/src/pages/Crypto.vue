@@ -13,7 +13,7 @@ import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseAutocomplete,
 } from '@/components'
-import CsvImportModal from '@/components/CsvImportModal.vue'
+import CsvImportModal from '@/components/modals/CsvImportModal.vue'
 import BinanceImportModal from '@/components/imports/BinanceImportModal.vue'
 import type {
   CryptoAccountCreate,

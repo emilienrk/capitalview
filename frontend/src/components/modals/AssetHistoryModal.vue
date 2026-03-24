@@ -11,8 +11,8 @@ import type {
 } from '@/types'
 import { useAssetStore } from '@/stores/asset'
 import { useFormatters } from '@/composables/useFormatters'
-import BaseModal from '@/components/BaseModal.vue'
-import AssetValuationChart from '@/components/AssetValuationChart.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import AssetValuationChart from '@/components/charts/AssetValuationChart.vue'
 import { BaseButton, BaseInput, BaseSpinner } from '@/components'
 
 interface Props {

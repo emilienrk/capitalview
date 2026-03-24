@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { AssetCreate, AssetUpdate, AssetResponse } from '@/types'
-import BaseModal from '@/components/BaseModal.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
 import { BaseButton, BaseInput, BaseSelect } from '@/components'
-import type { SelectOption } from '@/components/BaseSelect.vue'
+import type { SelectOption } from '@/components/base/BaseSelect.vue'
 
 interface Props {
   open: boolean

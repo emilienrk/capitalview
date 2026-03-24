@@ -3,10 +3,10 @@ import { Upload } from 'lucide-vue-next'
 
 import { ref, computed, reactive, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
-import BaseModal from '@/components/BaseModal.vue'
-import BaseButton from '@/components/BaseButton.vue'
-import BaseAlert from '@/components/BaseAlert.vue'
-import BaseSpinner from '@/components/BaseSpinner.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import BaseAlert from '@/components/base/BaseAlert.vue'
+import BaseSpinner from '@/components/base/BaseSpinner.vue'
 import type {
   BinanceImportGroupPreview,
   BinanceImportPreviewResponse,
