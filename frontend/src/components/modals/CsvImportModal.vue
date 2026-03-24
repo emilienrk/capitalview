@@ -2,9 +2,9 @@
 import { Check, Circle, Download, X } from 'lucide-vue-next'
 
 import { ref, computed, watch } from 'vue'
-import BaseModal from './BaseModal.vue'
-import BaseButton from './BaseButton.vue'
-import BaseAlert from './BaseAlert.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import BaseAlert from '@/components/base/BaseAlert.vue'
 
 interface Props {
   open: boolean
