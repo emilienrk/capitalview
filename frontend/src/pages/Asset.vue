@@ -3,6 +3,7 @@ import { Check, Clock3, Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2 } from 'luc
 
 import { onMounted, ref, computed } from 'vue'
 import { apiClient } from '@/api/client'
+import { getOrFetchCached, invalidateCacheKey } from '@/services/cache'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useBankStore } from '@/stores/bank'
 import { useAssetStore } from '@/stores/asset'
@@ -40,12 +41,18 @@ const sellDate = ref<string>(new Date().toISOString().substring(0, 10))
 const assetHistory = ref<AssetHistorySnapshotResponse[]>([])
 const isLoadingAssetHistory = ref(false)
 const assetHistoryError = ref<string | null>(null)
+const assetHistoryCacheKey = 'asset:history:global'
 
-async function fetchAssetHistory(): Promise<void> {
+async function fetchAssetHistory(force = false): Promise<void> {
   isLoadingAssetHistory.value = true
   assetHistoryError.value = null
   try {
-    const history = await apiClient.get<AssetHistorySnapshotResponse[]>('/assets/history')
+    const history = await getOrFetchCached<AssetHistorySnapshotResponse[]>(
+      assetHistoryCacheKey,
+      () => apiClient.get<AssetHistorySnapshotResponse[]>('/assets/history'),
+      60 * 60 * 1000,
+      force,
+    )
     assetHistory.value = [...history].sort((a, b) =>
       new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime()
     )
@@ -106,6 +113,8 @@ async function confirmSell(): Promise<void> {
     sold_price: Number(sellPrice.value) || 0,
     sold_at: sellDate.value || new Date().toISOString().substring(0, 10),
   })
+  invalidateCacheKey(assetHistoryCacheKey)
+  await fetchAssetHistory(true)
   showSellModal.value = false
   sellingAsset.value = null
 }
@@ -113,6 +122,8 @@ async function confirmSell(): Promise<void> {
 async function confirmHardDelete(): Promise<void> {
   if (!sellingAsset.value) return
   await asset.deleteAsset(sellingAsset.value.id)
+  invalidateCacheKey(assetHistoryCacheKey)
+  await fetchAssetHistory(true)
   showSellModal.value = false
   sellingAsset.value = null
 }
@@ -123,6 +134,8 @@ async function onSaveAsset(data: AssetCreate | AssetUpdate): Promise<void> {
   } else {
     await asset.createAsset(data as AssetCreate)
   }
+  invalidateCacheKey(assetHistoryCacheKey)
+  await fetchAssetHistory(true)
   showAssetModal.value = false
 }
 

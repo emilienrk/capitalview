@@ -70,7 +70,7 @@ function getHistoryBucketKey(snapshotDate: string, granularity: HistoryGranulari
 
 const chartHistory = computed<GlobalHistorySnapshotResponse[]>(() => {
   const history = historyStore.history
-  if (historyGranularity.value === 'daily') return history
+  if (!history || historyGranularity.value === 'daily') return history ?? []
 
   // Keep the latest point of each period (end-of-week/month/year value).
   const byBucket = new Map<string, GlobalHistorySnapshotResponse>()
@@ -360,7 +360,7 @@ onMounted(() => {
         <BaseAlert v-else-if="historyStore.error" variant="danger">
           {{ historyStore.error }}
         </BaseAlert>
-        <template v-else-if="historyStore.history.length > 0">
+        <template v-else-if="historyStore.history && historyStore.history.length > 0">
           <div class="mb-4 flex items-center justify-end">
             <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
               <button
