@@ -820,3 +820,10 @@ export interface AssetHistorySnapshotResponse {
   total_invested: number
   daily_pnl: number | null
 }
+
+export interface AccountHistorySnapshotResponse {
+  snapshot_date: string
+  total_value: number
+  total_invested: number
+  daily_pnl: number | null
+}
