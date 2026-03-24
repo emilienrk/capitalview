@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { apiClient } from '@/api/client'
+import {
+  getOrFetchCached,
+  invalidateCacheKey,
+  invalidateCachePrefix,
+  isCacheEntryValid,
+} from '@/services/cache'
 import type {
   BankAccountResponse,
   BankSummaryResponse,
@@ -20,19 +26,17 @@ export const useBankStore = defineStore('bank', () => {
   const isLoading = ref(false)
   const historyLoading = ref(false)
   const error = ref<string | null>(null)
-  const _historyFetchedAt = ref<number | null>(null)
-  const _accountHistoryFetchedAt = ref<Record<string, number>>({})
+  const historyCacheKey = 'bank:history:global'
 
   const isHistoryCacheValid = computed(() => {
-    if (!_historyFetchedAt.value || history.value.length === 0) return false
-    return Date.now() - _historyFetchedAt.value < CACHE_TTL_MS
+    if (history.value.length === 0) return false
+    return isCacheEntryValid(historyCacheKey)
   })
 
   function isAccountHistoryCacheValid(accountId: string): boolean {
-    const fetchedAt = _accountHistoryFetchedAt.value[accountId]
     const cached = accountHistoryById.value[accountId]
-    if (!fetchedAt || !cached || cached.length === 0) return false
-    return Date.now() - fetchedAt < CACHE_TTL_MS
+    if (!cached || cached.length === 0) return false
+    return isCacheEntryValid(`bank:history:account:${accountId}`)
   }
 
   async function fetchAccounts(): Promise<void> {
@@ -128,16 +132,18 @@ export const useBankStore = defineStore('bank', () => {
   }
 
   async function fetchHistory(force = false): Promise<void> {
-    if (!force && isHistoryCacheValid.value) return
-
     historyLoading.value = true
     error.value = null
     try {
-      const data = await apiClient.get<AccountHistorySnapshotResponse[]>('/bank/history')
+      const data = await getOrFetchCached<AccountHistorySnapshotResponse[]>(
+        historyCacheKey,
+        () => apiClient.get<AccountHistorySnapshotResponse[]>('/bank/history'),
+        CACHE_TTL_MS,
+        force,
+      )
       history.value = [...data].sort((a, b) =>
         new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
       )
-      _historyFetchedAt.value = Date.now()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'historique'
     } finally {
@@ -146,16 +152,18 @@ export const useBankStore = defineStore('bank', () => {
   }
 
   async function fetchHistoryForAccount(accountId: string, force = false): Promise<void> {
-    if (!force && isAccountHistoryCacheValid(accountId)) return
-
     historyLoading.value = true
     error.value = null
     try {
-      const data = await apiClient.get<AccountHistorySnapshotResponse[]>(`/bank/accounts/${accountId}/history`)
+      const data = await getOrFetchCached<AccountHistorySnapshotResponse[]>(
+        `bank:history:account:${accountId}`,
+        () => apiClient.get<AccountHistorySnapshotResponse[]>(`/bank/accounts/${accountId}/history`),
+        CACHE_TTL_MS,
+        force,
+      )
       accountHistoryById.value[accountId] = [...data].sort((a, b) =>
         new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
       )
-      _accountHistoryFetchedAt.value[accountId] = Date.now()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'historique'
     } finally {
@@ -164,8 +172,8 @@ export const useBankStore = defineStore('bank', () => {
   }
 
   function invalidateHistoryCache(): void {
-    _historyFetchedAt.value = null
-    _accountHistoryFetchedAt.value = {}
+    invalidateCacheKey(historyCacheKey)
+    invalidateCachePrefix('bank:history:account:')
   }
 
   function reset(): void {
@@ -173,8 +181,7 @@ export const useBankStore = defineStore('bank', () => {
     currentAccount.value = null
     history.value = []
     accountHistoryById.value = {}
-    _historyFetchedAt.value = null
-    _accountHistoryFetchedAt.value = {}
+    invalidateHistoryCache()
     error.value = null
   }
 
