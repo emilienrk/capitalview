@@ -532,9 +532,6 @@ export interface PositionResponse {
 }
 
 export interface AccountSummaryResponse {
-  account_id: string
-  account_name: string
-  account_type: string
   total_invested: number
   total_deposits: number
   total_fees: number

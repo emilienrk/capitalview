@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, ArrowLeftRight, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Pencil, Plus, Upload } from 'lucide-vue-next'
+import { AlertCircle, ArrowLeftRight, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Pencil, Plus, RefreshCw, Upload } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useCryptoStore } from '@/stores/crypto'
@@ -8,6 +8,7 @@ import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
+import { useDarkMode } from '@/composables/useDarkMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
@@ -15,7 +16,10 @@ import {
 } from '@/components'
 import CsvImportModal from '@/components/modals/CsvImportModal.vue'
 import BinanceImportModal from '@/components/imports/BinanceImportModal.vue'
+import BankHistoryChart from '@/components/charts/BankHistoryChart.vue'
+import CryptoAllocationDonutChart from '@/components/charts/CryptoAllocationDonutChart.vue'
 import type {
+  AccountHistorySnapshotResponse,
   CryptoAccountCreate,
   CryptoCompositeTransactionCreate,
   CrossAccountTransferCreate,
@@ -31,6 +35,7 @@ const bank = useBankStore()
 const { formatCurrency, formatPercent, formatNumber, profitLossClass } = useFormatters()
 const { fetchRate, displayCurrency, usdToEurRate, toggleCurrency } = useCurrencyToggle()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
+const { isDark } = useDarkMode()
 
 const isSingleMode = computed(
   () =>
@@ -73,9 +78,24 @@ const selectedAccountId = ref<string | null>(null)
 const transferToAccountId = ref<string>('')
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
+type HistoryGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly'
+const historyGranularity = ref<HistoryGranularity>('daily')
+const granularityOptions: Array<{ value: HistoryGranularity; label: string }> = [
+  { value: 'daily', label: 'Jour' },
+  { value: 'weekly', label: 'Semaine' },
+  { value: 'monthly', label: 'Mois' },
+  { value: 'yearly', label: 'Année' },
+]
 const editingTxId = ref<string | null>(null)
 const editingGroupUuid = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
+type CryptoChartSlide = 'evolution' | 'allocation' | 'pnl'
+const chartSlide = ref<CryptoChartSlide>('evolution')
+const chartSlides: Array<{ key: CryptoChartSlide; label: string }> = [
+  { key: 'evolution', label: 'Évolution' },
+  { key: 'allocation', label: 'Répartition' },
+  { key: 'pnl', label: 'P/L journalier' },
+]
 /** Non-blocking balance warning shown after a transaction is created. */
 const txWarning = ref<string | null>(null)
 
@@ -358,6 +378,7 @@ async function handleSubmitAccount(): Promise<void> {
     result = await crypto.createAccount({ ...accountForm })
   }
   if (result) {
+    await loadCryptoChartHistories(true)
     showAccountModal.value = false
   }
 }
@@ -407,6 +428,7 @@ async function handleBinanceImported(): Promise<void> {
   showBinanceImportModal.value = false
   if (binanceImportAccountId.value) {
     await selectAccount(binanceImportAccountId.value)
+    await loadCryptoChartHistories(true)
   }
 }
 
@@ -418,6 +440,7 @@ async function handleCsvImport(transactions: CryptoCompositeBulkItem[]): Promise
   if (result) {
     showCsvImportModal.value = false
     await selectAccount(csvImportAccountId.value)
+    await loadCryptoChartHistories(true)
     return true
   }
   return false
@@ -534,6 +557,120 @@ const sortedPositions = computed(() => {
     (a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0)
   )
 })
+
+function getIsoWeekKey(snapshotDate: string): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const weekday = utcDate.getUTCDay() || 7
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - weekday)
+
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))
+  const weekNumber = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`
+}
+
+function getHistoryBucketKey(snapshotDate: string, granularity: HistoryGranularity): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  if (granularity === 'weekly') return getIsoWeekKey(snapshotDate)
+  if (granularity === 'monthly') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  if (granularity === 'yearly') return String(date.getFullYear())
+  return snapshotDate
+}
+
+function applyGranularity(history: AccountHistorySnapshotResponse[]): AccountHistorySnapshotResponse[] {
+  if (historyGranularity.value === 'daily') return history
+
+  const byBucket = new Map<string, AccountHistorySnapshotResponse>()
+  for (const snapshot of history) {
+    const bucketKey = getHistoryBucketKey(snapshot.snapshot_date, historyGranularity.value)
+    byBucket.set(bucketKey, snapshot)
+  }
+
+  return Array.from(byBucket.values())
+}
+
+const cryptoChartSeries = computed(() => {
+  const totalHistory = applyGranularity(crypto.history)
+  const accountSeries = (crypto.accounts ?? [])
+    .map((account) => ({
+      name: account.name,
+      history: applyGranularity(crypto.accountHistoryById[account.id] ?? []),
+    }))
+    .filter((series) => series.history.length > 0)
+
+  const series = [{ name: 'Valeur totale', history: totalHistory }, ...accountSeries]
+  return series.filter((line) => line.history.length > 0)
+})
+
+const historyForAnalytics = computed<AccountHistorySnapshotResponse[]>(() => {
+  const accountId = selectedAccountId.value
+  if (accountId && crypto.accountHistoryById[accountId]?.length) {
+    return [...crypto.accountHistoryById[accountId]].sort(
+      (a, b) => new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
+    )
+  }
+
+  return [...crypto.history].sort(
+    (a, b) => new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
+  )
+})
+
+const pnlChartSeries = computed(() => {
+  const hist = historyForAnalytics.value
+  if (!hist.length) return []
+
+  const dailyPnlSeries = hist
+    .filter((point) => point.daily_pnl != null)
+    .map((point) => ({
+      ...point,
+      total_value: Number(point.daily_pnl),
+    }))
+
+  if (!dailyPnlSeries.length) return []
+
+  return [
+    { name: 'P/L journalier', history: dailyPnlSeries },
+  ]
+})
+
+const allocationSegments = computed(() => {
+  const positions = crypto.currentAccount?.positions ?? []
+  const fiat = new Set(['EUR', 'USD', 'USDC', 'USDT', 'DAI'])
+
+  return positions
+    .filter((position) => !fiat.has((position.symbol || '').toUpperCase()))
+    .map((position) => ({
+      name: position.symbol || position.name || 'Inconnu',
+      value: Number(position.current_value ?? 0),
+    }))
+    .filter((segment) => segment.value > 0)
+    .sort((a, b) => b.value - a.value)
+})
+
+function nextChartSlide(): void {
+  if (!chartSlides.length) return
+  const idx = chartSlides.findIndex((s) => s.key === chartSlide.value)
+  const normalizedIdx = idx >= 0 ? idx : 0
+  const nextSlide = chartSlides[(normalizedIdx + 1) % chartSlides.length]
+  if (nextSlide) chartSlide.value = nextSlide.key
+}
+
+function prevChartSlide(): void {
+  if (!chartSlides.length) return
+  const idx = chartSlides.findIndex((s) => s.key === chartSlide.value)
+  const normalizedIdx = idx >= 0 ? idx : 0
+  const prevSlide = chartSlides[(normalizedIdx - 1 + chartSlides.length) % chartSlides.length]
+  if (prevSlide) chartSlide.value = prevSlide.key
+}
+
+async function loadCryptoChartHistories(force = false): Promise<void> {
+  await crypto.fetchHistory(force)
+  await Promise.all(crypto.accounts.map((account) => crypto.fetchHistoryForAccount(account.id, force)))
+}
 
 const multiRowGroups = computed(() => {
   const counts: Record<string, number> = {}
@@ -666,6 +803,7 @@ async function handleSubmitTransaction(): Promise<void> {
         crypto.fetchAccount(transferToAccountId.value),
         fetchAccountTransactions(selectedAccountId.value!),
       ])
+      await loadCryptoChartHistories(true)
     }
     return
   }
@@ -726,6 +864,7 @@ async function handleSubmitTransaction(): Promise<void> {
         fetchAccountTransactions(selectedAccountId.value),
       ])
     }
+    await loadCryptoChartHistories(true)
   }
 }
 
@@ -739,6 +878,7 @@ async function deleteTransaction(id: string): Promise<void> {
         fetchAccountTransactions(selectedAccountId.value)
       ])
     }
+    await loadCryptoChartHistories(true)
   }
 }
 
@@ -761,6 +901,7 @@ async function selectAccount(id: string): Promise<void> {
 async function handleDeleteAccount(id: string): Promise<void> {
   if (confirm('Supprimer ce portefeuille crypto et toutes ses transactions ?')) {
     await crypto.deleteAccount(id)
+    await loadCryptoChartHistories(true)
     if (selectedAccountId.value === id) {
       selectedAccountId.value = null
       crypto.currentAccount = null
@@ -776,13 +917,15 @@ onMounted(async () => {
 
   if (isSingleMode.value) {
     await crypto.fetchDefaultAccount()
+    await loadCryptoChartHistories()
     const defaultId = crypto.accounts[0]?.id
     if (defaultId) {
       selectedAccountId.value = defaultId
       await fetchAccountTransactions(defaultId)
     }
   } else {
-    crypto.fetchAccounts()
+    await crypto.fetchAccounts()
+    await loadCryptoChartHistories()
   }
   fetchRate()
 })
@@ -900,6 +1043,119 @@ onMounted(async () => {
             </p>
           </div>
         </div>
+
+        <BaseCard title="Analyse du portefeuille" subtitle="Évolution, répartition et performance" class="mb-6">
+          <div class="mb-4 flex items-center justify-between gap-2">
+            <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+              <button
+                v-for="slide in chartSlides"
+                :key="slide.key"
+                type="button"
+                @click="chartSlide = slide.key"
+                :class="[
+                  'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                  chartSlide === slide.key
+                    ? 'bg-primary text-primary-content'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                {{ slide.label }}
+              </button>
+            </div>
+            <div class="flex items-center gap-1">
+              <BaseButton size="sm" variant="ghost" @click="prevChartSlide">
+                <ChevronLeft class="w-4 h-4" />
+              </BaseButton>
+              <BaseButton size="sm" variant="ghost" @click="nextChartSlide">
+                <ChevronRight class="w-4 h-4" />
+              </BaseButton>
+              <BaseButton size="sm" variant="outline" @click="loadCryptoChartHistories(true)">
+                <RefreshCw class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Rafraîchir</span>
+              </BaseButton>
+            </div>
+          </div>
+
+          <div v-if="crypto.historyLoading" class="h-72 flex items-center justify-center">
+            <BaseSpinner size="md" label="Chargement de l'historique..." />
+          </div>
+
+          <template v-else-if="chartSlide === 'evolution'">
+            <template v-if="cryptoChartSeries.length > 0">
+              <div class="mb-4 flex justify-end">
+                <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                  <button
+                    v-for="option in granularityOptions"
+                    :key="option.value"
+                    type="button"
+                    @click="historyGranularity = option.value"
+                    :class="[
+                      'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                      historyGranularity === option.value
+                        ? 'bg-primary text-primary-content'
+                        : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                    ]"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <BankHistoryChart
+                :series="cryptoChartSeries"
+                :is-dark="isDark"
+                :granularity="historyGranularity"
+              />
+            </template>
+            <BaseEmptyState
+              v-else
+              title="Pas encore de données historiques"
+              description="L'évolution s'affichera dès que des snapshots sont disponibles"
+            />
+          </template>
+
+          <template v-else-if="chartSlide === 'allocation'">
+            <template v-if="allocationSegments.length">
+              <CryptoAllocationDonutChart :segments="allocationSegments" :is-dark="isDark" />
+            </template>
+            <BaseEmptyState
+              v-else
+              title="Pas de répartition disponible"
+              description="Ajoutez des positions crypto pour voir la concentration du risque"
+            />
+          </template>
+
+          <template v-else>
+            <template v-if="pnlChartSeries.length > 0">
+              <div class="mb-4 flex justify-end">
+                <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                  <button
+                    v-for="option in granularityOptions"
+                    :key="option.value"
+                    type="button"
+                    @click="historyGranularity = option.value"
+                    :class="[
+                      'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                      historyGranularity === option.value
+                        ? 'bg-primary text-primary-content'
+                        : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                    ]"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <BankHistoryChart
+                :series="pnlChartSeries"
+                :is-dark="isDark"
+                :granularity="historyGranularity"
+              />
+            </template>
+            <BaseEmptyState
+              v-else
+              title="Pas de P/L cumulé disponible"
+              description="L'indicateur apparaîtra avec un historique de portefeuille"
+            />
+          </template>
+        </BaseCard>
 
         <BaseCard>
           <!-- Tabs (Segmented Control) -->
@@ -1143,6 +1399,119 @@ onMounted(async () => {
       <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
         {{ txWarning }}
       </BaseAlert>
+
+      <BaseCard v-if="crypto.accounts.length" title="Analyse du portefeuille" subtitle="Évolution, répartition et performance" class="mb-6">
+        <div class="mb-4 flex items-center justify-between gap-2">
+          <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+            <button
+              v-for="slide in chartSlides"
+              :key="slide.key"
+              type="button"
+              @click="chartSlide = slide.key"
+              :class="[
+                'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                chartSlide === slide.key
+                  ? 'bg-primary text-primary-content'
+                  : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+              ]"
+            >
+              {{ slide.label }}
+            </button>
+          </div>
+          <div class="flex items-center gap-1">
+            <BaseButton size="sm" variant="ghost" @click="prevChartSlide">
+              <ChevronLeft class="w-4 h-4" />
+            </BaseButton>
+            <BaseButton size="sm" variant="ghost" @click="nextChartSlide">
+              <ChevronRight class="w-4 h-4" />
+            </BaseButton>
+            <BaseButton size="sm" variant="outline" @click="loadCryptoChartHistories(true)">
+              <RefreshCw class="w-4 h-4" /><span class="hidden sm:inline">&nbsp; Rafraîchir</span>
+            </BaseButton>
+          </div>
+        </div>
+
+        <div v-if="crypto.historyLoading" class="h-72 flex items-center justify-center">
+          <BaseSpinner size="md" label="Chargement de l'historique..." />
+        </div>
+
+        <template v-else-if="chartSlide === 'evolution'">
+          <template v-if="cryptoChartSeries.length > 0">
+            <div class="mb-4 flex justify-end">
+              <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                <button
+                  v-for="option in granularityOptions"
+                  :key="option.value"
+                  type="button"
+                  @click="historyGranularity = option.value"
+                  :class="[
+                    'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                    historyGranularity === option.value
+                      ? 'bg-primary text-primary-content'
+                      : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                  ]"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+            <BankHistoryChart
+              :series="cryptoChartSeries"
+              :is-dark="isDark"
+              :granularity="historyGranularity"
+            />
+          </template>
+          <BaseEmptyState
+            v-else
+            title="Pas encore de données historiques"
+            description="L'évolution s'affichera dès que des snapshots sont disponibles"
+          />
+        </template>
+
+        <template v-else-if="chartSlide === 'allocation'">
+          <template v-if="allocationSegments.length">
+            <CryptoAllocationDonutChart :segments="allocationSegments" :is-dark="isDark" />
+          </template>
+          <BaseEmptyState
+            v-else
+            title="Pas de répartition disponible"
+            description="Ajoutez des positions crypto pour voir la concentration du risque"
+          />
+        </template>
+
+        <template v-else>
+          <template v-if="pnlChartSeries.length > 0">
+            <div class="mb-4 flex justify-end">
+              <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                <button
+                  v-for="option in granularityOptions"
+                  :key="option.value"
+                  type="button"
+                  @click="historyGranularity = option.value"
+                  :class="[
+                    'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                    historyGranularity === option.value
+                      ? 'bg-primary text-primary-content'
+                      : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                  ]"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+            <BankHistoryChart
+              :series="pnlChartSeries"
+              :is-dark="isDark"
+              :granularity="historyGranularity"
+            />
+          </template>
+          <BaseEmptyState
+            v-else
+            title="Pas de P/L cumulé disponible"
+            description="L'indicateur apparaîtra avec un historique de portefeuille"
+          />
+        </template>
+      </BaseCard>
 
       <div v-if="crypto.accounts.length" class="space-y-4">
         <BaseCard

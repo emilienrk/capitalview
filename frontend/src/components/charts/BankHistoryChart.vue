@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -24,6 +24,19 @@ const chartRef = ref<InstanceType<typeof VChart> | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 const canRenderChart = ref(false)
 let resizeObserver: ResizeObserver | null = null
+const legendSelection = ref<Record<string, boolean>>({})
+
+watch(
+  () => props.series.map((line) => line.name),
+  (names) => {
+    const nextSelection: Record<string, boolean> = {}
+    for (const name of names) {
+      nextSelection[name] = legendSelection.value[name] ?? true
+    }
+    legendSelection.value = nextSelection
+  },
+  { immediate: true },
+)
 
 function syncChartVisibilityAndSize(): void {
   const container = containerRef.value
@@ -123,6 +136,7 @@ const option = computed(() => {
     legend: {
       bottom: 0,
       type: 'scroll',
+      selected: legendSelection.value,
       textStyle: { color: textColor, fontSize: 11 },
       icon: 'circle',
       itemWidth: 8,
@@ -187,6 +201,14 @@ const option = computed(() => {
 function handleChartReady(): void {
   syncChartVisibilityAndSize()
 }
+
+function handleLegendSelectChanged(event: { selected?: Record<string, boolean> }): void {
+  if (!event?.selected) return
+  legendSelection.value = {
+    ...legendSelection.value,
+    ...event.selected,
+  }
+}
 </script>
 
 <template>
@@ -197,6 +219,7 @@ function handleChartReady(): void {
       :option="option"
       autoresize
       @finished="handleChartReady"
+      @legendselectchanged="handleLegendSelectChanged"
     />
   </div>
 </template>

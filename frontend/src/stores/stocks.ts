@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { apiClient } from '@/api/client'
+import {
+  getOrFetchCached,
+  invalidateCacheKey,
+  invalidateCachePrefix,
+  isCacheEntryValid,
+} from '@/services/cache'
 import type {
   StockAccountBasicResponse,
   StockAccountCreate,
@@ -15,15 +21,34 @@ import type {
   AssetSearchResult,
   AssetInfoResponse,
   EurDepositCreate,
+  AccountHistorySnapshotResponse,
 } from '@/types'
+
+// Cache TTL: 1 hour — stock history chart data does not require real-time refresh.
+const CACHE_TTL_MS = 60 * 60 * 1000
 
 export const useStocksStore = defineStore('stocks', () => {
   const accounts = ref<StockAccountBasicResponse[]>([])
   const currentAccount = ref<AccountSummaryResponse | null>(null)
   const transactions = ref<TransactionResponse[]>([])
+  const history = ref<AccountHistorySnapshotResponse[]>([])
+  const accountHistoryById = ref<Record<string, AccountHistorySnapshotResponse[]>>({})
   const isLoading = ref(false)
+  const historyLoading = ref(false)
   const error = ref<string | null>(null)
   const _liveFetchSeq = ref(0)
+  const historyCacheKey = 'stocks:history:global'
+
+  const isHistoryCacheValid = computed(() => {
+    if (history.value.length === 0) return false
+    return isCacheEntryValid(historyCacheKey)
+  })
+
+  function isAccountHistoryCacheValid(accountId: string): boolean {
+    const cached = accountHistoryById.value[accountId]
+    if (!cached || cached.length === 0) return false
+    return isCacheEntryValid(`stocks:history:account:${accountId}`)
+  }
 
 
   async function searchAssets(query: string): Promise<AssetSearchResult[]> {
@@ -145,6 +170,51 @@ export const useStocksStore = defineStore('stocks', () => {
     }
   }
 
+  async function fetchHistory(force = false): Promise<void> {
+    historyLoading.value = true
+    error.value = null
+    try {
+      const data = await getOrFetchCached<AccountHistorySnapshotResponse[]>(
+        historyCacheKey,
+        () => apiClient.get<AccountHistorySnapshotResponse[]>('/stocks/history'),
+        CACHE_TTL_MS,
+        force,
+      )
+      history.value = [...data].sort((a, b) =>
+        new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
+      )
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'historique'
+    } finally {
+      historyLoading.value = false
+    }
+  }
+
+  async function fetchHistoryForAccount(accountId: string, force = false): Promise<void> {
+    historyLoading.value = true
+    error.value = null
+    try {
+      const data = await getOrFetchCached<AccountHistorySnapshotResponse[]>(
+        `stocks:history:account:${accountId}`,
+        () => apiClient.get<AccountHistorySnapshotResponse[]>(`/stocks/accounts/${accountId}/history`),
+        CACHE_TTL_MS,
+        force,
+      )
+      accountHistoryById.value[accountId] = [...data].sort((a, b) =>
+        new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
+      )
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Erreur lors du chargement de l\'historique'
+    } finally {
+      historyLoading.value = false
+    }
+  }
+
+  function invalidateHistoryCache(): void {
+    invalidateCacheKey(historyCacheKey)
+    invalidateCachePrefix('stocks:history:account:')
+  }
+
   async function createTransaction(data: StockTransactionCreate): Promise<StockTransactionBasicResponse | null> {
     isLoading.value = true
     error.value = null
@@ -222,6 +292,9 @@ export const useStocksStore = defineStore('stocks', () => {
     accounts.value = []
     currentAccount.value = null
     transactions.value = []
+    history.value = []
+    accountHistoryById.value = {}
+    invalidateHistoryCache()
     error.value = null
   }
 
@@ -229,8 +302,12 @@ export const useStocksStore = defineStore('stocks', () => {
     accounts,
     currentAccount,
     transactions,
+    history,
+    accountHistoryById,
     isLoading,
+    historyLoading,
     error,
+    isHistoryCacheValid,
     fetchAccounts,
     fetchAccount,
     refreshAccount,
@@ -239,6 +316,10 @@ export const useStocksStore = defineStore('stocks', () => {
     deleteAccount,
     fetchTransactions,
     fetchAccountTransactions,
+    fetchHistory,
+    fetchHistoryForAccount,
+    invalidateHistoryCache,
+    isAccountHistoryCacheValid,
     createTransaction,
     updateTransaction,
     deleteTransaction,

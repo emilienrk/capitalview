@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Pencil, TrendingUp, Upload, Banknote } from 'lucide-vue-next'
+import { Pencil, TrendingUp, Upload, Banknote, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useStocksStore } from '@/stores/stocks'
@@ -7,13 +7,16 @@ import { useBankStore } from '@/stores/bank'
 import { useFormatters } from '@/composables/useFormatters'
 import { useCurrencyToggle } from '@/composables/useCurrencyToggle'
 import { usePrivacyMode } from '@/composables/usePrivacyMode'
+import { useDarkMode } from '@/composables/useDarkMode'
 import PageHeader from '@/components/PageHeader.vue'
 import {
   BaseCard, BaseButton, BaseInput, BaseSelect, BaseModal,
   BaseSpinner, BaseAlert, BaseEmptyState, BaseBadge, BaseStatCard, BaseAutocomplete,
 } from '@/components'
 import CsvImportModal from '@/components/modals/CsvImportModal.vue'
-import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse, EurDepositCreate } from '@/types'
+import BankHistoryChart from '@/components/charts/BankHistoryChart.vue'
+import CryptoAllocationDonutChart from '@/components/charts/CryptoAllocationDonutChart.vue'
+import type { StockAccountCreate, StockTransactionCreate, StockAccountType, TransactionResponse, AssetSearchResult, StockTransactionBulkCreate, PositionResponse, EurDepositCreate, AccountHistorySnapshotResponse } from '@/types'
 
 
 const stocks = useStocksStore()
@@ -21,6 +24,7 @@ const bank = useBankStore()
 const { formatCurrency, formatPercent, formatNumber, formatDate, profitLossClass } = useFormatters()
 const { displayCurrency, usdToEurRate, setCurrency, fetchRate } = useCurrencyToggle()
 const { privacyMode, togglePrivacyMode, maskValue } = usePrivacyMode()
+const { isDark } = useDarkMode()
 
 // ── State ────────────────────────────────────────────────────
 const showAccountModal = ref(false)
@@ -39,6 +43,22 @@ const selectedAccountId = ref<string | null>(null)
 const activeFilter = ref<'all' | 'PEA' | 'CTO' | 'PEA_PME'>('all')
 const accountTransactions = ref<TransactionResponse[]>([])
 const activeDetailTab = ref<'positions' | 'history'>('positions')
+type StockChartSlide = 'evolution' | 'allocation' | 'pnl'
+const stockChartSlide = ref<StockChartSlide>('evolution')
+const stockChartSlides: Array<{ key: StockChartSlide; label: string }> = [
+  { key: 'evolution', label: 'Evolution' },
+  { key: 'allocation', label: 'Repartition' },
+  { key: 'pnl', label: 'P/L journalier' },
+]
+const allocationDate = ref<string>('')
+type HistoryGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly'
+const historyGranularity = ref<HistoryGranularity>('daily')
+const granularityOptions: Array<{ value: HistoryGranularity; label: string }> = [
+  { value: 'daily', label: 'Jour' },
+  { value: 'weekly', label: 'Semaine' },
+  { value: 'monthly', label: 'Mois' },
+  { value: 'yearly', label: 'Année' },
+]
 const editingTxId = ref<string | null>(null)
 const editingAccountId = ref<string | null>(null)
 
@@ -268,6 +288,207 @@ const sortedPositions = computed(() => {
     .sort((a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0))
 })
 
+const positionChartRows = computed(() => {
+  return sortedPositions.value
+    .map((pos) => {
+      const invested = Number(pos.total_invested)
+      const valueEur = posToEur(pos.current_value, pos.currency) ?? invested
+
+      return {
+        label: pos.name || pos.symbol,
+        invested,
+        value: valueEur,
+        pnl: valueEur - invested,
+      }
+    })
+    .filter((row) => row.invested > 0 || row.value > 0)
+})
+
+const selectedAccountHistory = computed(() => {
+  if (!selectedAccountId.value) return []
+  return [...(stocks.accountHistoryById[selectedAccountId.value] ?? [])].sort(
+    (a, b) => new Date(a.snapshot_date).getTime() - new Date(b.snapshot_date).getTime(),
+  )
+})
+
+const selectedAccountChartSeries = computed(() => {
+  const history = applyGranularity(selectedAccountHistory.value)
+  if (!history.length) return []
+
+  return [
+    {
+      name: selectedAccountSummary.value?.account_name || 'Compte',
+      history,
+    },
+  ]
+})
+
+const selectedAccountDailyPnlAverage = computed(() => {
+  const dailyValues = selectedAccountHistory.value
+    .map((point) => (point.daily_pnl == null ? null : Number(point.daily_pnl)))
+    .filter((value): value is number => value != null)
+
+  if (!dailyValues.length) return null
+
+  const sum = dailyValues.reduce((acc, value) => acc + value, 0)
+  return sum / dailyValues.length
+})
+
+const selectedAccountDailyPnlSeries = computed(() => {
+  const history = selectedAccountHistory.value
+  if (!history.length) return []
+
+  const pnlSeries = history
+    .filter((point) => point.daily_pnl != null)
+    .map((point) => ({
+      ...point,
+      total_value: Number(point.daily_pnl),
+    }))
+
+  if (!pnlSeries.length) return []
+
+  const average = selectedAccountDailyPnlAverage.value ?? 0
+  const averageSeries = pnlSeries.map((point) => ({
+    ...point,
+    total_value: average,
+  }))
+
+  return [
+    { name: 'P/L journalier', history: pnlSeries },
+    { name: 'Moyenne journaliere', history: averageSeries },
+  ]
+})
+
+const allocationDateOptions = computed(() => {
+  return selectedAccountHistory.value
+    .map((point) => point.snapshot_date)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+})
+
+const allocationReferenceDate = computed(() => {
+  return allocationDate.value || allocationDateOptions.value[0] || ''
+})
+
+const allocationSegmentsAtDate = computed(() => {
+  if (!allocationReferenceDate.value) return []
+
+  const endOfDay = new Date(`${allocationReferenceDate.value}T23:59:59`)
+  const byAsset = new Map<string, { name: string; value: number }>()
+
+  for (const tx of accountTransactions.value) {
+    const executedAt = new Date(tx.executed_at)
+    if (Number.isNaN(executedAt.getTime()) || executedAt > endOfDay) continue
+    if (tx.isin === 'EUR') continue
+
+    const key = tx.isin || tx.symbol
+    const label = tx.name || tx.symbol
+    const amount = Number(tx.amount)
+    const price = Number(tx.price_per_unit)
+    const fees = Number(tx.fees ?? 0)
+    const gross = amount * price
+
+    let delta = 0
+    if (tx.type === 'BUY') delta = gross + fees
+    if (tx.type === 'SELL' || tx.type === 'DIVIDEND') delta = -(gross - fees)
+
+    const existing = byAsset.get(key)
+    if (existing) {
+      existing.value += delta
+    } else {
+      byAsset.set(key, { name: label, value: delta })
+    }
+  }
+
+  return Array.from(byAsset.values())
+    .filter((segment) => segment.value > 0)
+    .map((segment) => ({ name: segment.name, value: segment.value }))
+    .sort((a, b) => b.value - a.value)
+})
+
+watch(
+  allocationDateOptions,
+  (dates) => {
+    const latest = dates[0]
+    if (!latest) {
+      allocationDate.value = ''
+      return
+    }
+    if (!allocationDate.value || !dates.includes(allocationDate.value)) {
+      allocationDate.value = latest
+    }
+  },
+  { immediate: true },
+)
+
+function nextStockChartSlide(): void {
+  if (!stockChartSlides.length) return
+  const idx = stockChartSlides.findIndex((slide) => slide.key === stockChartSlide.value)
+  const normalizedIdx = idx >= 0 ? idx : 0
+  const nextSlide = stockChartSlides[(normalizedIdx + 1) % stockChartSlides.length]
+  if (nextSlide) stockChartSlide.value = nextSlide.key
+}
+
+function prevStockChartSlide(): void {
+  if (!stockChartSlides.length) return
+  const idx = stockChartSlides.findIndex((slide) => slide.key === stockChartSlide.value)
+  const normalizedIdx = idx >= 0 ? idx : 0
+  const prevSlide = stockChartSlides[(normalizedIdx - 1 + stockChartSlides.length) % stockChartSlides.length]
+  if (prevSlide) stockChartSlide.value = prevSlide.key
+}
+
+function getIsoWeekKey(snapshotDate: string): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const weekday = utcDate.getUTCDay() || 7
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - weekday)
+
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))
+  const weekNumber = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`
+}
+
+function getHistoryBucketKey(snapshotDate: string, granularity: HistoryGranularity): string {
+  const date = new Date(snapshotDate)
+  if (Number.isNaN(date.getTime())) return snapshotDate
+
+  if (granularity === 'weekly') return getIsoWeekKey(snapshotDate)
+  if (granularity === 'monthly') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  if (granularity === 'yearly') return String(date.getFullYear())
+  return snapshotDate
+}
+
+function applyGranularity(history: AccountHistorySnapshotResponse[]): AccountHistorySnapshotResponse[] {
+  if (historyGranularity.value === 'daily') return history
+
+  const byBucket = new Map<string, AccountHistorySnapshotResponse>()
+  for (const snapshot of history) {
+    const bucketKey = getHistoryBucketKey(snapshot.snapshot_date, historyGranularity.value)
+    byBucket.set(bucketKey, snapshot)
+  }
+
+  return Array.from(byBucket.values())
+}
+
+const stockChartSeries = computed(() => {
+  const totalHistory = applyGranularity(stocks.history)
+  const accountSeries = (stocks.accounts ?? [])
+    .map((account) => ({
+      name: account.name,
+      history: applyGranularity(stocks.accountHistoryById[account.id] ?? []),
+    }))
+    .filter((series) => series.history.length > 0)
+
+  const series = [{ name: 'Valeur totale', history: totalHistory }, ...accountSeries]
+  return series.filter((line) => line.history.length > 0)
+})
+
+async function loadStockChartHistories(force = false): Promise<void> {
+  await stocks.fetchHistory(force)
+  await Promise.all(stocks.accounts.map((account) => stocks.fetchHistoryForAccount(account.id, force)))
+}
+
 /** Asset options restricted to positions the user currently holds (for SELL and DIVIDEND). */
 const ownedAssetOptions = computed((): AssetOption[] => {
   if (!selectedAccountSummary.value?.positions) return []
@@ -356,6 +577,7 @@ async function handleSubmitAccount(): Promise<void> {
     result = await stocks.createAccount({ ...accountForm })
   }
   if (result) {
+    await loadStockChartHistories(true)
     showAccountModal.value = false
   }
 }
@@ -448,6 +670,7 @@ async function handleSubmitDeposit(): Promise<void> {
           fetchAccountTransactions(selectedAccountId.value),
         ])
       }
+      await loadStockChartHistories(true)
     }
     return
   }
@@ -490,6 +713,7 @@ async function handleSubmitDeposit(): Promise<void> {
     } else if (targetStockAccountId) {
       await stocks.fetchAccounts()
     }
+    await loadStockChartHistories(true)
   }
 }
 
@@ -501,6 +725,7 @@ async function handleCsvImport(transactions: StockTransactionBulkCreate[]): Prom
   if (result) {
     showCsvImportModal.value = false
     await selectAccount(csvImportAccountId.value)
+    await loadStockChartHistories(true)
     return true
   }
   return false
@@ -585,6 +810,7 @@ async function handleSubmitTransaction(): Promise<void> {
         fetchAccountTransactions(selectedAccountId.value)
       ])
     }
+    await loadStockChartHistories(true)
   }
 }
 
@@ -599,6 +825,7 @@ async function deleteTransaction(id: string): Promise<void> {
         fetchAccountTransactions(selectedAccountId.value)
       ])
     }
+    await loadStockChartHistories(true)
   }
 }
 
@@ -618,7 +845,8 @@ async function selectAccount(id: string): Promise<void> {
   // First load: fast cached data from DB
   await Promise.all([
     stocks.fetchAccount(id, true),
-    fetchAccountTransactions(id)
+    fetchAccountTransactions(id),
+    stocks.fetchHistoryForAccount(id),
   ])
   // Then refresh in background with live market data
   stocks.refreshAccount(id)
@@ -640,6 +868,7 @@ async function handleDelete(): Promise<void> {
       selectedAccountId.value = null
       stocks.currentAccount = null
     }
+    await loadStockChartHistories(true)
   } else {
     // Legacy delete path via confirmation modal, if used
     await stocks.deleteTransaction(deleteTarget.value.id)
@@ -649,6 +878,7 @@ async function handleDelete(): Promise<void> {
         fetchAccountTransactions(selectedAccountId.value)
       ])
     }
+    await loadStockChartHistories(true)
   }
 
   showDeleteModal.value = false
@@ -751,8 +981,9 @@ async function handleAssetInput(value: string): Promise<void> {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
-onMounted(() => {
-  stocks.fetchAccounts()
+onMounted(async () => {
+  await stocks.fetchAccounts()
+  await loadStockChartHistories()
   stocks.fetchTransactions()
   fetchRate()
 })
@@ -781,6 +1012,47 @@ onMounted(() => {
     <BaseAlert v-if="stocks.error" variant="danger" dismissible @dismiss="stocks.error = null" class="mb-6">
       {{ stocks.error }}
     </BaseAlert>
+
+    <BaseCard v-if="stocks.accounts.length" title="Évolution du portefeuille bourse" subtitle="Historique de valorisation des comptes" class="mb-6">
+      <div v-if="stocks.historyLoading" class="h-72 flex items-center justify-center">
+        <BaseSpinner size="md" label="Chargement de l'historique..." />
+      </div>
+      <template v-else-if="stockChartSeries.length > 0">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center justify-end gap-2">
+            <BaseButton size="sm" variant="outline" @click="loadStockChartHistories(true)">
+              <RefreshCw class="w-4 h-4" /><span>&nbsp; Rafraîchir</span>
+            </BaseButton>
+            <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+              <button
+                v-for="option in granularityOptions"
+                :key="option.value"
+                type="button"
+                @click="historyGranularity = option.value"
+                :class="[
+                  'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                  historyGranularity === option.value
+                    ? 'bg-primary text-primary-content'
+                    : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+        <BankHistoryChart
+          :series="stockChartSeries"
+          :is-dark="isDark"
+          :granularity="historyGranularity"
+        />
+      </template>
+      <BaseEmptyState
+        v-else
+        title="Pas encore de données historiques"
+        description="L'évolution s'affichera dès que des snapshots sont disponibles"
+      />
+    </BaseCard>
 
     <!-- ── Filter tabs ──────────────────────────────────── -->
     <div v-if="stocks.accounts.length" class="mb-6 border-b border-surface-border dark:border-surface-dark-border">
@@ -919,6 +1191,115 @@ onMounted(() => {
 
           <!-- Positions table -->
           <div v-if="activeDetailTab === 'positions'">
+            <div v-if="sortedPositions.length" class="mb-5 rounded-card border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark p-4">
+              <div class="mb-4 flex items-center justify-between gap-2">
+                <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                  <button
+                    v-for="slide in stockChartSlides"
+                    :key="slide.key"
+                    type="button"
+                    @click="stockChartSlide = slide.key"
+                    :class="[
+                      'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                      stockChartSlide === slide.key
+                        ? 'bg-primary text-primary-content'
+                        : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                    ]"
+                  >
+                    {{ slide.label }}
+                  </button>
+                </div>
+                <div class="flex items-center gap-1">
+                  <BaseButton size="sm" variant="ghost" @click="prevStockChartSlide">
+                    <ChevronLeft class="w-4 h-4" />
+                  </BaseButton>
+                  <BaseButton size="sm" variant="ghost" @click="nextStockChartSlide">
+                    <ChevronRight class="w-4 h-4" />
+                  </BaseButton>
+                </div>
+              </div>
+
+              <template v-if="stockChartSlide === 'evolution'">
+                <template v-if="selectedAccountChartSeries.length > 0">
+                  <div class="mb-4 flex justify-end">
+                    <div class="inline-flex rounded-button border border-surface-border dark:border-surface-dark-border bg-background-subtle dark:bg-background-dark-subtle p-1">
+                      <button
+                        v-for="option in granularityOptions"
+                        :key="option.value"
+                        type="button"
+                        @click="historyGranularity = option.value"
+                        :class="[
+                          'px-3 py-1.5 text-xs sm:text-sm rounded-button transition-colors',
+                          historyGranularity === option.value
+                            ? 'bg-primary text-primary-content'
+                            : 'text-text-muted dark:text-text-dark-muted hover:text-text-main dark:hover:text-text-dark-main',
+                        ]"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </div>
+                  <BankHistoryChart
+                    :series="selectedAccountChartSeries"
+                    :is-dark="isDark"
+                    :granularity="historyGranularity"
+                  />
+                </template>
+                <BaseEmptyState
+                  v-else
+                  title="Pas encore de donnees historiques"
+                  description="L'evolution du compte s'affichera des que des snapshots sont disponibles"
+                />
+              </template>
+
+              <template v-else-if="stockChartSlide === 'allocation'">
+                <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                    Repartition des apports nets a la date selectionnee
+                  </p>
+                  <input
+                    v-model="allocationDate"
+                    type="date"
+                    class="w-full sm:w-auto px-3 py-2 text-sm rounded-input border border-surface-border dark:border-surface-dark-border bg-surface dark:bg-surface-dark text-text-main dark:text-text-dark-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    :max="allocationDateOptions[0] || undefined"
+                    :min="allocationDateOptions[allocationDateOptions.length - 1] || undefined"
+                    :disabled="!allocationDateOptions.length"
+                  />
+                </div>
+                <template v-if="allocationSegmentsAtDate.length">
+                  <CryptoAllocationDonutChart :segments="allocationSegmentsAtDate" :is-dark="isDark" />
+                </template>
+                <BaseEmptyState
+                  v-else
+                  title="Pas de repartition disponible"
+                  description="Aucune ligne d'investissement nette a cette date"
+                />
+              </template>
+
+              <template v-else>
+                <template v-if="selectedAccountDailyPnlSeries.length > 0">
+                  <div class="mb-4 flex justify-end">
+                    <p class="text-xs text-text-muted dark:text-text-dark-muted">
+                      Moyenne par jour :
+                      <span :class="['font-semibold', profitLossClass(selectedAccountDailyPnlAverage)]">
+                        {{ formatCurrency(selectedAccountDailyPnlAverage) }}
+                      </span>
+                    </p>
+                  </div>
+                  <BankHistoryChart
+                    :series="selectedAccountDailyPnlSeries"
+                    :is-dark="isDark"
+                    granularity="daily"
+                  />
+                </template>
+                <BaseEmptyState
+                  v-else
+                  title="Pas de P/L journalier disponible"
+                  description="Le graphique apparaitra des que des donnees quotidiennes seront disponibles"
+                />
+              </template>
+            </div>
+
             <div v-if="sortedPositions.length" class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
