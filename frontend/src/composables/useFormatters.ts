@@ -19,7 +19,16 @@ function toNumber(value: NumericValue): number | null {
   return null
 }
 
-export function useFormatters() {
+export function useFormatters(): {
+  formatCurrency: (value: NumericValue, currency?: string) => string
+  formatPercent: (value: NumericValue) => string
+  formatDate: (value: string | null | undefined) => string
+  formatDateShort: (value: string | null | undefined) => string
+  formatDateTime: (value: string | null | undefined) => string
+  formatNumber: (value: NumericValue, maxDecimals?: number) => string
+  profitLossClass: (value: NumericValue) => string
+  formatAccountType: (type: string) => string
+} {
   function formatCurrency(value: NumericValue, currency: string = 'EUR'): string {
     const n = toNumber(value)
     if (n === null) return '—'
