@@ -263,15 +263,29 @@ export interface EurDepositCreate {
 
 // ─── Crypto ──────────────────────────────────────────────────
 
-export type CryptoTransactionType =
+export type CryptoAtomicTransactionType =
   | 'BUY'
   | 'SPEND'
   | 'FEE'
   | 'REWARD'
-  | 'FIAT_DEPOSIT'
-  | 'FIAT_ANCHOR'
+  | 'DEPOSIT'
+  | 'ANCHOR'
   | 'TRANSFER'
-  | 'EXIT'
+  | 'WITHDRAW'
+
+export type CryptoCompositeTransactionType =
+  | 'BUY'
+  | 'REWARD'
+  | 'FIAT_DEPOSIT'
+  | 'CRYPTO_DEPOSIT'
+  | 'TRANSFER'
+  | 'FIAT_WITHDRAW'
+  | 'SELL_TO_FIAT'
+  | 'FEE'
+  | 'NON_TAXABLE_EXIT'
+
+// Kept as public alias for existing imports across the app.
+export type CryptoTransactionType = CryptoAtomicTransactionType
 
 export interface CryptoAccountCreate {
   name: string
@@ -301,7 +315,7 @@ export interface CryptoTransactionCreate {
   account_id: string
   symbol: string
   name?: string
-  type: CryptoTransactionType
+  type: CryptoAtomicTransactionType
   amount: number
   price_per_unit: number
   executed_at: string
@@ -314,7 +328,7 @@ export interface CryptoTransactionBasicResponse {
   account_id: string
   group_uuid: string | null
   symbol: string
-  type: CryptoTransactionType
+  type: CryptoAtomicTransactionType
   amount: number
   price_per_unit: number
   executed_at: string
@@ -331,7 +345,7 @@ export interface CryptoCompositeTransactionResponse {
 export interface CryptoTransactionUpdate {
   symbol?: string
   name?: string
-  type?: CryptoTransactionType
+  type?: CryptoAtomicTransactionType
   amount?: number
   price_per_unit?: number
   executed_at?: string
@@ -341,7 +355,7 @@ export interface CryptoTransactionUpdate {
 
 export interface CryptoTransactionBulkCreate {
   symbol: string
-  type: CryptoTransactionType
+  type: CryptoAtomicTransactionType
   amount: number
   price_per_unit: number
   executed_at: string
@@ -353,7 +367,7 @@ export interface CryptoTransactionBulkCreate {
 export interface CryptoCompositeTransactionCreate {
   account_id: string
   /** Action type — maps to 1-3 atomic rows in the backend. */
-  type: 'BUY' | 'REWARD' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'CRYPTO_DEPOSIT' | 'TRANSFER' | 'EXIT' | 'GAS_FEE' | 'NON_TAXABLE_EXIT'
+  type: CryptoCompositeTransactionType
   symbol: string
   name?: string
   amount: number
@@ -397,7 +411,7 @@ export interface CryptoBulkImportResponse {
 
 /** One composite operation row for the generic CSV import (one line = one trade). */
 export interface CryptoCompositeBulkItem {
-  type: 'BUY' | 'REWARD' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'CRYPTO_DEPOSIT' | 'TRANSFER' | 'EXIT' | 'GAS_FEE' | 'NON_TAXABLE_EXIT'
+  type: CryptoCompositeTransactionType
   symbol: string
   name?: string
   amount: number

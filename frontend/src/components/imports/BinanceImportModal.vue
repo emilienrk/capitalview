@@ -250,10 +250,10 @@ function typeLabel(t: string): string {
     SPEND: 'Dépense',
     FEE: 'Frais',
     REWARD: 'Récompense',
-    FIAT_DEPOSIT: 'Dépôt €',
-    FIAT_ANCHOR: 'Ancre €',
+    DEPOSIT: 'Dépôt €',
+    ANCHOR: 'Ancre €',
     TRANSFER: 'Transfert',
-    EXIT: 'Sortie',
+    WITHDRAW: 'Sortie',
   }
   return map[t] ?? t
 }
@@ -261,10 +261,10 @@ function typeLabel(t: string): string {
 function typeBadgeClass(t: string): string {
   switch (t) {
     case 'BUY':
-    case 'FIAT_DEPOSIT':
+    case 'DEPOSIT':
       return 'bg-success/10 text-success'
     case 'SPEND':
-    case 'EXIT':
+    case 'WITHDRAW':
       return 'bg-danger/10 text-danger'
     case 'FEE':
       return 'bg-warning/10 text-warning'

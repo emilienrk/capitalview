@@ -6,7 +6,7 @@ Chaque opération utilisateur est décomposée en **1 à 4 lignes atomiques** da
 | Champ | Description |
 | :--- | :--- |
 | `symbol` | Token concerné (ex : BTC, EUR, BNB) |
-| `type` | Type atomique (BUY, SPEND, FEE, FIAT_ANCHOR, …) |
+| `type` | Type atomique (BUY, SPEND, FEE, ANCHOR, …) |
 | `amount` | Quantité positive du token |
 | `price_per_unit` | Prix en EUR par unité — **toujours 0 pour les lignes crypto** |
 | `group_uuid` | Identifiant de groupage des lignes |
@@ -15,14 +15,14 @@ Chaque opération utilisateur est décomposée en **1 à 4 lignes atomiques** da
 
 | Type | `price_per_unit` | Commentaire |
 | :--- | :--- | :--- |
-| **BUY** | `0` | Quantité seule, coût porté par FIAT_ANCHOR / SPEND EUR |
+| **BUY** | `0` | Quantité seule, coût porté par ANCHOR / SPEND EUR |
 | **SPEND** (crypto) | `0` | Réduction de solde uniquement |
 | **SPEND** (EUR) | `1` | Porte le coût en EUR pour les achats en fiat |
 | **FEE** | `0` | Réduction de solde uniquement |
 | **REWARD** | `0` | Coût de base = 0 |
 | **TRANSFER** | `0` | Neutre, déplacement de quantité |
-| **FIAT_DEPOSIT** | `1` | Dépôt fiat, `amount` = montant EUR |
-| **FIAT_ANCHOR** | `1` | **Ancre EUR** : `amount` = valeur totale du trade en EUR |
+| **DEPOSIT** | `1` | Dépôt fiat, `amount` = montant EUR |
+| **ANCHOR** | `1` | **Ancre EUR** : `amount` = valeur totale du trade en EUR |
 | **EXIT** | `eur_amount / amount` | Sortie taxable, prix de vente en EUR |
 
 ---
@@ -32,7 +32,7 @@ La valeur EUR de toute opération est fournie par l'utilisateur via **`eur_amoun
 
 - Le DTO composite **n'a pas de `price_per_unit`**.
 - Le service stocke le coût EUR via :
-  - **FIAT_ANCHOR** (pour les quotes crypto ou frais crypto non inclus)
+  - **ANCHOR** (pour les quotes crypto ou frais crypto non inclus)
   - **SPEND EUR** (pour les quotes fiat, le montant EUR dépensé EST l'ancre)
 
 ---
@@ -47,7 +47,7 @@ Les frais sont inclus dans `eur_amount`.
 ### 2. `fee_included = False`
 Les frais s'ajoutent au montant total.
 - **Coût EUR des frais** : `fee_eur_effectif` = `fee_eur` OU (`eur_amount` × `fee_percentage` / 100).
-- **FIAT_ANCHOR** porte le coût total : `eur_amount + fee_eur_effectif`.
+- **ANCHOR** porte le coût total : `eur_amount + fee_eur_effectif`.
 - Pour les quotes EUR sans frais crypto : le surcoût est fusionné dans le SPEND EUR.
 
 ---
@@ -66,7 +66,7 @@ Les frais s'ajoutent au montant total.
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | BUY | BTC | 0.1 | 0 |
 | 2 | SPEND | USDC | 3000 | 0 |
-| 3 | FIAT_ANCHOR | EUR | 2760 | 1 |
+| 3 | ANCHOR | EUR | 2760 | 1 |
 | 4 | FEE | BNB | 0.01 | 0 |
 
 ### Geste : Achat BTC avec EUR
@@ -81,7 +81,7 @@ Les frais s'ajoutent au montant total.
 | 1 | BUY | BTC | 0.1 | 0 |
 | 2 | SPEND | EUR | 3000 | 1 |
 
-> Pas de FIAT_ANCHOR : le SPEND EUR **est** l'ancre.
+> Pas de ANCHOR : le SPEND EUR **est** l'ancre.
 
 ### Geste : CRYPTO_DEPOSIT
 - `symbol` : BTC, `amount` : 0.5
@@ -91,7 +91,7 @@ Les frais s'ajoutent au montant total.
 
 | # | Type | Symbol | Amount | price_per_unit |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | FIAT_ANCHOR | EUR | 15000 | 1 |
+| 1 | ANCHOR | EUR | 15000 | 1 |
 | 2 | BUY | BTC | 0.5 | 0 |
 
 ---
@@ -101,7 +101,7 @@ Les frais s'ajoutent au montant total.
 Le **Prix de Revient Unitaire** est calculé à partir du coût du groupe :
 
 ```
-group_cost = FIAT_ANCHOR.amount  (si présent dans le group)
+group_cost = ANCHOR.amount  (si présent dans le group)
            OU SPEND_EUR.amount   (si quote est EUR)
 
 PRU = group_cost / BUY.amount

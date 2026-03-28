@@ -5,6 +5,10 @@ import { ref, computed, watch } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
+import {
+  CRYPTO_COMPOSITE_ALLOWED_IMPORT_TYPES,
+  normalizeCompositeImportType,
+} from '@/utils/cryptoTransactionTypes'
 
 interface Props {
   open: boolean
@@ -224,16 +228,14 @@ function validateTransaction(transaction: any): void {
       }
     }
   } else {
-    const validTypes = [
-      'BUY', 'REWARD', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW',
-      'CRYPTO_DEPOSIT', 'TRANSFER', 'EXIT', 'GAS_FEE', 'NON_TAXABLE_EXIT',
-    ]
-    if (!validTypes.includes(transaction.type)) {
-      throw new Error(`Type "${transaction.type}" invalide (valeurs: ${validTypes.join(', ')})`)
+    const normalizedType = normalizeCompositeImportType(transaction.type)
+    if (!normalizedType) {
+      throw new Error(`Type "${transaction.type}" invalide (valeurs: ${CRYPTO_COMPOSITE_ALLOWED_IMPORT_TYPES.join(', ')})`)
     }
+    transaction.type = normalizedType
 
-    // BUY and CRYPTO_DEPOSIT need eur_amount
-    if (['BUY', 'CRYPTO_DEPOSIT', 'EXIT'].includes(transaction.type)) {
+    // BUY, CRYPTO_DEPOSIT and SELL_TO_FIAT need eur_amount
+    if (['BUY', 'CRYPTO_DEPOSIT', 'SELL_TO_FIAT'].includes(transaction.type)) {
       const eur = Number(transaction.eur_amount)
       if (isNaN(eur) || eur < 0) {
         throw new Error(`"eur_amount" invalide pour le type ${transaction.type}`)

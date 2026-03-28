@@ -21,6 +21,8 @@ import CryptoAllocationDonutChart from '@/components/charts/CryptoAllocationDonu
 import type {
   AccountHistorySnapshotResponse,
   CryptoAccountCreate,
+  CryptoAtomicTransactionType,
+  CryptoCompositeTransactionType,
   CryptoCompositeTransactionCreate,
   CrossAccountTransferCreate,
   CryptoTransactionUpdate,
@@ -28,6 +30,10 @@ import type {
   AssetSearchResult,
   CryptoCompositeBulkItem,
 } from '@/types'
+import {
+  type CryptoUiTransactionType,
+  toCompositeApiType,
+} from '@/utils/cryptoTransactionTypes'
 
 const crypto = useCryptoStore()
 const settingsStore = useSettingsStore()
@@ -61,9 +67,8 @@ function maskAmount(value: number | string | null | undefined): string {
   return maskValue(formatAmount(value))
 }
 
-type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & {
-  type: CryptoCompositeTransactionCreate['type'] | 'BUY_FIAT' | 'BUY_SPOT' | 'FIAT_DEPOSIT' | 'FIAT_WITHDRAW' | 'TRANSFER_TO_ACCOUNT'
-}
+type TxFormType = CryptoUiTransactionType | CryptoAtomicTransactionType
+type TxFormData = Omit<CryptoCompositeTransactionCreate, 'type'> & { type: TxFormType }
 
 const showAccountModal = ref(false)
 const showTxModal = ref(false)
@@ -99,7 +104,7 @@ const chartSlides: Array<{ key: CryptoChartSlide; label: string }> = [
 /** Non-blocking balance warning shown after a transaction is created. */
 const txWarning = ref<string | null>(null)
 
-// Bank deduction state for FIAT_DEPOSIT
+// Bank deduction state for DEPOSIT
 const deductFromBank = ref(true)
 const selectedBankAccountId = ref<string | null>(null)
 
@@ -153,13 +158,13 @@ const feeMode = ref<'none' | 'included' | 'separate' | 'token'>('none')
 const feeInputMode = ref<'eur' | 'percent'>('eur')
 
 const showQuoteStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT')
-const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT')
+const showFeeStep = computed(() => txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT' || txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'SELL_TO_FIAT' || txForm.type === 'TRANSFER_TO_ACCOUNT')
 
 const wizardStep = ref(1)
 const WIZARD_STEPS = 3
 const wizardVisibleSteps = computed(() => {
   if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') return 3
-  if (txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'EXIT' || txForm.type === 'TRANSFER_TO_ACCOUNT') return 2 // step1 + fee (skip quote)
+  if (txForm.type === 'NON_TAXABLE_EXIT' || txForm.type === 'SELL_TO_FIAT' || txForm.type === 'TRANSFER_TO_ACCOUNT') return 2 // step1 + fee (skip quote)
   return 1
 })
 const isLastStep = computed(() =>
@@ -329,8 +334,8 @@ const txTypeOptions = computed(() => {
     { label: 'Dépôt · EUR → Exchange', value: 'FIAT_DEPOSIT' },
     { label: 'Retrait · Exchange → Banque', value: 'FIAT_WITHDRAW' },
     { label: 'Dépôt · Crypto avec PRU', value: 'CRYPTO_DEPOSIT' },
-    { label: 'Frais · Gaz on-chain', value: 'GAS_FEE' },
-    { label: 'Vente · Crypto → EUR', value: 'EXIT' },
+    { label: 'Frais · Gaz on-chain', value: 'FEE' },
+    { label: 'Vente · Crypto → EUR', value: 'SELL_TO_FIAT' },
     { label: 'Sortie · Don / Envoi hors périmètre', value: 'NON_TAXABLE_EXIT' },
   ]
   if (!isSingleMode.value) {
@@ -344,13 +349,24 @@ const txTypeDescriptions: Record<string, string> = {
   BUY_SPOT: 'Échange d\'une crypto contre une autre (swap).',
   REWARD: 'Crypto reçue via staking, intérêts ou récompense.',
   FIAT_DEPOSIT: 'Dépôt d\'euros sur un compte exchange.',
-  FIAT_WITHDRAW: 'Retrait d\'euros vers un compte bancaire.',
+  FIAT_WITHDRAW: 'Transfert d\'euros de l\'exchange vers votre compte bancaire.',
   CRYPTO_DEPOSIT: 'Réception de crypto achetée hors périmètre. Enregistre un dépôt EUR, un achat crypto et une sortie EUR pour refléter l\'investissement réel.',
-  GAS_FEE: 'Frais de réseau payés on-chain (ex : gaz Ethereum).',
-  EXIT: 'Vente de crypto contre des euros — événement fiscalement imposable.',
+  FEE: 'Frais de réseau payés on-chain (ex : gaz Ethereum).',
+  SELL_TO_FIAT: 'Vente de crypto contre une devise fiat (ex: EUR).',
   NON_TAXABLE_EXIT: 'Don, envoi ou perte — aucune contrepartie EUR, valeur de cession nulle.',
   TRANSFER_TO_ACCOUNT: 'Déplacement de crypto vers un autre de vos portefeuilles — neutre fiscalement.',
 }
+
+const isFiatWithdraw = computed(() => txForm.type === 'FIAT_WITHDRAW' && isFiatSymbol(txForm.symbol || ''))
+
+watch(isFiatWithdraw, async (enabled) => {
+  if (!enabled) return
+  deductFromBank.value = true
+  await bank.fetchAccounts()
+  if (!selectedBankAccountId.value) {
+    selectedBankAccountId.value = sortedBankAccounts.value[0]?.id ?? null
+  }
+})
 
 function openCreateAccount(): void {
   editingAccountId.value = null
@@ -451,7 +467,7 @@ function openEditTransaction(tx: any): void {
   editingGroupUuid.value = tx.group_uuid || null
   txForm.account_id = selectedAccountId.value!
   txForm.symbol = tx.symbol
-  txForm.name = tx.type === 'FIAT_ANCHOR' ? 'Euro' : (tx.name || '')
+  txForm.name = tx.type === 'ANCHOR' ? 'Euro' : (tx.name || '')
   txForm.type = tx.type
   txForm.amount = tx.amount
   txForm.price_per_unit = tx.price_per_unit
@@ -525,7 +541,7 @@ const currentVisibleStep = computed(() => {
 })
 
 function isNegativeType(type: string): boolean {
-  return ['SPEND', 'FEE', 'TRANSFER', 'EXIT'].includes(type)
+  return ['SPEND', 'FEE', 'TRANSFER', 'WITHDRAW'].includes(type)
 }
 
 const TX_TYPE_ORDER: Record<string, number> = {
@@ -533,9 +549,9 @@ const TX_TYPE_ORDER: Record<string, number> = {
   BUY: 1,
   TRANSFER: 2,
   SPEND: 3,
-  EXIT: 4,
+  WITHDRAW: 4,
   FEE: 5,
-  FIAT_ANCHOR: 6,
+  ANCHOR: 6,
 }
 
 const sortedTransactions = computed(() => {
@@ -711,7 +727,7 @@ const groupColorIndex = computed(() => {
 })
 
 function rowTooltip(tx: TransactionResponse): string | null {
-  if (tx.type === 'FIAT_ANCHOR') return 'Ancre de valorisation : fige le prix de revient de l\'opération'
+  if (tx.type === 'ANCHOR') return 'Ancre de valorisation : fige le prix de revient de l\'opération'
   if (tx.type === 'FEE') return 'Frais réseau / exchange — déduit du solde token'
   if (tx.type === 'BUY' && tx.price_per_unit === 0) return 'Ligne d\'achat — le coût EUR est porté par l\'ancre du même groupe'
   return null
@@ -760,18 +776,6 @@ async function handleSubmitTransaction(): Promise<void> {
     }
   }
 
-  const payload: CryptoCompositeTransactionCreate = { ...txForm } as CryptoCompositeTransactionCreate
-  if (!editingTxId.value && (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT')) {
-    if (txForm.type === 'BUY_FIAT') {
-      payload.quote_symbol = 'EUR'
-      payload.quote_price_per_unit = undefined
-    } else {
-      payload.eur_amount = (Number(txForm.price_per_unit) || 0) * (Number(txForm.amount) || 0)
-      payload.quote_price_per_unit = undefined
-    }
-    payload.type = 'BUY'
-  }
-
   if (txForm.price_per_unit !== undefined && txForm.price_per_unit < 0) {
     alert('Le prix doit être positif ou nul.')
     return
@@ -814,7 +818,7 @@ async function handleSubmitTransaction(): Promise<void> {
     const updateData: CryptoTransactionUpdate = {
       symbol: txForm.symbol || undefined,
       name: txForm.name || undefined,
-      type: txForm.type as any,
+      type: txForm.type as CryptoTransactionUpdate['type'],
       amount: txForm.amount,
       price_per_unit: txForm.price_per_unit,
       executed_at: txForm.executed_at,
@@ -824,14 +828,29 @@ async function handleSubmitTransaction(): Promise<void> {
     const result = await crypto.updateTransaction(editingTxId.value, updateData)
     success = !!result
   } else {
+    const payload: CryptoCompositeTransactionCreate = {
+      ...txForm,
+      type: toCompositeApiType(txForm.type as CryptoUiTransactionType | CryptoCompositeTransactionType),
+    } as CryptoCompositeTransactionCreate
+
+    if (txForm.type === 'BUY_FIAT' || txForm.type === 'BUY_SPOT') {
+      if (txForm.type === 'BUY_FIAT') {
+        payload.quote_symbol = 'EUR'
+        payload.quote_price_per_unit = undefined
+      } else {
+        payload.eur_amount = (Number(txForm.price_per_unit) || 0) * (Number(txForm.amount) || 0)
+        payload.quote_price_per_unit = undefined
+      }
+    }
+
     const result = await crypto.createCompositeTransaction(payload)
     if (result?.warning) txWarning.value = result.warning
     success = !!result
   }
 
   if (success) {
-    // For FIAT_DEPOSIT: deduct from bank. For FIAT_WITHDRAW: credit bank.
-    if ((txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW') && deductFromBank.value && selectedBankAccountId.value) {
+    // For FIAT_DEPOSIT: deduct from bank. For FIAT_WITHDRAW on EUR: credit bank.
+    if ((txForm.type === 'FIAT_DEPOSIT' || isFiatWithdraw.value) && deductFromBank.value && selectedBankAccountId.value) {
       const bankAcc = sortedBankAccounts.value.find(a => a.id === selectedBankAccountId.value)
       if (bankAcc) {
         if (txForm.type === 'FIAT_DEPOSIT') {
@@ -850,7 +869,7 @@ async function handleSubmitTransaction(): Promise<void> {
             })
           }
         } else {
-          // FIAT_WITHDRAW: add the amount to the bank account
+          // FIAT_WITHDRAW on EUR: add the amount to the bank account
           await bank.updateAccount(selectedBankAccountId.value, {
             balance: Number(bankAcc.balance) + Number(txForm.amount),
           })
@@ -869,7 +888,11 @@ async function handleSubmitTransaction(): Promise<void> {
 }
 
 async function deleteTransaction(id: string): Promise<void> {
-  if (confirm('Supprimer cette transaction ?')) {
+  const confirmationMessage = editingGroupUuid.value
+    ? 'Cette transaction fait partie d\'un groupe. La suppression supprimera toutes les transactions du groupe. Continuer ?'
+    : 'Supprimer cette transaction ?'
+
+  if (confirm(confirmationMessage)) {
     await crypto.deleteTransaction(id)
     showTxModal.value = false
     if (selectedAccountId.value) {
@@ -1302,9 +1325,9 @@ onMounted(async () => {
                             tx.type === 'SPEND' ? 'danger' :
                             tx.type === 'FEE' ? 'warning' :
                             tx.type === 'REWARD' ? 'info' :
-                            tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                            tx.type === 'DEPOSIT' || tx.type === 'ANCHOR' ? 'secondary' :
                             tx.type === 'TRANSFER' ? 'secondary' :
-                            tx.type === 'EXIT' ? 'danger' :
+                            tx.type === 'WITHDRAW' ? 'danger' :
                             'secondary'
                           ">
                             {{ tx.type }}
@@ -1323,9 +1346,9 @@ onMounted(async () => {
                       <td class="px-4 py-3 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                       <td
                         class="px-4 py-3 text-right font-mono"
-                        :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                        :class="tx.type === 'ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                       >
-                        {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                        {{ tx.type === 'ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                       </td>
                       <td class="px-4 py-3 text-right">
                         <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
@@ -1356,9 +1379,9 @@ onMounted(async () => {
                         tx.type === 'SPEND' ? 'danger' :
                         tx.type === 'FEE' ? 'warning' :
                         tx.type === 'REWARD' ? 'info' :
-                        tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                        tx.type === 'DEPOSIT' || tx.type === 'ANCHOR' ? 'secondary' :
                         tx.type === 'TRANSFER' ? 'secondary' :
-                        tx.type === 'EXIT' ? 'danger' :
+                        tx.type === 'WITHDRAW' ? 'danger' :
                         'secondary'
                       ">
                         {{ tx.type }}
@@ -1373,9 +1396,9 @@ onMounted(async () => {
                     <span class="text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</span>
                     <span
                       class="font-mono font-medium"
-                      :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                      :class="tx.type === 'ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                     >
-                      {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                      {{ tx.type === 'ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                     </span>
                   </div>
                 </div>
@@ -1720,9 +1743,9 @@ onMounted(async () => {
                               tx.type === 'SPEND' ? 'danger' :
                               tx.type === 'FEE' ? 'warning' :
                               tx.type === 'REWARD' ? 'info' :
-                              tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                              tx.type === 'DEPOSIT' || tx.type === 'ANCHOR' ? 'secondary' :
                               tx.type === 'TRANSFER' ? 'secondary' :
-                              tx.type === 'EXIT' ? 'danger' :
+                              tx.type === 'WITHDRAW' ? 'danger' :
                               'secondary'
                             ">
                               {{ tx.type }}
@@ -1741,9 +1764,9 @@ onMounted(async () => {
                         <td class="px-4 py-3 font-medium text-text-main dark:text-text-dark-main">{{ tx.symbol }}</td>
                         <td
                           class="px-4 py-3 text-right font-mono"
-                          :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                          :class="tx.type === 'ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                         >
-                          {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                          {{ tx.type === 'ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                         </td>
                         <td class="px-4 py-3 text-right">
                           <BaseButton size="sm" variant="ghost" @click="openEditTransaction(tx)">
@@ -1774,9 +1797,9 @@ onMounted(async () => {
                           tx.type === 'SPEND' ? 'danger' :
                           tx.type === 'FEE' ? 'warning' :
                           tx.type === 'REWARD' ? 'info' :
-                          tx.type === 'FIAT_DEPOSIT' || tx.type === 'FIAT_ANCHOR' ? 'secondary' :
+                          tx.type === 'DEPOSIT' || tx.type === 'ANCHOR' ? 'secondary' :
                           tx.type === 'TRANSFER' ? 'secondary' :
-                          tx.type === 'EXIT' ? 'danger' :
+                          tx.type === 'WITHDRAW' ? 'danger' :
                           'secondary'
                         ">
                           {{ tx.type }}
@@ -1791,9 +1814,9 @@ onMounted(async () => {
                       <span class="text-text-muted dark:text-text-dark-muted">{{ new Date(tx.executed_at).toLocaleDateString() }}</span>
                       <span
                         class="font-mono font-medium"
-                        :class="tx.type === 'FIAT_ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
+                        :class="tx.type === 'ANCHOR' ? 'text-text-muted dark:text-text-dark-muted' : isNegativeType(tx.type) ? 'text-danger' : 'text-success'"
                       >
-                        {{ tx.type === 'FIAT_ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
+                        {{ tx.type === 'ANCHOR' ? '' : isNegativeType(tx.type) ? '\u2212' : '+' }}{{ formatNumber(tx.amount, 6) }}
                       </span>
                     </div>
                   </div>
@@ -1868,7 +1891,7 @@ onMounted(async () => {
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
           <p v-if="editingGroupUuid" class="mt-1.5 text-xs text-info dark:text-info flex items-center gap-1.5">
             <AlertCircle class="w-3.5 h-3.5 shrink-0" />
-            Modifier la date mettra aussi à jour les transactions liées du même groupe.
+            Cette transaction est liée à un groupe: modifier la date mettra à jour le groupe et la suppression supprimera toutes les transactions du groupe.
           </p>
         </div>
       </form>
@@ -1921,7 +1944,7 @@ onMounted(async () => {
             </Transition>
           </div>
 
-          <template v-if="txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW'">
+          <template v-if="txForm.type === 'FIAT_DEPOSIT' || isFiatWithdraw">
             <BaseInput
               v-model="txForm.symbol"
               label="Devise"
@@ -1953,9 +1976,9 @@ onMounted(async () => {
           <BaseInput
             v-model="txForm.amount"
             :label="
-              (txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW') ? 'Montant (€)'
-              : txForm.type === 'GAS_FEE' ? 'Quantité de gaz brûlée'
-              : txForm.type === 'EXIT' ? 'Quantité vendue / dépensée'
+              (txForm.type === 'FIAT_DEPOSIT' || isFiatWithdraw) ? 'Montant (€)'
+              : txForm.type === 'FEE' ? 'Quantité de gaz brûlée'
+              : txForm.type === 'SELL_TO_FIAT' ? 'Quantité vendue / dépensée'
               : txForm.type === 'NON_TAXABLE_EXIT' ? 'Quantité envoyée / donnée'
               : txForm.type === 'TRANSFER_TO_ACCOUNT' ? 'Quantité à transférer'
               : 'Quantité reçue'
@@ -1966,9 +1989,11 @@ onMounted(async () => {
             required
           />
 
-          <div v-if="txForm.type === 'EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
+          <div v-if="txForm.type === 'SELL_TO_FIAT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
             <Circle class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />
-            <span class="text-xs text-info leading-relaxed">Sortie imposable — la contrepartie EUR est automatiquement créditée au solde. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.</span>
+            <span class="text-xs text-info leading-relaxed">
+              Vente imposable — la contrepartie fiat est créditée au solde exchange. Utiliser <strong>Sortie non-imposable</strong> si aucun euro reçu.
+            </span>
           </div>
 
           <div v-if="txForm.type === 'NON_TAXABLE_EXIT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-warning/5 dark:bg-warning/10 border border-warning/20">
@@ -1987,7 +2012,7 @@ onMounted(async () => {
           />
 
           <BaseInput
-            v-if="txForm.type === 'EXIT'"
+            v-if="txForm.type === 'SELL_TO_FIAT'"
             v-model="txForm.eur_amount!"
             label="Montant reçu (EUR)"
             type="number"
@@ -2007,7 +2032,7 @@ onMounted(async () => {
           />
 
           <BaseInput
-            v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'EXIT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'GAS_FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT', 'TRANSFER_TO_ACCOUNT'].includes(txForm.type)"
+            v-if="!showQuoteStep && !['CRYPTO_DEPOSIT', 'SELL_TO_FIAT', 'FIAT_DEPOSIT', 'FIAT_WITHDRAW', 'FEE', 'BUY_SPOT', 'NON_TAXABLE_EXIT', 'TRANSFER_TO_ACCOUNT'].includes(txForm.type)"
             v-model="txForm.price_per_unit!"
             label="Prix unitaire (€)"
             type="number"
@@ -2036,7 +2061,7 @@ onMounted(async () => {
           <BaseInput v-model="txForm.executed_at" label="Date d'exécution" type="datetime-local" required />
 
           <!-- Bank account option — FIAT_DEPOSIT deducts, FIAT_WITHDRAW credits -->
-          <div v-if="txForm.type === 'FIAT_DEPOSIT' || txForm.type === 'FIAT_WITHDRAW'" class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
+          <div v-if="txForm.type === 'FIAT_DEPOSIT' || isFiatWithdraw" class="rounded-card border border-surface-border dark:border-surface-dark-border p-4 space-y-3">
             <label class="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
