@@ -103,6 +103,8 @@ const chartSlides: Array<{ key: CryptoChartSlide; label: string }> = [
 ]
 /** Non-blocking balance warning shown after a transaction is created. */
 const txWarning = ref<string | null>(null)
+/** Informational message shown after a transaction is created. */
+const txInfo = ref<string | null>(null)
 
 // Bank deduction state for DEPOSIT
 const deductFromBank = ref(true)
@@ -400,6 +402,13 @@ async function handleSubmitAccount(): Promise<void> {
 }
 
 function openAddTransaction(accountId: string): void {
+  txWarning.value = null
+  txInfo.value = null
+  if (selectedAccountId.value !== accountId) {
+    selectedAccountId.value = accountId
+    // Load target account summary so modal hints are based on the right account.
+    crypto.fetchAccount(accountId, true)
+  }
   editingTxId.value = null
   txForm.account_id = accountId
   txForm.symbol = ''
@@ -569,9 +578,27 @@ const sortedTransactions = computed(() => {
 
 const sortedPositions = computed(() => {
   if (!crypto.currentAccount?.positions) return []
-  return [...crypto.currentAccount.positions].sort(
+  const showNegative = settingsStore.settings?.crypto_show_negative_positions ?? false
+  const visiblePositions = crypto.currentAccount.positions.filter((pos) => {
+    if (showNegative) return true
+    return Number(pos.total_amount) >= 0
+  })
+
+  return [...visiblePositions].sort(
     (a, b) => Number(b.total_invested ?? 0) - Number(a.total_invested ?? 0)
   )
+})
+
+const fiatDepositNegativeEurBalance = computed<number | null>(() => {
+  if (!showTxModal.value || txForm.type !== 'FIAT_DEPOSIT') return null
+  if (!crypto.currentAccount || selectedAccountId.value !== txForm.account_id) return null
+
+  const eurPosition = crypto.currentAccount.positions?.find((p) => p.symbol === 'EUR')
+  if (!eurPosition) return null
+
+  const eurBalance = Number(eurPosition.total_amount ?? 0)
+  if (!Number.isFinite(eurBalance) || eurBalance >= 0) return null
+  return Math.abs(eurBalance)
 })
 
 function getIsoWeekKey(snapshotDate: string): string {
@@ -743,6 +770,9 @@ function isFiatSymbol(symbol: string): boolean {
 }
 
 async function handleSubmitTransaction(): Promise<void> {
+  txWarning.value = null
+  txInfo.value = null
+
   if (!txForm.symbol && searchQuery.value) {
     txForm.symbol = searchQuery.value.toUpperCase()
   }
@@ -801,6 +831,7 @@ async function handleSubmitTransaction(): Promise<void> {
     const result = await crypto.createCrossAccountTransfer(transferPayload)
     if (result) {
       if (result.warning) txWarning.value = result.warning
+      if (result.info) txInfo.value = result.info
       showTxModal.value = false
       await Promise.all([
         crypto.fetchAccount(txForm.account_id),
@@ -845,6 +876,7 @@ async function handleSubmitTransaction(): Promise<void> {
 
     const result = await crypto.createCompositeTransaction(payload)
     if (result?.warning) txWarning.value = result.warning
+    if (result?.info) txInfo.value = result.info
     success = !!result
   }
 
@@ -1041,6 +1073,9 @@ onMounted(async () => {
       <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
         {{ txWarning }}
       </BaseAlert>
+      <BaseAlert v-if="txInfo" variant="info" dismissible @dismiss="txInfo = null" class="mb-6">
+        {{ txInfo }}
+      </BaseAlert>
 
       <template v-if="!crypto.error && crypto.currentAccount">
         <!-- Summary Stats -->
@@ -1202,7 +1237,7 @@ onMounted(async () => {
 
           <!-- Positions Tab -->
           <div v-if="activeDetailTab === 'positions'">
-            <template v-if="crypto.currentAccount.positions?.length">
+            <template v-if="sortedPositions.length">
               <!-- Desktop table -->
               <div class="hidden md:block overflow-x-auto">
                 <table class="w-full text-sm">
@@ -1422,6 +1457,9 @@ onMounted(async () => {
       <BaseAlert v-if="txWarning" variant="warning" dismissible @dismiss="txWarning = null" class="mb-6">
         {{ txWarning }}
       </BaseAlert>
+      <BaseAlert v-if="txInfo" variant="info" dismissible @dismiss="txInfo = null" class="mb-6">
+        {{ txInfo }}
+      </BaseAlert>
 
       <BaseCard v-if="crypto.accounts.length" title="Analyse du portefeuille" subtitle="Évolution, répartition et performance" class="mb-6">
         <div class="mb-4 flex items-center justify-between gap-2">
@@ -1620,7 +1658,7 @@ onMounted(async () => {
 
             <!-- Positions Tab -->
             <div v-if="activeDetailTab === 'positions'">
-              <template v-if="crypto.currentAccount.positions?.length">
+              <template v-if="sortedPositions.length">
                 <!-- Desktop table -->
                 <div class="hidden md:block overflow-x-auto">
                   <table class="w-full text-sm">
@@ -1988,6 +2026,18 @@ onMounted(async () => {
             min="0"
             required
           />
+
+          <div
+            v-if="txForm.type === 'FIAT_DEPOSIT' && fiatDepositNegativeEurBalance !== null"
+            class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20"
+          >
+            <Circle class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />
+            <span class="text-xs text-info leading-relaxed">
+              Solde EUR actuel négatif sur ce compte :
+              <strong>{{ formatEur(-fiatDepositNegativeEurBalance) }}</strong>.
+              Ce dépôt commencera d'abord par combler ce déficit.
+            </span>
+          </div>
 
           <div v-if="txForm.type === 'SELL_TO_FIAT'" class="flex items-start gap-2 px-3 py-2 rounded-secondary bg-info/5 dark:bg-info/10 border border-info/20">
             <Circle class="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />

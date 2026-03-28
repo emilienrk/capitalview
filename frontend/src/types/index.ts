@@ -340,6 +340,7 @@ export interface CryptoTransactionBasicResponse {
 export interface CryptoCompositeTransactionResponse {
   rows: CryptoTransactionBasicResponse[]
   warning: string | null
+  info: string | null
 }
 
 export interface CryptoTransactionUpdate {
